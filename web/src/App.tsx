@@ -1,122 +1,110 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom'
+import AppBar from '@mui/material/AppBar'
+import Box from '@mui/material/Box'
+import Chip from '@mui/material/Chip'
+import CssBaseline from '@mui/material/CssBaseline'
+import Drawer from '@mui/material/Drawer'
+import List from '@mui/material/List'
+import ListItemButton from '@mui/material/ListItemButton'
+import ListItemIcon from '@mui/material/ListItemIcon'
+import ListItemText from '@mui/material/ListItemText'
+import Toolbar from '@mui/material/Toolbar'
+import Typography from '@mui/material/Typography'
+import { ThemeProvider, createTheme } from '@mui/material/styles'
+import DescriptionIcon from '@mui/icons-material/Description'
+import GridOnIcon from '@mui/icons-material/GridOn'
+import FactCheckIcon from '@mui/icons-material/FactCheck'
+import RateReviewIcon from '@mui/icons-material/RateReview'
+import QuestionAnswerIcon from '@mui/icons-material/QuestionAnswer'
+import AssessmentIcon from '@mui/icons-material/Assessment'
+import MemoryIcon from '@mui/icons-material/Memory'
+import GavelIcon from '@mui/icons-material/Gavel'
+import { api } from './api'
+import { usePolling } from './components/ui'
+import Documents from './pages/Documents'
+import CoveragePage from './pages/Coverage'
+import Audits from './pages/Audits'
+import Review from './pages/Review'
+import Ask from './pages/Ask'
+import Evaluation from './pages/Evaluation'
+import Models from './pages/Models'
 
-function App() {
-  const [count, setCount] = useState(0)
+const theme = createTheme({
+  palette: {
+    primary: { main: '#00695c' },
+    secondary: { main: '#6a1b9a' },
+    background: { default: '#f4f6f6' },
+  },
+  shape: { borderRadius: 8 },
+  components: {
+    MuiPaper: { defaultProps: { elevation: 0 }, styleOverrides: { root: { border: '1px solid #e3e7e7' } } },
+  },
+})
 
+const NAV = [
+  { to: '/', label: 'Documents', icon: <DescriptionIcon /> },
+  { to: '/coverage', label: 'Coverage', icon: <GridOnIcon /> },
+  { to: '/audits', label: 'Audits', icon: <FactCheckIcon /> },
+  { to: '/review', label: 'Review', icon: <RateReviewIcon /> },
+  { to: '/ask', label: 'Ask', icon: <QuestionAnswerIcon /> },
+  { to: '/eval', label: 'Evaluation', icon: <AssessmentIcon /> },
+  { to: '/models', label: 'Models', icon: <MemoryIcon /> },
+]
+const WIDTH = 220
+
+export default function App() {
+  const { data: config } = usePolling(api.config, 0, () => false)
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <BrowserRouter>
+        <Box sx={{ display: 'flex' }}>
+          <AppBar position="fixed" color="inherit" sx={{ zIndex: (t) => t.zIndex.drawer + 1, borderBottom: '1px solid #e3e7e7' }}>
+            <Toolbar>
+              <GavelIcon color="primary" sx={{ mr: 1.5 }} />
+              <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 600 }}>
+                Contract Intelligence
+              </Typography>
+              {config && (
+                <Chip
+                  size="small"
+                  color={config.llm_enabled ? 'success' : 'default'}
+                  label={config.llm_enabled ? 'Gemini connected' : 'Offline mode – deterministic core only'}
+                />
+              )}
+            </Toolbar>
+          </AppBar>
+          <Drawer variant="permanent" sx={{ width: WIDTH, [`& .MuiDrawer-paper`]: { width: WIDTH, boxSizing: 'border-box' } }}>
+            <Toolbar />
+            <List>
+              {NAV.map((n) => (
+                <ListItemButton
+                  key={n.to}
+                  component={NavLink}
+                  to={n.to}
+                  end={n.to === '/'}
+                  sx={{ '&.active': { bgcolor: 'action.selected', color: 'primary.main' } }}
                 >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+                  <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}>{n.icon}</ListItemIcon>
+                  <ListItemText primary={n.label} />
+                </ListItemButton>
+              ))}
+            </List>
+          </Drawer>
+          <Box component="main" sx={{ flexGrow: 1, p: 3, minWidth: 0 }}>
+            <Toolbar />
+            <Routes>
+              <Route path="/" element={<Documents />} />
+              <Route path="/coverage" element={<CoveragePage />} />
+              <Route path="/audits" element={<Audits />} />
+              <Route path="/review" element={<Review />} />
+              <Route path="/ask" element={<Ask />} />
+              <Route path="/eval" element={<Evaluation />} />
+              <Route path="/models" element={<Models />} />
+            </Routes>
+          </Box>
+        </Box>
+      </BrowserRouter>
+    </ThemeProvider>
   )
 }
-
-export default App

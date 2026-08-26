@@ -11,3 +11,7 @@ web/dist/
 # tooling
 .entire/
 .DS_Store
+web/e2e/screenshots/
+web/test-results/
+web/playwright-report/
+data/uploads/

@@ -1,0 +1,49 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M0ZZMVKZVS83EGZ8TVS0K9NA",
+  "session_id": "046eadd3-6aa8-4b09-adc8-e3efac5fd391",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-26T21:29:36.189842Z",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "api/app/db.py",
+    "api/app/ingest/__init__.py",
+    "api/app/ingest/classify.py",
+    "api/app/ingest/embed.py",
+    "api/app/ingest/entities.py",
+    "api/app/ingest/loader.py",
+    "api/app/ingest/ocr.py",
+    "api/app/ingest/pipeline.py",
+    "api/app/ingest/screen.py",
+    "api/app/ingest/segment.py",
+    "api/app/llm.py",
+    "api/app/models.py",
+    "api/tests/test_ingest_units.py"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-opus-5[1m]",
+  "turn_id": "c603ff7d7c8b",
+  "checkpoint_transcript_start": 230,
+  "transcript_lines_at_start": 230,
+  "compact_transcript_start": 33,
+  "token_usage": {
+    "input_tokens": 1508,
+    "cache_creation_tokens": 48800,
+    "cache_read_tokens": 1187996,
+    "output_tokens": 35862,
+    "api_call_count": 8
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-26T21:29:35.959831Z",
+    "agent_lines": 924,
+    "agent_removed": 0,
+    "human_added": 5,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 929,
+    "total_lines_changed": 934,
+    "agent_percentage": 98.92933618843684,
+    "metric_version": 2
+  }
+}

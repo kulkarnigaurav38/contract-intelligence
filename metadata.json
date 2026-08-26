@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M0ZZMVKZVS83EGZ8TVS0K9NA",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "api/app/db.py",
+    "api/app/ingest/__init__.py",
+    "api/app/ingest/classify.py",
+    "api/app/ingest/embed.py",
+    "api/app/ingest/entities.py",
+    "api/app/ingest/loader.py",
+    "api/app/ingest/ocr.py",
+    "api/app/ingest/pipeline.py",
+    "api/app/ingest/screen.py",
+    "api/app/ingest/segment.py",
+    "api/app/llm.py",
+    "api/app/models.py",
+    "api/tests/test_ingest_units.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1508,
+    "cache_creation_tokens": 48800,
+    "cache_read_tokens": 1187996,
+    "output_tokens": 35862,
+    "api_call_count": 8
+  }
+}

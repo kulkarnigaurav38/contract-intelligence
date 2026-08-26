@@ -9,6 +9,7 @@ context marks historical references.
 
 import re
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
@@ -33,6 +34,8 @@ SUFFIX_RE = re.compile(
     r"\b([A-ZÄÖÜ][\w&.'\-]*(?:\s+[A-ZÄÖÜa-z&][\w&.'\-]*){0,4}\s+(?:GmbH|AG|B\.V\.|S\.A\.|S\.L\.|Ltd|AB|AS|OÜ|e\.K\.|SE|Inc\.))"
 )
 CONTEXT = 80
+FUZZY_MIN = 0.8  # OCR-tolerant matching, multi-word registry names only
+FUZZY_NAMES = [(name, kind) for name, kind, _ in REGISTRY if len(name.split()) >= 2]
 
 
 @dataclass
@@ -44,13 +47,15 @@ class Mention:
     context: str
     historical: bool
     method: str = "rules"
+    confidence: float = 1.0
 
 
 def normalize(name: str) -> str:
-    return re.sub(r"\s+", " ", name.lower().replace(".", "")).strip()
+    return re.sub(r"\s+", " ", re.sub(r"[^\w\s&]", "", name.lower())).strip()
 
 
-def find_mentions(pages: list[tuple[int, str]]) -> list[Mention]:
+def find_mentions(pages: list[tuple[int, str]], ocr_pages: frozenset[int] = frozenset()) -> list[Mention]:
+    """Exact registry matches everywhere; fuzzy matches additionally on OCR'd pages (noise-tolerant)."""
     mentions: list[Mention] = []
     for page_no, text in pages:
         taken: list[tuple[int, int]] = []
@@ -68,6 +73,15 @@ def find_mentions(pages: list[tuple[int, str]]) -> list[Mention]:
                 context = (before + m.group(0) + text[m.end(): m.end() + CONTEXT]).replace("\n", " ")
                 mentions.append(Mention(page_no, m.group(0), normalize(name), kind, context.strip(),
                                         bool(HISTORICAL_RE.search(before))))
+        if page_no in ocr_pages:
+            for start, end, name, kind, ratio in _fuzzy(text):
+                if not free(start, end):
+                    continue
+                taken.append((start, end))
+                before = text[max(0, start - CONTEXT): start]
+                context = (before + text[start:end] + text[end: end + CONTEXT]).replace("\n", " ")
+                mentions.append(Mention(page_no, text[start:end], normalize(name), kind, context.strip(),
+                                        bool(HISTORICAL_RE.search(before)), "rules-fuzzy", round(ratio, 2)))
         for m in SUFFIX_RE.finditer(text):
             if not free(m.start(), m.end()):
                 continue
@@ -75,6 +89,20 @@ def find_mentions(pages: list[tuple[int, str]]) -> list[Mention]:
             context = text[max(0, m.start() - CONTEXT): m.end() + CONTEXT].replace("\n", " ")
             mentions.append(Mention(page_no, m.group(1), normalize(m.group(1)), "counterparty", context.strip(), False))
     return mentions
+
+
+def _fuzzy(text: str) -> list[tuple[int, int, str, str, float]]:
+    """Slide word n-grams over the text and compare them to multi-word registry names."""
+    tokens = [(m.start(), m.end()) for m in re.finditer(r"\S+", text)]
+    hits = []
+    for name, kind in FUZZY_NAMES:
+        target, n = normalize(name), len(name.split())
+        for i in range(len(tokens) - n + 1):
+            start, end = tokens[i][0], tokens[i + n - 1][1]
+            ratio = SequenceMatcher(None, normalize(text[start:end]), target).ratio()
+            if ratio >= FUZZY_MIN:
+                hits.append((start, end, name, kind, ratio))
+    return sorted(hits, key=lambda h: -h[4])
 
 
 class Party(BaseModel):

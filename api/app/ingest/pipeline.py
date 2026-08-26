@@ -98,9 +98,10 @@ def _process(session: Session, doc: Document, path: Path) -> None:
                            text=seg.text, embedding=vec, **label))
 
     seen = set()
-    for m in entities.find_mentions(page_texts):
+    ocr_pages = frozenset(s["page"] for s in summary if s["method"] != "text_layer")
+    for m in entities.find_mentions(page_texts, ocr_pages):
         session.add(Entity(document_id=doc.id, page_no=m.page_no, name=m.name, normalized=m.normalized, kind=m.kind,
-                           context=m.context, historical=m.historical, method=m.method))
+                           context=m.context, historical=m.historical, method=m.method, confidence=m.confidence))
         seen.add(m.normalized)
     for party in (meta.parties if meta else []):
         norm = entities.normalize(party.name)

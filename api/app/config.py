@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     database_url: str = "postgresql+psycopg://contracts:contracts@localhost:5432/contracts"
     data_dir: Path = REPO_ROOT / "data"
+    contract_storage_url: str = "http://localhost:8000/api/mock-contract-storage"
 
     # Model routing: reasoning effort follows the task, not the other way round.
     model_pro: str = "gemini-3.1-pro-preview"  # verification, handwriting OCR

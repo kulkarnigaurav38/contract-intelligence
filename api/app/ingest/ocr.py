@@ -18,7 +18,8 @@ from pydantic import BaseModel, Field
 
 from app.llm import DOC_GUARD, chat
 
-ESCALATE_BELOW = 0.80
+ESCALATE_BELOW = 0.80  # try the vision model below this
+UNREADABLE_BELOW = 0.50  # without a vision model, text below this is not trusted at all
 MIN_WORDS = 20
 
 
@@ -36,7 +37,7 @@ def _langs() -> str:
 
 
 def tesseract(image: bytes) -> tuple[str, float]:
-    img = Image.open(io.BytesIO(image))
+    img = Image.open(io.BytesIO(image)).convert("L")  # tesseract is unreliable on RGB input
     data = pytesseract.image_to_data(img, lang=_langs(), output_type=pytesseract.Output.DICT)
     lines: dict[tuple, list[str]] = {}
     confs = []

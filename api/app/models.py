@@ -63,7 +63,7 @@ class Clause(Base):
     rule_label: Mapped[str] = mapped_column(String(32), default="")
     llm_label: Mapped[str] = mapped_column(String(32), default="")
     embedding = mapped_column(Vector(settings.embedding_dim))
-    tsv = mapped_column(TSVECTOR, Computed("to_tsvector('simple', text)", persisted=True))
+    tsv = mapped_column(TSVECTOR, Computed("to_tsvector('english', text) || to_tsvector('german', text)", persisted=True))
 
     document: Mapped[Document] = relationship(back_populates="clauses")
 
@@ -80,6 +80,7 @@ class Entity(Base):
     context: Mapped[str] = mapped_column(Text)
     historical: Mapped[bool] = mapped_column(default=False)  # "formerly known as" style reference
     method: Mapped[str] = mapped_column(String(16))
+    confidence: Mapped[float] = mapped_column(Float, default=1.0)  # <1 for fuzzy (OCR-tolerant) matches
 
     document: Mapped[Document] = relationship(back_populates="entities")
 

@@ -20,8 +20,10 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://contracts:contracts@db:5432/contracts
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      CONTRACT_STORAGE_URL: http://api:8000/api/mock-contract-storage
+      DATA_DIR: /srv/data
     volumes:
-      - ./data:/srv/data:ro
+      - ./data:/srv/data
     ports:
       - "8000:8000"
     depends_on:

@@ -100,3 +100,12 @@ def test_language_and_type_guess():
     assert detect_language(de) == "de"
     assert guess_contract_type("Forderungskaufvertrag", de) == "receivables_purchase"
     assert guess_contract_type("Merchant Agreement", "") == "merchant_agreement"
+
+
+def test_fuzzy_matching_survives_ocr_noise():
+    noisy = [(3, "- For Arvate Payment Solutions: GmbH: Managing Director For Lumen Retail Group Ltd")]
+    assert not [m for m in entities.find_mentions(noisy) if m.kind == "our_entity_old"]  # exact: nothing
+    fuzzy = [m for m in entities.find_mentions(noisy, frozenset({3})) if m.kind == "our_entity_old"]
+    assert fuzzy and fuzzy[0].method == "rules-fuzzy" and fuzzy[0].confidence >= 0.8
+    clean = [(1, "IT Vendor Agreement between Riverty GmbH and Arvato Systems GmbH")]
+    assert not [m for m in entities.find_mentions(clean, frozenset({1})) if m.kind == "our_entity_old"]

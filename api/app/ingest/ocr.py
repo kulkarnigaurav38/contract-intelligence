@@ -21,6 +21,7 @@ from app.llm import DOC_GUARD, chat
 ESCALATE_BELOW = 0.80  # try the vision model below this
 UNREADABLE_BELOW = 0.50  # without a vision model, text below this is not trusted at all
 MIN_WORDS = 20
+MIN_CHARS = 400  # a page that yields less text than a short paragraph is suspect even at high word confidence
 
 
 @dataclass
@@ -76,10 +77,14 @@ def vision_transcribe(image: bytes) -> Transcription | None:
     return llm.with_structured_output(Transcription).invoke(messages)
 
 
+def needs_escalation(text: str, confidence: float) -> bool:
+    """Low confidence, or suspiciously little text for a page (a faded typewriter page can score 87% on the few words it finds)."""
+    return confidence < ESCALATE_BELOW or len(text.split()) < MIN_WORDS or len(text) < MIN_CHARS
+
+
 def ocr_page(image: bytes) -> OcrResult:
     text, confidence = tesseract(image)
-    words = len(text.split())
-    if confidence >= ESCALATE_BELOW and words >= MIN_WORDS:
+    if not needs_escalation(text, confidence):
         return OcrResult(text, "tesseract", confidence)
     transcription = vision_transcribe(image)
     if transcription is None:

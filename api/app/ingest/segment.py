@@ -3,8 +3,8 @@
 import re
 from dataclasses import dataclass
 
-# "1. Heading", "12) Heading", "§ 3 Überschrift" at line start
-BOUNDARY_RE = re.compile(r"^[ \t]*(?:§[ \t]*\d{1,2}|\d{1,2}[.)])[ \t]+(\S.*)$", re.M)
+# "1. Heading", "12) Heading", "§ 3 Überschrift" at line start; a signature block ("For X:", "Für X:") starts its own segment
+BOUNDARY_RE = re.compile(r"^[ \t]*(?:(?:§[ \t]*\d{1,2}|\d{1,2}[.)])[ \t]+(\S.*)|((?:For|Für)[ \t]+[^\n:]{1,80}:.*))$", re.M)
 MAX_HEADING_WORDS = 8
 
 
@@ -38,10 +38,13 @@ def segment(pages: list[tuple[int, str]]) -> list[Segment]:
     for i, (start, m) in enumerate(cuts):
         end = cuts[i + 1][0] if i + 1 < len(cuts) else len(full)
         block = full[start:end].strip()
-        first_line = m.group(1).strip()
-        if len(first_line.split()) <= MAX_HEADING_WORDS:
-            heading, body = first_line, block[m.end() - start:].strip()
-        else:
+        if m.group(2):  # signature block: no heading, the whole block is the body
             heading, body = "", block
+        else:
+            first_line = m.group(1).strip()
+            if len(first_line.split()) <= MAX_HEADING_WORDS:
+                heading, body = first_line, block[m.end() - start:].strip()
+            else:
+                heading, body = "", block
         segments.append(Segment(len(segments), page_at(start), heading, body or heading))
     return segments

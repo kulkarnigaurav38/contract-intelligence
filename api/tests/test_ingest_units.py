@@ -109,3 +109,19 @@ def test_fuzzy_matching_survives_ocr_noise():
     assert fuzzy and fuzzy[0].method == "rules-fuzzy" and fuzzy[0].confidence >= 0.8
     clean = [(1, "IT Vendor Agreement between Riverty GmbH and Arvato Systems GmbH")]
     assert not [m for m in entities.find_mentions(clean, frozenset({1})) if m.kind == "our_entity_old"]
+
+
+def test_signature_block_is_its_own_segment():
+    text = "4. German law applies. Court is Gütersloh.\n\nFor arvato: _________________ For Müller & Sohn:\n_________________"
+    segs = segment.segment([(1, text)])
+    assert [s.heading for s in segs] == ["German law applies. Court is Gütersloh.", ""]
+    assert segs[-1].text.startswith("For arvato")
+    assert classify.rule_label(segs[0])[0] == "governing_law" and classify.rule_label(segs[-1])[0] == "signature"
+
+
+def test_sparse_high_confidence_ocr_still_escalates():
+    _, ps = loader.load(fixture("C09"))
+    text, _ = ocr.tesseract(ps[0].image)
+    assert len(text) < ocr.MIN_CHARS  # the faded typewriter page yields almost no text
+    assert ocr.needs_escalation(text, 0.87)  # ...even when the few recognised words score well (eng+deu tesseract)
+    assert not ocr.needs_escalation("word " * 200, 0.9)

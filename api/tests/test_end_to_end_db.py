@@ -38,6 +38,7 @@ def client():
     with engine.begin() as conn:  # clean slate for a deterministic run
         conn.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public"))
     settings.contract_storage_url = "http://testserver/api/mock-contract-storage"
+    settings.gemini_api_key = ""  # this suite pins the deterministic core; the live model path has its own tests
     with TestClient(app) as c:
         real_post = routers.httpx.post  # the mock storage API lives in the same app: route the push through it
         routers.httpx.post = lambda url, **kw: c.post(url, **{k: v for k, v in kw.items() if k != "timeout"})

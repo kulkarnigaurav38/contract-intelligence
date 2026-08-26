@@ -27,7 +27,7 @@ KEYWORDS: dict[str, list[str]] = {
                         "personenbezogen", "bdsg", "2016/679", "auftragsverarbeitung"],
     "governing_law": ["governed by", "laws of", "governing law", "german law", "recht der bundesrepublik",
                       "anwendbares recht", "cisg", "unterliegt dem recht", "law applies"],
-    "dispute_resolution": ["jurisdiction", "courts of", "arbitrat", "gerichtsstand", "court is", "disputes"],
+    "dispute_resolution": ["jurisdiction", "courts of", "arbitrat", "gerichtsstand", "court is", "dispute"],
     "force_majeure": ["force majeure", "beyond its reasonable control", "höhere gewalt", "außerhalb ihrer kontrolle"],
     "assignment": ["assign", "transfer this agreement", "abtret", "übertragen"],
     "audit_rights": ["audit", "prüfungsrecht", "zu prüfen", "access to relevant records"],

@@ -85,6 +85,8 @@ def _process(session: Session, doc: Document, path: Path) -> None:
 
     meta = entities.llm_meta(full_text)
     first_line = next((ln.strip() for ln in full_text.splitlines() if ln.strip()), path.stem)
+    if summary[0]["confidence"] < ocr.ESCALATE_BELOW:  # a garbled OCR line is no title; fall back to the filename
+        first_line = re.sub(r"^[A-Z]\d+_", "", path.stem).replace("_", " ")
     doc.title = (meta.title if meta else first_line)[:255]
     doc.contract_type = meta.contract_type if meta else guess_contract_type(first_line, full_text)
     if meta and meta.language in ("de", "en"):

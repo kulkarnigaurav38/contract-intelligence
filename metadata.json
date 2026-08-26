@@ -1,0 +1,39 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M100MNZ010V6497KZFASB5CQ",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "web/e2e/smoke.spec.ts",
+    "web/playwright.config.ts",
+    "web/src/App.tsx",
+    "web/src/api.ts",
+    "web/src/components/ui.tsx",
+    "web/src/index.css",
+    "web/src/main.tsx",
+    "web/src/pages/Ask.tsx",
+    "web/src/pages/Audits.tsx",
+    "web/src/pages/Coverage.tsx",
+    "web/src/pages/Documents.tsx",
+    "web/src/pages/Evaluation.tsx",
+    "web/src/pages/Models.tsx",
+    "web/src/pages/Review.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 8951,
+    "cache_creation_tokens": 50375,
+    "cache_read_tokens": 1818153,
+    "output_tokens": 34968,
+    "api_call_count": 7
+  }
+}

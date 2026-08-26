@@ -20,6 +20,17 @@ acts without a person.*
 | "What about scans and handwriting?" | Per-page routing: text layer → direct; no text layer → Tesseract with a confidence gate; low confidence → **vision model**; OCR noise → **fuzzy entity matching** with the match ratio recorded. |
 | "Which model, and why?" | **Routing by task**: cheap low-thinking Flash for labelling, high-thinking Pro only for handwriting and verification, Flash-Lite for screening. Offline, the deterministic core still runs end to end. |
 
+## The front-end is for lawyers, not engineers
+
+German by default, English one click away (DE | EN in the app bar; the choice is also sent to the models, so the
+verifier's reasoning and answers come back in that language). The start page asks the three questions directly:
+*Welchen Verträgen fehlt eine Klausel? · Welche Verträge enthalten eine bestimmte Regelung nicht? · Wo steht noch ein
+alter Firmenname?* Verdicts name their author — **KI-bestätigt / Nicht gegengeprüft / Entkräftet / Nicht lesbar** —
+so a machine verdict can never be mistaken for human sign-off; the check icon is reserved for people. Confidence is a
+word, evidence is a quote with a page, and every finding has a collapsed *„So kam der Fund zustande“*. Percentages,
+method traces, model IDs, OCR methods and checksums stay available behind the switch **Technische Details anzeigen**
+(off by default) and the low-key *Technik* group in the navigation. The full page contract is in `docs/ui-spec.md`.
+
 ## Architecture
 
 ```mermaid
@@ -44,7 +55,7 @@ flowchart LR
 * `api/app/retrieval.py` — pgvector + full-text (English + German stemming) fused with RRF
 * `api/app/chat.py` — retrieve → cited answer graph; `evaluation.py` — scoring against `data/ground_truth.json`
 * `api/app/llm.py` — the model routing table; `api/app/routers.py` — REST API incl. the mock contract storage
-* `web/` — React 19 + TypeScript + MUI 9; `web/e2e/` — Playwright smoke suite
+* `web/` — React 19 + TypeScript + MUI 9, German/English (`src/vocab.ts`, `src/i18n.tsx`); `web/e2e/` — Playwright smoke suite
 * `data/generate.py` — builds the corpus: every input type, with known ground truth
 * `infra/terraform/` — production shape on Azure (documentation, not applied)
 
@@ -76,7 +87,7 @@ cd web && npm install && npm run dev               # http://localhost:5173 (prox
 
 ```bash
 cd api && uv run pytest            # 22 offline unit tests + 8 end-to-end against pgvector (skips without db)
-cd web && npx playwright test      # 6 browser smoke tests against the running stack
+cd web && npx playwright test      # 9 browser smoke tests against the running stack (BASE_URL overrides :5173)
 ```
 
 Regenerate the corpus with `cd api && uv run python ../data/generate.py`.

@@ -1,0 +1,13 @@
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# node
+node_modules/
+web/dist/
+# env
+.env
+# tooling
+.entire/
+.DS_Store

@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M105K4EAS416ME0PFRF1Q4VQ",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "docs/ui-spec.md",
+    "web/playwright.config.ts",
+    "web/src/App.tsx",
+    "web/src/api.ts",
+    "web/src/components/tech.tsx",
+    "web/src/components/ui.tsx",
+    "web/src/i18n.tsx",
+    "web/src/pages/Ask.tsx",
+    "web/src/pages/Audits.tsx",
+    "web/src/pages/Coverage.tsx",
+    "web/src/pages/Documents.tsx",
+    "web/src/pages/Evaluation.tsx",
+    "web/src/pages/Models.tsx",
+    "web/src/pages/Review.tsx",
+    "web/src/vocab.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 9849,
+    "cache_creation_tokens": 130078,
+    "cache_read_tokens": 7914997,
+    "output_tokens": 55641,
+    "api_call_count": 20
+  }
+}

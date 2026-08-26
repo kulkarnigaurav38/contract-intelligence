@@ -1,0 +1,98 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M105K4EAS416ME0PFRF1Q4VQ",
+  "session_id": "046eadd3-6aa8-4b09-adc8-e3efac5fd391",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-26T23:13:31.099948Z",
+  "branch": "master",
+  "checkpoints_count": 2,
+  "save_step_count": 2,
+  "files_touched": [
+    "docs/ui-spec.md",
+    "web/playwright.config.ts",
+    "web/src/App.tsx",
+    "web/src/api.ts",
+    "web/src/components/tech.tsx",
+    "web/src/components/ui.tsx",
+    "web/src/i18n.tsx",
+    "web/src/pages/Ask.tsx",
+    "web/src/pages/Audits.tsx",
+    "web/src/pages/Coverage.tsx",
+    "web/src/pages/Documents.tsx",
+    "web/src/pages/Evaluation.tsx",
+    "web/src/pages/Models.tsx",
+    "web/src/pages/Review.tsx",
+    "web/src/vocab.ts"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-opus-5[1m]",
+  "turn_id": "d0fc94f6f3b4",
+  "checkpoint_transcript_start": 755,
+  "transcript_lines_at_start": 755,
+  "compact_transcript_start": 120,
+  "token_usage": {
+    "input_tokens": 9849,
+    "cache_creation_tokens": 130078,
+    "cache_read_tokens": 7914997,
+    "output_tokens": 55641,
+    "api_call_count": 20
+  },
+  "session_metrics": {
+    "turn_count": 4
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-26T23:13:30.470263Z",
+    "agent_lines": 174,
+    "agent_removed": 1276,
+    "human_added": 4508,
+    "human_modified": 58,
+    "human_removed": 0,
+    "total_committed": 4735,
+    "total_lines_changed": 6064,
+    "agent_percentage": 23.91160949868074,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 96,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 3947,
+      "user_lines_removed": 53,
+      "agent_lines_added": 829,
+      "agent_lines_removed": 1329,
+      "user_added_per_file": {
+        "web/e2e/smoke.spec.ts": 161,
+        "web/src/App.tsx": 6,
+        "web/src/components/ui.tsx": 2,
+        "web/src/pages/Approvals.tsx": 588,
+        "web/src/pages/Ask.tsx": 389,
+        "web/src/pages/Checks.tsx": 573,
+        "web/src/pages/Clauses.tsx": 286,
+        "web/src/pages/Contracts.tsx": 731,
+        "web/src/pages/Home.tsx": 455,
+        "web/src/pages/Models.tsx": 201,
+        "web/src/pages/Quality.tsx": 551,
+        "web/src/vocab.ts": 4
+      },
+      "user_removed_per_file": {
+        "web/e2e/smoke.spec.ts": 48,
+        "web/src/App.tsx": 1,
+        "web/src/components/ui.tsx": 1,
+        "web/src/vocab.ts": 3
+      }
+    }
+  ]
+}

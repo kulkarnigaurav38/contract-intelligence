@@ -1,65 +1,178 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
-// Runs against a live stack (API on :8000 with the sample set ingested, web on :5173).
-// Every page is opened, key content asserted, and a screenshot stored for the presentation.
+// Runs against a live stack: API on :8000 with the 14 sample contracts ingested, the new UI (German default)
+// on BASE_URL. Every page is opened, key content asserted, and a full-page screenshot stored for the presentation.
 
-test('documents page shows the sample corpus with per-page extraction methods', async ({ page }) => {
+test.describe.configure({ mode: 'serial' })
+
+const shot = (page: Page, name: string) => page.screenshot({ path: `e2e/screenshots/${name}.png`, fullPage: true })
+
+test('Home shows the three question cards and the contract-set strip', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Documents' })).toBeVisible()
-  await expect(page.getByText('C10_merchant_agreement_lumen_mixed.pdf')).toBeVisible()
-  await expect(page.getByText('mixed pdf').first()).toBeVisible()
-  await page.getByText('C13_merchant_agreement_velora_injection.pdf').click()
-  await expect(page.getByText('Prompt-injection suspected')).toBeVisible()
-  await page.screenshot({ path: 'e2e/screenshots/01-documents.png', fullPage: true })
+  await expect(page.getByRole('heading', { name: 'Was möchten Sie wissen?' })).toBeVisible()
+  await expect(page.getByText('Welchen Verträgen fehlt eine Klausel?')).toBeVisible()
+  await expect(page.getByText('Welche Verträge enthalten eine bestimmte Regelung nicht?')).toBeVisible()
+  await expect(page.getByText('Wo steht noch ein alter Firmenname?')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Prüfen', exact: true })).toHaveCount(3)
+  await expect(page.getByText('Ihr Vertragsbestand')).toBeVisible()
+  await expect(page.getByText(/14 Verträge · \d+ gut lesbar/)).toBeVisible()
+  await expect(page.getByText('Wartet auf Ihre Freigabe')).toBeVisible()
+  await expect(page.getByText('Letzte Prüfungen')).toBeVisible()
+  await shot(page, '01-home')
 })
 
-test('coverage matrix renders every taxonomy column', async ({ page }) => {
-  await page.goto('/coverage')
-  await expect(page.getByRole('heading', { name: 'Clause coverage matrix' })).toBeVisible()
-  await expect(page.getByText('liability cap')).toBeVisible()
-  await page.screenshot({ path: 'e2e/screenshots/02-coverage.png', fullPage: true })
+test('Contracts table shows Lesbarkeit chips and opens a contract dialog', async ({ page }) => {
+  await page.goto('/contracts')
+  await expect(page.getByRole('heading', { name: 'Verträge', exact: true })).toBeVisible()
+  await expect(page.getByText('C01_merchant_agreement_nordlicht.pdf')).toBeVisible()
+  await expect(page.getByText('Lesbarkeit', { exact: true })).toBeVisible()
+  expect(await page.getByText('Gut lesbar', { exact: true }).count()).toBeGreaterThan(5)
+  await expect(page.getByText('Nicht lesbar', { exact: true }).first()).toBeVisible()
+  await page.getByRole('row', { name: /C10_merchant_agreement_lumen_mixed\.pdf/ }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByText('Vertrag ansehen')).toBeVisible()
+  await expect(dialog.getByRole('tab', { name: /Klauseln \(\d+\)/ })).toBeVisible()
+  await expect(dialog.getByRole('tab', { name: /Genannte Unternehmen \(\d+\)/ })).toBeVisible()
+  await expect(dialog.getByRole('tab', { name: /Seitentext \(\d+\)/ })).toBeVisible()
+  await expect(dialog.getByText(/Prüfsumme [0-9a-f]{8}/)).toBeVisible()
+  await shot(page, '02-contracts')
+  await dialog.getByRole('button', { name: 'Schließen' }).click()
+  await expect(dialog).toBeHidden()
 })
 
-test('rename audit runs and flags the scanned signature page', async ({ page }) => {
-  await page.goto('/audits')
-  await page.getByLabel('Question').click()
-  await page.getByRole('option', { name: /superseded company name/ }).click()
-  await page.getByRole('button', { name: 'Run audit' }).click()
-  await expect(page.getByText(/contracts in scope/)).toBeVisible({ timeout: 60_000 })
-  const lumen = page.getByRole('row', { name: /Lumen Retail/ }).first()
-  await expect(lumen).toBeVisible()
-  await lumen.click()
-  await expect(page.getByText('How this finding was produced')).toBeVisible()
-  await expect(page.getByText(/OCR-tolerant fuzzy match/)).toBeVisible()
-  await page.screenshot({ path: 'e2e/screenshots/03-audit-rename.png', fullPage: true })
+test('Clauses matrix renders the 12 clause headers', async ({ page }) => {
+  await page.goto('/clauses')
+  await expect(page.getByRole('heading', { name: 'Klausel-Übersicht' })).toBeVisible()
+  await expect(page.getByText('Welcher Vertrag enthält welche Klausel?')).toBeVisible()
+  // sticky "Vertrag" column + the 12 taxonomy columns
+  await expect(page.getByRole('columnheader')).toHaveCount(13)
+  // the header shows the short word; its accessible name is the full clause name from the tooltip
+  const headers = ['Laufzeit und Kündigung', 'Vergütung und Zahlung', 'Haftungsbegrenzung', 'Vertraulichkeit', 'Datenschutz (DSGVO)', 'Anwendbares Recht', 'Gerichtsstand und Streitbeilegung', 'Höhere Gewalt', 'Abtretung', 'Auditrechte', 'Antikorruption und Compliance', 'Kontrollwechsel (Change of Control)']
+  for (const h of headers) await expect(page.getByRole('columnheader', { name: new RegExp(`^${h.replace(/[()]/g, '\\$&')} fehlt in`) })).toBeVisible()
+  for (const short of ['Laufzeit', 'Vergütung', 'Haftung', 'Gerichtsstand', 'Kontrollwechsel']) await expect(page.getByText(short, { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Diese Klausel prüfen' })).toHaveCount(12)
+  await expect(page.getByText(/fehlt in \d+|fehlt in keinem/).first()).toBeVisible()
+  await expect(page.getByText('Nur Lücken zeigen')).toBeVisible()
+  await shot(page, '03-clauses')
 })
 
-test('review queue approves a finding and pushes it to contract storage', async ({ page }) => {
-  await page.goto('/review')
-  await expect(page.getByRole('heading', { name: 'Review queue' })).toBeVisible()
-  await page.getByRole('button', { name: 'Approve' }).first().click()
-  await page.getByLabel('Note (optional)').fill('Checked against the signed original.')
-  await page.getByRole('button', { name: 'Confirm' }).click()
-  await page.getByRole('button', { name: 'Push to contract storage' }).first().click()
-  await expect(page.getByText(/CS-[A-Z0-9]+/).first()).toBeVisible()
-  await expect(page.getByText('finding.pushed_to_storage').first()).toBeVisible()
-  await page.screenshot({ path: 'e2e/screenshots/04-review.png', fullPage: true })
+test('Old-company-name check from Home lands on the check detail', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByText(/14 Verträge · \d+ gut lesbar/)).toBeVisible()
+  // the third card is "Wo steht noch ein alter Firmenname?"
+  await page.getByRole('button', { name: 'Prüfen', exact: true }).nth(2).click()
+  await expect(page).toHaveURL(/\/checks\/\d+$/)
+  await expect(page.getByText(/Alter Firmenname · alle Vertragsarten/).first()).toBeVisible()
+  // one summary sentence once the check has finished
+  await expect(page.getByText(/^14 Verträge geprüft: .*nennen noch den alten Firmennamen/)).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByText('auffällig', { exact: true })).toBeVisible()
+  await expect(page.getByText('Ohne KI-Gegenprüfung', { exact: true }).first()).toBeVisible()
+  // verdict chips are words: KI-… or "Nicht gegengeprüft"
+  const verdict = page.getByText(/^(KI-bestätigt|Nicht gegengeprüft)$/).first()
+  await expect(verdict).toBeVisible()
+  // expand a finding row: the provenance disclosure is collapsed by default
+  await page.getByRole('row').filter({ hasText: 'Nicht gegengeprüft' }).first().click()
+  const howFound = page.getByRole('button', { name: 'So kam der Fund zustande' })
+  await expect(howFound).toBeVisible()
+  await expect(page.getByText('Über das Namensregister gefunden')).toBeHidden()
+  await expect(page.getByText(/Verlässlichkeit: (hoch|mittel|gering)/).first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Vertrag öffnen' }).first()).toBeVisible()
+  await shot(page, '04-check-detail')
 })
 
-test('ask returns cited passages', async ({ page }) => {
+test('Approvals: approve, confirm, file to storage, and the log lists it', async ({ page }) => {
+  await page.goto('/approvals')
+  await expect(page.getByRole('heading', { name: /Funde? warte[nt] auf Ihre Entscheidung\./ })).toBeVisible()
+  await expect(page.getByText(/unter dem Kürzel legal\.reviewer/)).toBeVisible()
+  await expect(page.getByRole('tab', { name: /Offen \(\d+\)/ })).toBeVisible()
+  await expect(page.getByText(/Fund 1 von \d+/)).toBeVisible()
+
+  // remember which contract we approve so we can find it again on the decided tab
+  const card = page.locator('.MuiPaper-root').filter({ has: page.getByRole('button', { name: 'Freigeben' }) }).first()
+  await expect(card).toBeVisible()
+  await card.getByRole('button', { name: 'Freigeben' }).click()
+
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByText('Fund freigeben')).toBeVisible()
+  await expect(dialog.getByText(/unter dem Kürzel „legal\.reviewer“/)).toBeVisible()
+  await dialog.getByLabel('Anmerkung (optional)').fill('Mit dem unterschriebenen Original abgeglichen.')
+  await dialog.getByRole('button', { name: 'Freigeben' }).click()
+  await expect(dialog).toBeHidden()
+  await expect(page.getByText('Freigegeben. Der Eintrag steht im Protokoll.')).toBeVisible()
+
+  await page.getByRole('tab', { name: /Entschieden \(\d+\)/ }).click()
+  await expect(page.getByText('Mit dem unterschriebenen Original abgeglichen.').first()).toBeVisible()
+  const row = page.getByRole('row').filter({ hasText: 'Mit dem unterschriebenen Original abgeglichen.' }).first()
+  await row.getByRole('button', { name: 'In der Vertragsablage ablegen' }).click()
+  await expect(page.getByText(/^Abgelegt unter CS-[A-Z0-9-]+\./)).toBeVisible()
+  await expect(row.getByText(/^Abgelegt · CS-/)).toBeVisible()
+  await shot(page, '05-approvals')
+
+  await page.getByRole('tab', { name: 'Protokoll' }).click()
+  await expect(page.getByText('Einträge können nachträglich nicht geändert oder gelöscht werden.')).toBeVisible()
+  await expect(page.getByText(/hat Fund Nr\. \d+ in der Vertragsablage abgelegt/).first()).toBeVisible()
+  await expect(page.getByText(/hat Fund Nr\. \d+ freigegeben/).first()).toBeVisible()
+  // the raw action key is a technical detail and stays hidden
+  await expect(page.getByText('finding.pushed_to_storage')).toBeHidden()
+})
+
+test('Ask: example chip returns Belege in offline mode without the English preamble', async ({ page }) => {
   await page.goto('/ask')
-  await page.getByText('Which court has jurisdiction in the Nordlicht agreement?').click()
-  await expect(page.getByText('Retrieved passages')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('heading', { name: 'Fragen Sie Ihre Verträge' })).toBeVisible()
+  await page.getByText('Welcher Gerichtsstand gilt im Vertrag mit Nordlicht Möbelhaus?', { exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Antwort' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText('Nur Fundstellen (ohne KI)')).toBeVisible()
+  await expect(page.getByText('Ohne KI-Verbindung zeigen wir die passendsten Stellen statt einer Antwort.')).toBeVisible()
   await expect(page.getByText(/Baden-Baden/).first()).toBeVisible()
-  await page.screenshot({ path: 'e2e/screenshots/05-ask.png', fullPage: true })
+  await expect(page.getByRole('button', { name: 'Vertrag öffnen' }).first()).toBeVisible()
+  await expect(page.getByText(/Weitere gefundene Stellen \(\d+\)/)).toBeVisible()
+  await expect(page.getByText(/Jede Aussage stützt sich auf eine zitierte Stelle/)).toBeVisible()
+  await expect(page.getByText(/Offline mode/)).toHaveCount(0)
+  await expect(page.getByText(/no language model configured/)).toHaveCount(0)
+  await shot(page, '06-ask')
 })
 
-test('evaluation and model routing pages render', async ({ page }) => {
-  await page.goto('/eval')
-  await page.getByRole('button', { name: 'Run evaluation' }).click()
-  await expect(page.getByText('Deterministic layer: entity registry')).toBeVisible({ timeout: 30_000 })
-  await page.screenshot({ path: 'e2e/screenshots/06-evaluation.png', fullPage: true })
-  await page.goto('/models')
+test('Quality measurement runs and reports precision and recall in words', async ({ page }) => {
+  await page.goto('/tech/quality')
+  await expect(page.getByRole('heading', { name: 'Qualitätsmessung' })).toBeVisible()
+  await page.getByRole('button', { name: 'Messung starten' }).click()
+  await expect(page.getByText(/Von den gemeldeten fehlenden Klauseln waren \d+[\s ]% richtig/)).toBeVisible({ timeout: 90_000 })
+  await expect(page.getByText(/Von den Verträgen mit altem Firmennamen wurden \d+[\s ]% gefunden/)).toBeVisible()
+  await expect(page.getByText('Treffergenauigkeit (Precision)').first()).toBeVisible()
+  await expect(page.getByText('Abgeschlossene Prüfungen')).toBeVisible()
+  await expect(page.getByText(/wurde als nicht lesbar an Sie weitergegeben/)).toBeVisible()
+  await shot(page, '07-quality')
+})
+
+test('Switching to EN changes the nav labels', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('link', { name: 'Verträge', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'EN', exact: true }).click()
+  await expect(page.getByRole('link', { name: 'Contracts', exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Checks', exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Approvals', exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Verträge', exact: true })).toBeHidden()
+  await expect(page.getByRole('heading', { name: 'What would you like to know?' })).toBeVisible()
+  await page.getByRole('button', { name: 'DE', exact: true }).click()
+  await expect(page.getByRole('link', { name: 'Verträge', exact: true })).toBeVisible()
+})
+
+test('The technical switch reveals model IDs on /tech/models', async ({ page }) => {
+  await page.goto('/tech/models')
+  await expect(page.getByRole('heading', { name: 'Modelle' })).toBeVisible()
+  await expect(page.getByText(/Keine KI verbunden|KI-Gegenprüfung aktiv/)).toBeVisible()
+  await expect(page.getByText('Großes Modell').first()).toBeVisible()
+  await expect(page.getByText('Funde gegenprüfen')).toBeVisible()
+  await expect(page.getByText('gemini-3.1-pro-preview')).toHaveCount(0)
+  await page.getByLabel('Technische Details anzeigen').check()
   await expect(page.getByText('gemini-3.1-pro-preview').first()).toBeVisible()
-  await page.screenshot({ path: 'e2e/screenshots/07-models.png', fullPage: true })
+  await expect(page.getByText('gemini-embedding-001')).toBeVisible()
+  await expect(page.getByText('768 Dimensionen')).toBeVisible()
+  await shot(page, '08-models')
+  // and percentages elsewhere: the contracts table gains per-page extraction chips
+  await page.goto('/contracts')
+  await expect(page.getByText(/Seite 1 · Text direkt gelesen · 100[\s ]%/).first()).toBeVisible()
+  await page.getByLabel('Technische Details anzeigen').uncheck()
+  await expect(page.getByText(/Text direkt gelesen · 100[\s ]%/)).toHaveCount(0)
 })

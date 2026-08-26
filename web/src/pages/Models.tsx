@@ -1,65 +1,201 @@
+import { type ReactNode } from 'react'
 import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
+import LinearProgress from '@mui/material/LinearProgress'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
+import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Typography from '@mui/material/Typography'
-import { api, label } from '../api'
-import { usePolling } from '../components/ui'
+import { api, type Config } from '../api'
+import { useLabel, useSettings, useT } from '../i18n'
+import { Small, Tech } from '../components/tech'
+import { ErrorAlert, usePolling } from '../components/ui'
+import { COMMON, ROUTING_TASKS, THINKING, modelTier } from '../vocab'
 
-const thinkingColor: Record<string, 'default' | 'info' | 'warning' | 'error'> = { minimal: 'default', low: 'info', medium: 'warning', high: 'error' }
+const T = {
+  loading: { de: 'Wir laden die Einstellungen …', en: 'Loading the settings …' },
+  status_on: { de: 'KI-Gegenprüfung aktiv – alle Stufen laufen.', en: 'AI cross-check active – all stages are running.' },
+  status_off: {
+    de: 'Keine KI verbunden – Regelprüfung, Namensregister, Texterkennung und Suche laufen; Funde werden als „nicht gegengeprüft“ gekennzeichnet. Handschrift kann nicht gelesen werden.',
+    en: 'No AI connected – rule check, name registry, text recognition and search are running; findings are marked “not cross-checked”. Handwriting cannot be read.',
+  },
+  intro: {
+    de: 'Der Denkaufwand folgt der Aufgabe: Routinearbeit läuft auf einem schnellen Modell, das große Modell ist für Handschrift und für die Gegenprüfung reserviert.',
+    en: 'Reasoning effort follows the task: routine work runs on a fast model; the large model is reserved for handwriting and for the cross-check.',
+  },
+  offline_note: {
+    de: 'Diese Zuordnung gilt, sobald eine KI-Verbindung besteht.',
+    en: 'This assignment applies as soon as an AI connection is available.',
+  },
+  col_task: { de: 'Aufgabe', en: 'Task' },
+  col_model: { de: 'Modell', en: 'Model' },
+  col_thinking: { de: 'Denkaufwand', en: 'Reasoning effort' },
+  col_purpose: { de: 'Zweck', en: 'Purpose' },
+  purpose_ocr_vision: {
+    de: 'Liest gescannte Seiten und Handschrift, wenn die Texterkennung nicht ausreicht.',
+    en: 'Reads scanned pages and handwriting when text recognition is not good enough.',
+  },
+  purpose_classify: {
+    de: 'Ordnet jede Klausel einer der zwölf Klauselarten zu.',
+    en: 'Assigns each clause to one of the twelve clause types.',
+  },
+  purpose_extract: {
+    de: 'Erkennt Vertragsparteien, Titel und Vertragsart.',
+    en: 'Identifies the contracting parties, the title and the contract type.',
+  },
+  purpose_screen: {
+    de: 'Prüft den Text auf Anweisungen, die sich an automatische Prüfsysteme richten.',
+    en: 'Checks the text for instructions addressed to automated review systems.',
+  },
+  purpose_verify: {
+    de: 'Prüft jeden Fund unabhängig im vollständigen Vertragstext nach.',
+    en: 'Independently re-checks each finding against the full contract text.',
+  },
+  purpose_answer: {
+    de: 'Beantwortet Fragen zu Ihren Verträgen mit Belegen aus den gefundenen Stellen.',
+    en: 'Answers questions about your contracts with evidence from the passages found.',
+  },
+  purpose_embeddings: {
+    de: 'Findet ähnliche Stellen, auch wenn der Wortlaut abweicht.',
+    en: 'Finds similar passages even when the wording differs.',
+  },
+  purpose_other: { de: 'Weitere Aufgabe im Hintergrund.', en: 'Further background task.' },
+  dims: { de: '{n} Dimensionen', en: '{n} dimensions' },
+}
+
+const never = () => false
+
+/** Reasoning effort as a word; the large model's high effort is the only filled chip. */
+function ThinkingChip({ level }: { level: string }) {
+  const label = useLabel(THINKING)
+  const high = level === 'high'
+  const medium = level === 'medium'
+  return <Chip size="small" label={label(level)} color={high ? 'secondary' : medium ? 'primary' : 'default'} variant={high ? 'filled' : 'outlined'} />
+}
+
+/** The tier word a lawyer sees; the raw model id only with the technical switch. */
+function ModelCell({ id, children }: { id: string; children?: ReactNode }) {
+  const { lang } = useSettings()
+  return (
+    <Box>
+      <Typography variant="body2">{modelTier(id)[lang]}</Typography>
+      <Tech>
+        <Small sx={{ fontFamily: 'monospace' }}>{id}</Small>
+        {children}
+      </Tech>
+    </Box>
+  )
+}
+
+function RoutingRow({ row }: { row: Config['routing'][number] }) {
+  const t = useT(T)
+  const taskLabel = useLabel(ROUTING_TASKS)
+  const key = `purpose_${row.task}`
+  const purpose = key in T ? t(key as keyof typeof T) : t('purpose_other')
+  return (
+    <TableRow>
+      <TableCell sx={{ verticalAlign: 'top' }}>
+        <Typography variant="body2">{taskLabel(row.task)}</Typography>
+        <Tech>
+          <Small sx={{ fontFamily: 'monospace' }}>{row.task}</Small>
+        </Tech>
+      </TableCell>
+      <TableCell sx={{ verticalAlign: 'top' }}>
+        <ModelCell id={row.model} />
+      </TableCell>
+      <TableCell sx={{ verticalAlign: 'top' }}>
+        <ThinkingChip level={row.thinking} />
+      </TableCell>
+      <TableCell sx={{ verticalAlign: 'top' }}>
+        <Typography variant="body2">{purpose}</Typography>
+        <Tech>
+          <Small>{row.purpose}</Small>
+        </Tech>
+      </TableCell>
+    </TableRow>
+  )
+}
+
+function EmbeddingsRow({ embedding }: { embedding: Config['embedding'] }) {
+  const t = useT(T)
+  const taskLabel = useLabel(ROUTING_TASKS)
+  return (
+    <TableRow>
+      <TableCell sx={{ verticalAlign: 'top' }}>
+        <Typography variant="body2">{taskLabel('embeddings')}</Typography>
+        <Tech>
+          <Small sx={{ fontFamily: 'monospace' }}>embeddings</Small>
+        </Tech>
+      </TableCell>
+      <TableCell sx={{ verticalAlign: 'top' }}>
+        <ModelCell id={embedding.model}>
+          <Small>{t('dims', { n: embedding.dim })}</Small>
+        </ModelCell>
+      </TableCell>
+      <TableCell sx={{ verticalAlign: 'top' }}>
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+          –
+        </Typography>
+      </TableCell>
+      <TableCell sx={{ verticalAlign: 'top' }}>
+        <Typography variant="body2">{t('purpose_embeddings')}</Typography>
+      </TableCell>
+    </TableRow>
+  )
+}
 
 export default function Models() {
-  const { data: config } = usePolling(api.config, 0, () => false)
+  const t = useT(T)
+  const c = useT(COMMON)
+  const { data: config, error } = usePolling(api.config, 0, never)
+
   return (
-    <Stack spacing={2} sx={{ maxWidth: 1000 }}>
-      <Typography variant="h5">Model routing</Typography>
-      <Typography variant="body2" color="text.secondary">
-        The reasoning effort follows the task. High-volume labelling runs on a cheap, low-thinking model; the expensive high-thinking model
-        is reserved for the two places where a mistake is costly — reading handwriting and independently verifying a finding. Without a key
-        the deterministic core (rules, registry, Tesseract, full-text search) still runs end to end.
-      </Typography>
-      {config && (
-        <Alert severity={config.llm_enabled ? 'success' : 'warning'}>
-          {config.llm_enabled ? 'Gemini API key configured — all stages active.' : 'No GEMINI_API_KEY — running the deterministic core only. Findings are marked unverified.'}
-        </Alert>
+    <Stack spacing={2.5} sx={{ maxWidth: 1040 }}>
+      <Typography variant="h5">{c('nav_models')}</Typography>
+
+      {error && <ErrorAlert msg={error} />}
+
+      {!config && !error && (
+        <Box>
+          <LinearProgress />
+          <Small sx={{ mt: 1 }}>{t('loading')}</Small>
+        </Box>
       )}
-      <Paper>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Task</TableCell>
-              <TableCell>Model</TableCell>
-              <TableCell>Thinking</TableCell>
-              <TableCell>Purpose</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {config?.routing.map((r) => (
-              <TableRow key={r.task}>
-                <TableCell>{label(r.task)}</TableCell>
-                <TableCell sx={{ fontFamily: 'monospace' }}>{r.model}</TableCell>
-                <TableCell>
-                  <Chip size="small" label={r.thinking} color={thinkingColor[r.thinking] ?? 'default'} variant="outlined" />
-                </TableCell>
-                <TableCell>{r.purpose}</TableCell>
-              </TableRow>
-            ))}
-            {config && (
-              <TableRow>
-                <TableCell>embeddings</TableCell>
-                <TableCell sx={{ fontFamily: 'monospace' }}>{config.embedding.model}</TableCell>
-                <TableCell>—</TableCell>
-                <TableCell>{config.embedding.dim}-dim vectors in pgvector; hashed bag-of-words fallback offline</TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Paper>
+
+      {config && (
+        <>
+          <Alert severity={config.llm_enabled ? 'success' : 'warning'}>{config.llm_enabled ? t('status_on') : t('status_off')}</Alert>
+
+          <Typography variant="body1">{t('intro')}</Typography>
+
+          <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>{t('col_task')}</TableCell>
+                  <TableCell>{t('col_model')}</TableCell>
+                  <TableCell>{t('col_thinking')}</TableCell>
+                  <TableCell>{t('col_purpose')}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {config.routing.map((row) => (
+                  <RoutingRow key={row.task} row={row} />
+                ))}
+                <EmbeddingsRow embedding={config.embedding} />
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          {!config.llm_enabled && <Small>{t('offline_note')}</Small>}
+        </>
+      )}
     </Stack>
   )
 }

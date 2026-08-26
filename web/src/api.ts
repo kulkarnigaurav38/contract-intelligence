@@ -152,16 +152,15 @@ export const api = {
   coverage: () => request<Coverage>('/api/coverage'),
   audits: () => request<Audit[]>('/api/audits'),
   audit: (id: number) => request<Audit & { findings: Finding[] }>(`/api/audits/${id}`),
-  createAudit: (kind: string, params: Record<string, string>) =>
-    request<Audit>('/api/audits', json({ kind, params })),
+  createAudit: (kind: string, params: Record<string, string>, language: string) =>
+    request<Audit>('/api/audits', json({ kind, params: { ...params, language } })),
   findings: (review_status?: string) =>
     request<Finding[]>(`/api/findings${review_status ? `?review_status=${review_status}` : ''}`),
   review: (id: number, decision: string, note: string) =>
     request<Finding>(`/api/findings/${id}/review`, json({ decision, note, actor: 'legal.reviewer' })),
   push: (id: number) => request<Finding>(`/api/findings/${id}/push-to-storage`, { method: 'POST' }),
   auditLog: () => request<LogEntry[]>('/api/audit-log'),
-  chat: (question: string) => request<ChatResult>('/api/chat', json({ question })),
+  chat: (question: string, language: string) => request<ChatResult>('/api/chat', json({ question, language })),
   runEval: () => request<Record<string, unknown>>('/api/eval/run', { method: 'POST' }),
 }
 
-export const label = (s: string) => s.replace(/_/g, ' ')

@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M106FQVAYAH1K2MDF8AVHY0C",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "api/app/ingest/ocr.py",
+    "api/app/ingest/segment.py",
+    "api/tests/test_ingest_units.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1278,
+    "cache_creation_tokens": 23190,
+    "cache_read_tokens": 2449374,
+    "output_tokens": 11295,
+    "api_call_count": 5
+  }
+}

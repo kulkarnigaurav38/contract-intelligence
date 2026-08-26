@@ -231,11 +231,12 @@ def storage_list(session: Session = Depends(get_session)) -> list[dict]:
 # ---------------------------------------------------------------- chat + eval
 class Question(BaseModel):
     question: str
+    language: str = "en"
 
 
 @router.post("/chat")
 def ask(q: Question, session: Session = Depends(get_session)) -> dict:
-    return chat.ask(session, q.question)
+    return chat.ask(session, q.question, q.language)
 
 
 @router.post("/eval/run")

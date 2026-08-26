@@ -21,7 +21,10 @@ class Verdict(BaseModel):
     reasoning: str
 
 
-def verify(pages: list[tuple[int, str]], claim: str) -> Verdict | None:
+LANGUAGES = {"de": "German", "en": "English"}
+
+
+def verify(pages: list[tuple[int, str]], claim: str, language: str = "en") -> Verdict | None:
     llm = chat("verify")
     if llm is None:
         return None
@@ -34,7 +37,8 @@ def verify(pages: list[tuple[int, str]], claim: str) -> Verdict | None:
             "heading or wording, in any language. A claim that an old company name is used as an active party is "
             "refuted if the name only appears as a historical reference (e.g. 'formerly', 'vormals') or belongs to "
             "a different company. Quote the decisive passage verbatim with its page number. Be conservative with "
-            "confidence: sensitive legal documents, mistakes are costly. " + DOC_GUARD
+            "confidence: sensitive legal documents, mistakes are costly. Write the reasoning in "
+            + LANGUAGES.get(language, "English") + ", for a lawyer, in two or three sentences. " + DOC_GUARD
         )),
         HumanMessage(content=f"Claim: {claim}\n\n<document>\n{body}\n</document>"),
     ]

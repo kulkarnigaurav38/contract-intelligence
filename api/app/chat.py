@@ -11,8 +11,12 @@ from app.llm import DOC_GUARD, chat
 from app.retrieval import hybrid_search
 
 
+LANGUAGES = {"de": "German", "en": "English"}
+
+
 class ChatState(TypedDict, total=False):
     question: str
+    language: str
     passages: list[dict]
     answer: str
     citations: list[dict]
@@ -25,7 +29,7 @@ class Citation(BaseModel):
 
 
 class Answer(BaseModel):
-    answer: str = Field(description="Answer in the language of the question; say so if the passages do not answer it")
+    answer: str = Field(description="The answer; say so if the passages do not answer the question")
     citations: list[Citation]
 
 
@@ -52,7 +56,7 @@ def build(session: Session):
             SystemMessage(content=(
                 "Answer the legal team's question using only the numbered passages. Cite every factual statement "
                 "with the passage index. If the passages do not contain the answer, say so instead of guessing. "
-                + DOC_GUARD
+                "Answer in " + LANGUAGES.get(state.get("language", "en"), "English") + ". " + DOC_GUARD
             )),
             HumanMessage(content=f"Question: {state['question']}\n\n<document>\n{body}\n</document>"),
         ]
@@ -70,7 +74,7 @@ def build(session: Session):
     return g.compile()
 
 
-def ask(session: Session, question: str) -> dict:
-    state = build(session).invoke({"question": question})
+def ask(session: Session, question: str, language: str = "en") -> dict:
+    state = build(session).invoke({"question": question, "language": language})
     return {"answer": state["answer"], "citations": state["citations"], "mode": state["mode"],
             "passages": state["passages"]}

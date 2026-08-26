@@ -154,7 +154,7 @@ def build(session: Session):
         for claim in state["claims"]:
             pages = [(p.page_no, p.text) for p in session.scalars(
                 select(Page).where(Page.document_id == claim["document_id"]).order_by(Page.page_no))]
-            verdict = verify(pages, claim["claim"])
+            verdict = verify(pages, claim["claim"], state["params"].get("language", "en"))
             if verdict is None:
                 if claim["direction"] == "missing":
                     _store(session, state["audit_id"], claim, "unverified", claim["confidence"],

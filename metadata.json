@@ -1,0 +1,55 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M0ZYXKHEKS2EKWGDGGF0ZEZ9",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".env.example",
+    ".gitignore",
+    "api/.python-version",
+    "api/Dockerfile",
+    "api/app/__init__.py",
+    "api/app/config.py",
+    "api/app/main.py",
+    "api/pyproject.toml",
+    "api/uv.lock",
+    "docker-compose.yml",
+    "web/.oxlintrc.json",
+    "web/Dockerfile",
+    "web/README.md",
+    "web/index.html",
+    "web/nginx.conf",
+    "web/package-lock.json",
+    "web/package.json",
+    "web/public/favicon.svg",
+    "web/public/icons.svg",
+    "web/src/App.css",
+    "web/src/App.tsx",
+    "web/src/assets/hero.png",
+    "web/src/assets/react.svg",
+    "web/src/assets/vite.svg",
+    "web/src/index.css",
+    "web/src/main.tsx",
+    "web/tsconfig.app.json",
+    "web/tsconfig.json",
+    "web/tsconfig.node.json",
+    "web/vite.config.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1213,
+    "cache_creation_tokens": 34746,
+    "cache_read_tokens": 931193,
+    "output_tokens": 22220,
+    "api_call_count": 12
+  }
+}

@@ -26,7 +26,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 OUT = Path(__file__).parent / "contracts"
 GT_PATH = Path(__file__).parent / "ground_truth.json"
-FONT_HAND = "/System/Library/Fonts/Supplemental/Bradley Hand Bold.ttf"
+FONT_HAND = "/System/Library/Fonts/Supplemental/SnellRoundhand.ttc"  # index 1 = bold
 FONT_TYPED = "/System/Library/Fonts/Supplemental/Courier New.ttf"
 
 # ---------------------------------------------------------------- taxonomy
@@ -418,8 +418,8 @@ def handwritten_jpeg(spec: Spec, path: Path) -> None:
     w, h = 1240, 1754
     img = paper(w, h, spec.variant_seed)
     draw = ImageDraw.Draw(img)
-    title_font = ImageFont.truetype(FONT_HAND, 54)
-    body_font = ImageFont.truetype(FONT_HAND, 34)
+    title_font = ImageFont.truetype(FONT_HAND, 64, index=1)
+    body_font = ImageFont.truetype(FONT_HAND, 40, index=1)
     rnd = random.Random(spec.variant_seed)
     y = 110
     y = draw_wrapped(draw, spec.title, title_font, 120, y, w - 240, 1.4)
@@ -485,8 +485,8 @@ def generate(spec: Spec) -> dict:
         pages = len(doc)
     elif spec.input_type == "scanned_pdf":
         doc = render_pdf(blocks)
-        images = [scan_effect(im, 0.7, 4000, 0.3, spec.variant_seed + i) for i, im in enumerate(page_images(doc, 150))]
-        images_to_pdf(images, path, quality=70)
+        images = [scan_effect(im, 0.4, 1500, 0.15, spec.variant_seed + i) for i, im in enumerate(page_images(doc, 170))]
+        images_to_pdf(images, path, quality=80)
         pages = len(images)
     elif spec.input_type == "scanned_pdf_low":
         doc = render_pdf(blocks)

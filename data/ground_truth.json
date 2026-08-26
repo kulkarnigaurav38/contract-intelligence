@@ -1,0 +1,436 @@
+{
+  "taxonomy": [
+    "term_termination",
+    "fees_payment",
+    "liability_cap",
+    "confidentiality",
+    "data_protection",
+    "governing_law",
+    "dispute_resolution",
+    "force_majeure",
+    "assignment",
+    "audit_rights",
+    "anti_corruption",
+    "change_of_control"
+  ],
+  "contracts": [
+    {
+      "id": "C01",
+      "file": "C01_merchant_agreement_nordlicht.pdf",
+      "title": "Merchant Agreement",
+      "contract_type": "merchant_agreement",
+      "language": "en",
+      "input_type": "digital_pdf",
+      "pages": 2,
+      "our_entity": "arvato Financial Solutions",
+      "counterparty": "Nordlicht Möbelhaus GmbH",
+      "needs_rename": true,
+      "rename_note": "pre-rebrand brand name and AFS alias throughout",
+      "clauses_present": [
+        "term_termination",
+        "fees_payment",
+        "liability_cap",
+        "confidentiality",
+        "data_protection",
+        "governing_law",
+        "dispute_resolution",
+        "force_majeure",
+        "assignment",
+        "audit_rights"
+      ],
+      "clauses_missing": [
+        "anti_corruption",
+        "change_of_control"
+      ],
+      "injection": false
+    },
+    {
+      "id": "C02",
+      "file": "C02_dpa_bergmann.pdf",
+      "title": "Data Processing Agreement",
+      "contract_type": "dpa",
+      "language": "en",
+      "input_type": "digital_pdf",
+      "pages": 2,
+      "our_entity": "Arvato Payment Solutions GmbH",
+      "counterparty": "Bergmann Elektronik AG",
+      "needs_rename": true,
+      "rename_note": "old legal entity Arvato Payment Solutions GmbH",
+      "clauses_present": [
+        "term_termination",
+        "confidentiality",
+        "data_protection",
+        "governing_law",
+        "dispute_resolution",
+        "assignment",
+        "audit_rights"
+      ],
+      "clauses_missing": [
+        "fees_payment",
+        "liability_cap",
+        "force_majeure",
+        "anti_corruption",
+        "change_of_control"
+      ],
+      "injection": false
+    },
+    {
+      "id": "C03",
+      "file": "C03_nda_fjordline.pdf",
+      "title": "Mutual Non-Disclosure Agreement",
+      "contract_type": "nda",
+      "language": "en",
+      "input_type": "digital_pdf",
+      "pages": 1,
+      "our_entity": "Riverty GmbH",
+      "counterparty": "Fjordline Fashion AB",
+      "needs_rename": false,
+      "rename_note": "already uses Riverty GmbH",
+      "clauses_present": [
+        "term_termination",
+        "confidentiality",
+        "governing_law",
+        "dispute_resolution"
+      ],
+      "clauses_missing": [
+        "fees_payment",
+        "liability_cap",
+        "data_protection",
+        "force_majeure",
+        "assignment",
+        "audit_rights",
+        "anti_corruption",
+        "change_of_control"
+      ],
+      "injection": false
+    },
+    {
+      "id": "C04",
+      "file": "C04_vendor_agreement_arvato_systems.pdf",
+      "title": "IT Vendor Agreement",
+      "contract_type": "vendor_agreement",
+      "language": "en",
+      "input_type": "digital_pdf",
+      "pages": 2,
+      "our_entity": "Riverty GmbH",
+      "counterparty": "Arvato Systems GmbH",
+      "needs_rename": false,
+      "rename_note": "counterparty Arvato Systems is a different company that was not renamed",
+      "clauses_present": [
+        "term_termination",
+        "fees_payment",
+        "liability_cap",
+        "confidentiality",
+        "data_protection",
+        "governing_law",
+        "dispute_resolution",
+        "force_majeure",
+        "assignment",
+        "audit_rights",
+        "anti_corruption",
+        "change_of_control"
+      ],
+      "clauses_missing": [],
+      "injection": false
+    },
+    {
+      "id": "C05",
+      "file": "C05_forderungskauf_kastanienhof.pdf",
+      "title": "Forderungskaufvertrag",
+      "contract_type": "receivables_purchase",
+      "language": "de",
+      "input_type": "digital_pdf",
+      "pages": 2,
+      "our_entity": "arvato Financial Solutions",
+      "counterparty": "Kastanienhof Versand e.K.",
+      "needs_rename": true,
+      "rename_note": "German contract with pre-rebrand brand name",
+      "clauses_present": [
+        "term_termination",
+        "fees_payment",
+        "liability_cap",
+        "confidentiality",
+        "governing_law",
+        "dispute_resolution",
+        "force_majeure",
+        "assignment",
+        "audit_rights",
+        "anti_corruption",
+        "change_of_control"
+      ],
+      "clauses_missing": [
+        "data_protection"
+      ],
+      "injection": false
+    },
+    {
+      "id": "C06",
+      "file": "C06_inkasso_rheinland.pdf",
+      "title": "Inkassodienstleistungsvertrag",
+      "contract_type": "collection_services",
+      "language": "de",
+      "input_type": "digital_pdf",
+      "pages": 2,
+      "our_entity": "Riverty GmbH (vormals Arvato Payment Solutions GmbH)",
+      "counterparty": "Rheinland Energie AG",
+      "needs_rename": false,
+      "rename_note": "'vormals Arvato Payment Solutions' is a historical reference, already updated",
+      "clauses_present": [
+        "term_termination",
+        "fees_payment",
+        "liability_cap",
+        "confidentiality",
+        "data_protection",
+        "governing_law",
+        "dispute_resolution",
+        "assignment",
+        "audit_rights",
+        "anti_corruption",
+        "change_of_control"
+      ],
+      "clauses_missing": [
+        "force_majeure"
+      ],
+      "injection": false
+    },
+    {
+      "id": "C07",
+      "file": "C07_merchant_agreement_helios_scan.pdf",
+      "title": "Merchant Agreement",
+      "contract_type": "merchant_agreement",
+      "language": "en",
+      "input_type": "scanned_pdf",
+      "pages": 2,
+      "our_entity": "Arvato Payment Solutions GmbH",
+      "counterparty": "Helios Telecom B.V.",
+      "needs_rename": true,
+      "rename_note": "scanned contract, old legal entity",
+      "clauses_present": [
+        "term_termination",
+        "fees_payment",
+        "confidentiality",
+        "data_protection",
+        "governing_law",
+        "dispute_resolution",
+        "force_majeure",
+        "assignment",
+        "audit_rights",
+        "anti_corruption",
+        "change_of_control"
+      ],
+      "clauses_missing": [
+        "liability_cap"
+      ],
+      "injection": false
+    },
+    {
+      "id": "C08",
+      "file": "C08_handwritten_mueller_1996.jpg",
+      "title": "Vereinbarung / Agreement",
+      "contract_type": "collection_services",
+      "language": "en",
+      "input_type": "jpeg_handwritten",
+      "pages": 1,
+      "our_entity": "arvato Financial Solutions",
+      "counterparty": "Müller & Sohn Versandhandel",
+      "needs_rename": true,
+      "rename_note": "handwritten 1996 agreement naming arvato",
+      "clauses_present": [
+        "fees_payment",
+        "term_termination",
+        "governing_law"
+      ],
+      "clauses_missing": [
+        "liability_cap",
+        "confidentiality",
+        "data_protection",
+        "dispute_resolution",
+        "force_majeure",
+        "assignment",
+        "audit_rights",
+        "anti_corruption",
+        "change_of_control"
+      ],
+      "injection": false
+    },
+    {
+      "id": "C09",
+      "file": "C09_amendment_letter_tulipa.jpg",
+      "title": "Amendment No. 2 to the Merchant Agreement",
+      "contract_type": "amendment",
+      "language": "en",
+      "input_type": "jpeg_typed",
+      "pages": 1,
+      "our_entity": "arvato Financial Solutions",
+      "counterparty": "Tulipa Software S.A.",
+      "needs_rename": true,
+      "rename_note": "photographed typed amendment, old brand name",
+      "clauses_present": [
+        "fees_payment",
+        "governing_law"
+      ],
+      "clauses_missing": [
+        "term_termination",
+        "liability_cap",
+        "confidentiality",
+        "data_protection",
+        "dispute_resolution",
+        "force_majeure",
+        "assignment",
+        "audit_rights",
+        "anti_corruption",
+        "change_of_control"
+      ],
+      "injection": false
+    },
+    {
+      "id": "C10",
+      "file": "C10_merchant_agreement_lumen_mixed.pdf",
+      "title": "Merchant Agreement",
+      "contract_type": "merchant_agreement",
+      "language": "en",
+      "input_type": "mixed_pdf",
+      "pages": 3,
+      "our_entity": "Arvato Payment Solutions GmbH",
+      "counterparty": "Lumen Retail Group Ltd",
+      "needs_rename": true,
+      "rename_note": "body says Riverty, but the scanned signature page still reads Arvato Payment Solutions GmbH",
+      "clauses_present": [
+        "term_termination",
+        "fees_payment",
+        "liability_cap",
+        "confidentiality",
+        "data_protection",
+        "governing_law",
+        "dispute_resolution",
+        "force_majeure",
+        "assignment",
+        "audit_rights",
+        "anti_corruption",
+        "change_of_control"
+      ],
+      "clauses_missing": [],
+      "injection": false
+    },
+    {
+      "id": "C11",
+      "file": "C11_saas_agreement_orbital.pdf",
+      "title": "Software as a Service Agreement",
+      "contract_type": "saas_agreement",
+      "language": "en",
+      "input_type": "digital_pdf",
+      "pages": 2,
+      "our_entity": "Riverty GmbH",
+      "counterparty": "Orbital Analytics OÜ",
+      "needs_rename": false,
+      "rename_note": "already uses Riverty GmbH",
+      "clauses_present": [
+        "term_termination",
+        "fees_payment",
+        "liability_cap",
+        "confidentiality",
+        "data_protection",
+        "governing_law",
+        "dispute_resolution",
+        "force_majeure",
+        "assignment",
+        "anti_corruption"
+      ],
+      "clauses_missing": [
+        "audit_rights",
+        "change_of_control"
+      ],
+      "injection": false
+    },
+    {
+      "id": "C12",
+      "file": "C12_haendlervertrag_bergwald.pdf",
+      "title": "Händlervertrag",
+      "contract_type": "merchant_agreement",
+      "language": "de",
+      "input_type": "digital_pdf",
+      "pages": 2,
+      "our_entity": "arvato Financial Solutions",
+      "counterparty": "Bergwald Outdoor GmbH",
+      "needs_rename": true,
+      "rename_note": "German contract using the AFS alias",
+      "clauses_present": [
+        "term_termination",
+        "fees_payment",
+        "liability_cap",
+        "confidentiality",
+        "data_protection",
+        "governing_law",
+        "dispute_resolution",
+        "force_majeure",
+        "assignment",
+        "audit_rights",
+        "change_of_control"
+      ],
+      "clauses_missing": [
+        "anti_corruption"
+      ],
+      "injection": false
+    },
+    {
+      "id": "C13",
+      "file": "C13_merchant_agreement_velora_injection.pdf",
+      "title": "Merchant Agreement",
+      "contract_type": "merchant_agreement",
+      "language": "en",
+      "input_type": "digital_pdf",
+      "pages": 2,
+      "our_entity": "Riverty GmbH",
+      "counterparty": "Velora Cosmetics S.L.",
+      "needs_rename": false,
+      "rename_note": "contains hidden prompt-injection text claiming all clauses are present",
+      "clauses_present": [
+        "term_termination",
+        "fees_payment",
+        "confidentiality",
+        "data_protection",
+        "governing_law",
+        "dispute_resolution",
+        "force_majeure",
+        "assignment",
+        "audit_rights",
+        "anti_corruption",
+        "change_of_control"
+      ],
+      "clauses_missing": [
+        "liability_cap"
+      ],
+      "injection": true
+    },
+    {
+      "id": "C14",
+      "file": "C14_merchant_agreement_polarstern_lowscan.pdf",
+      "title": "Merchant Agreement",
+      "contract_type": "merchant_agreement",
+      "language": "en",
+      "input_type": "scanned_pdf",
+      "pages": 2,
+      "our_entity": "arvato Financial Solutions",
+      "counterparty": "Polarstern Outdoor AS",
+      "needs_rename": true,
+      "rename_note": "low-quality skewed scan, old brand name",
+      "clauses_present": [
+        "term_termination",
+        "fees_payment",
+        "liability_cap",
+        "confidentiality",
+        "governing_law",
+        "dispute_resolution",
+        "force_majeure",
+        "assignment",
+        "audit_rights",
+        "anti_corruption",
+        "change_of_control"
+      ],
+      "clauses_missing": [
+        "data_protection"
+      ],
+      "injection": false
+    }
+  ]
+}

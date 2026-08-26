@@ -73,7 +73,7 @@ cp .env.example .env            # add GEMINI_API_KEY for the full pipeline; leav
 docker compose up --build       # web on http://localhost:5173, api on http://localhost:8000/docs
 ```
 
-Then *Documents → Ingest sample set*, *Audits → Run audit*, *Review*, *Evaluation → Run evaluation*.
+Then *Verträge → Beispielverträge laden*, ask one of the three questions on *Start*, decide under *Freigabe*, and see the numbers under *Technik → Qualitätsmessung*. Switch to EN in the app bar at any time.
 
 Local development:
 

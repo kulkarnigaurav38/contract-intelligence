@@ -1,0 +1,180 @@
+{
+  "mapping": {
+    "Governing Law": "governing_law",
+    "Cap On Liability": "liability_cap",
+    "Audit Rights": "audit_rights",
+    "Change Of Control": "change_of_control",
+    "Anti-Assignment": "assignment"
+  },
+  "note": "absence = the expert annotators recorded no clause of that category",
+  "contracts": [
+    {
+      "file": "GridironBionutrientsInc_20171206_8-K_EX-10.1_10972555_EX-10.1_Endorsement Agreement.pdf",
+      "source": "CUAD v1 (Atticus Project, CC BY 4.0)",
+      "chars": 29224,
+      "clauses_present": [
+        "governing_law",
+        "liability_cap",
+        "assignment"
+      ],
+      "clauses_missing": [
+        "audit_rights",
+        "change_of_control"
+      ]
+    },
+    {
+      "file": "TodosMedicalLtd_20190328_20-F_EX-4.10_11587157_EX-4.10_Marketing Agreement_ Reseller Agreement.pdf",
+      "source": "CUAD v1 (Atticus Project, CC BY 4.0)",
+      "chars": 32321,
+      "clauses_present": [
+        "governing_law",
+        "liability_cap",
+        "audit_rights",
+        "assignment"
+      ],
+      "clauses_missing": [
+        "change_of_control"
+      ]
+    },
+    {
+      "file": "EcoScienceSolutionsInc_20180406_8-K_EX-10.1_11135398_EX-10.1_Sponsorship Agreement.pdf",
+      "source": "CUAD v1 (Atticus Project, CC BY 4.0)",
+      "chars": 8052,
+      "clauses_present": [
+        "governing_law",
+        "assignment"
+      ],
+      "clauses_missing": [
+        "liability_cap",
+        "audit_rights",
+        "change_of_control"
+      ]
+    },
+    {
+      "file": "FreezeTagInc_20180411_8-K_EX-10.1_11139603_EX-10.1_Sponsorship Agreement.pdf",
+      "source": "CUAD v1 (Atticus Project, CC BY 4.0)",
+      "chars": 26780,
+      "clauses_present": [
+        "governing_law",
+        "change_of_control",
+        "assignment"
+      ],
+      "clauses_missing": [
+        "liability_cap",
+        "audit_rights"
+      ]
+    },
+    {
+      "file": "AlliedEsportsEntertainmentInc_20190815_8-K_EX-10.19_11788293_EX-10.19_Content License Agreement.pdf",
+      "source": "CUAD v1 (Atticus Project, CC BY 4.0)",
+      "chars": 35525,
+      "clauses_present": [
+        "governing_law",
+        "liability_cap",
+        "audit_rights",
+        "assignment"
+      ],
+      "clauses_missing": [
+        "change_of_control"
+      ]
+    },
+    {
+      "file": "CybergyHoldingsInc_20140520_10-Q_EX-10.27_8605784_EX-10.27_Affiliate Agreement.pdf",
+      "source": "CUAD v1 (Atticus Project, CC BY 4.0)",
+      "chars": 33829,
+      "clauses_present": [
+        "governing_law",
+        "liability_cap",
+        "audit_rights",
+        "assignment"
+      ],
+      "clauses_missing": [
+        "change_of_control"
+      ]
+    },
+    {
+      "file": "MidwestEnergyEmissionsCorp_20080604_8-K_EX-10.2_3093976_EX-10.2_Content License Agreement.pdf",
+      "source": "CUAD v1 (Atticus Project, CC BY 4.0)",
+      "chars": 33917,
+      "clauses_present": [
+        "governing_law",
+        "liability_cap",
+        "audit_rights"
+      ],
+      "clauses_missing": [
+        "change_of_control",
+        "assignment"
+      ]
+    },
+    {
+      "file": "EmbarkComInc_19991008_S-1A_EX-10.10_6487661_EX-10.10_Co-Branding Agreement.pdf",
+      "source": "CUAD v1 (Atticus Project, CC BY 4.0)",
+      "chars": 35136,
+      "clauses_present": [
+        "governing_law",
+        "liability_cap",
+        "assignment"
+      ],
+      "clauses_missing": [
+        "audit_rights",
+        "change_of_control"
+      ]
+    },
+    {
+      "file": "SouthernStarEnergyInc_20051202_SB-2A_EX-9_801890_EX-9_Affiliate Agreement.pdf",
+      "source": "CUAD v1 (Atticus Project, CC BY 4.0)",
+      "chars": 22744,
+      "clauses_present": [
+        "governing_law",
+        "liability_cap"
+      ],
+      "clauses_missing": [
+        "audit_rights",
+        "change_of_control",
+        "assignment"
+      ]
+    },
+    {
+      "file": "InmodeLtd_20190729_F-1A_EX-10.9_11743243_EX-10.9_Manufacturing Agreement.pdf",
+      "source": "CUAD v1 (Atticus Project, CC BY 4.0)",
+      "chars": 39592,
+      "clauses_present": [
+        "governing_law",
+        "liability_cap",
+        "audit_rights",
+        "assignment"
+      ],
+      "clauses_missing": [
+        "change_of_control"
+      ]
+    },
+    {
+      "file": "AlliedEsportsEntertainmentInc_20190815_8-K_EX-10.34_11788308_EX-10.34_Sponsorship Agreement.pdf",
+      "source": "CUAD v1 (Atticus Project, CC BY 4.0)",
+      "chars": 37799,
+      "clauses_present": [
+        "governing_law",
+        "liability_cap",
+        "assignment"
+      ],
+      "clauses_missing": [
+        "audit_rights",
+        "change_of_control"
+      ]
+    },
+    {
+      "file": "BizzingoInc_20120322_8-K_EX-10.17_7504499_EX-10.17_Endorsement Agreement.pdf",
+      "source": "CUAD v1 (Atticus Project, CC BY 4.0)",
+      "chars": 24223,
+      "clauses_present": [
+        "audit_rights",
+        "assignment"
+      ],
+      "clauses_missing": [
+        "governing_law",
+        "liability_cap",
+        "change_of_control"
+      ]
+    }
+  ]
+}

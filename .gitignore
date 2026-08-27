@@ -16,3 +16,6 @@ web/test-results/
 web/playwright-report/
 data/uploads/
 infra/terraform/.terraform/
+data/real/CUAD_v1.zip
+data/real/cuad_tmp/
+data/inbox/

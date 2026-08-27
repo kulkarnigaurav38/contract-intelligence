@@ -93,6 +93,51 @@ def run_eval(session: Session) -> dict:
                  for fn, d in docs.items() if truth[fn]["injection"] or d.injection_suspected]
 
     return {"documents": len(docs) + len(unreadable), "unreadable": unreadable, "llm_enabled": settings.llm_enabled,
+            "real_data": real_data(session),
             "coverage_matrix": {"metrics": coverage, "errors": coverage_errors},
             "rename_registry": {"metrics": rename, "errors": rename_errors},
             "extraction": extraction, "audits": audits, "injection": injection}
+
+
+def real_data(session: Session) -> dict | None:
+    """Score the pipeline against CUAD's expert annotations for the five clause types the two taxonomies share."""
+    path = settings.data_dir / "real" / "cuad_ground_truth.json"
+    if not path.exists():
+        return None
+    gt = json.loads(path.read_text())
+    truth = {c["file"]: c for c in gt["contracts"]}
+    docs = {d.filename: d for d in session.scalars(select(Document).where(Document.status == "ready")) if d.filename in truth}
+    if not docs:
+        return {"source": gt.get("note", ""), "documents": 0}
+    types = sorted(set(gt["mapping"].values()))
+    pred, actual = set(), set()
+    per_type = {t: {"tp": 0, "fp": 0, "fn": 0} for t in types}
+    for fn, d in docs.items():
+        labelled = {c.clause_type for c in d.clauses}
+        for t in types:
+            key = f"{fn[:40]}:{t}"
+            p_missing, a_missing = t not in labelled, t in truth[fn]["clauses_missing"]
+            if p_missing:
+                pred.add(key)
+            if a_missing:
+                actual.add(key)
+            if p_missing and a_missing:
+                per_type[t]["tp"] += 1
+            elif p_missing:
+                per_type[t]["fp"] += 1
+            elif a_missing:
+                per_type[t]["fn"] += 1
+    metrics, errors = _score(pred, actual)
+    audits = []
+    ids = {d.id: fn for fn, d in docs.items()}
+    for audit in session.scalars(select(Audit).where(Audit.status == "done").order_by(Audit.id)):
+        if audit.kind != "missing_clause" or audit.params.get("clause_type") not in types or not audit.params.get("document_ids"):
+            continue
+        t = audit.params["clause_type"]
+        a = {f"{fn[:40]}:{t}" for fn in docs if t in truth[fn]["clauses_missing"]}
+        p = {f"{ids[f.document_id][:40]}:{t}" for f in audit.findings if f.document_id in ids and f.verdict in ("confirmed", "unverified", "partial")}
+        m, e = _score(p, a)
+        audits.append({"audit_id": audit.id, "clause_type": t, "verified": audit.summary.get("verified", False), "metrics": m, "errors": e})
+    return {"source": "CUAD v1 (The Atticus Project, CC BY 4.0) - " + gt.get("note", ""), "documents": len(docs), "types": types,
+            "coverage_matrix": {"metrics": metrics, "errors": errors, "per_type": {t: _prf(**v) for t, v in per_type.items()}},
+            "audits": audits}

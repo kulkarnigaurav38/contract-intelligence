@@ -52,6 +52,8 @@ def build(session: Session):
         q = select(Document.id).where(Document.status == "ready")
         if ct := state["params"].get("contract_type"):
             q = q.where(Document.contract_type == ct)
+        if ids := state["params"].get("document_ids"):  # e.g. an evaluation restricted to one benchmark
+            q = q.where(Document.id.in_(ids))
         return {"scope": list(session.scalars(q)), "claims": []}
 
     def deterministic(state: AuditState) -> AuditState:

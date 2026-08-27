@@ -1,0 +1,37 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M10YRAK6AWKV02WDE9XZSFT0",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "api/app/audits/graph.py",
+    "api/app/audits/verify.py",
+    "api/app/db.py",
+    "api/app/models.py",
+    "api/app/policy.py",
+    "api/app/routers.py",
+    "api/tests/test_end_to_end_db.py",
+    "api/tests/test_policy_units.py",
+    "docs/ui-spec.md",
+    "web/src/api.ts",
+    "web/src/components/ui.tsx",
+    "web/src/vocab.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 4368,
+    "cache_creation_tokens": 17423,
+    "cache_read_tokens": 1795113,
+    "output_tokens": 20102,
+    "api_call_count": 3
+  }
+}

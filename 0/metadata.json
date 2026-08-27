@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M1135W6Q8PWT5G2EG1PRPM7P",
+  "session_id": "046eadd3-6aa8-4b09-adc8-e3efac5fd391",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-27T07:50:36.160126Z",
+  "branch": "master",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "web/src/pages/Pipeline.tsx"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-opus-5[1m]",
+  "turn_id": "a0b9600304ec",
+  "checkpoint_transcript_start": 1851,
+  "transcript_lines_at_start": 1851,
+  "compact_transcript_start": 269,
+  "token_usage": {
+    "input_tokens": 112,
+    "cache_creation_tokens": 4327,
+    "cache_read_tokens": 1434250,
+    "output_tokens": 1329,
+    "api_call_count": 2
+  },
+  "session_metrics": {
+    "turn_count": 8
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-27T07:50:35.266496Z",
+    "agent_lines": 9,
+    "agent_removed": 1,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 9,
+    "total_lines_changed": 10,
+    "agent_percentage": 100,
+    "metric_version": 2
+  }
+}

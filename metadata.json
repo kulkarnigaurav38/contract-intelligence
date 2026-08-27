@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M12HABXNXN8PK0KVYRRC3ZZ2",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "api/app/evaluation.py",
+    "docs/presentation.html",
+    "docs/ps-coverage.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 290,
+    "cache_creation_tokens": 7599,
+    "cache_read_tokens": 3564480,
+    "output_tokens": 4911,
+    "api_call_count": 4
+  }
+}

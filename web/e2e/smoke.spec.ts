@@ -191,7 +191,8 @@ test('The technical switch reveals model IDs on /tech/models', async ({ page }) 
 
 test('Approvals › Prüflast explains the review load and shows the review rate per question', async ({ page }) => {
   await page.goto('/approvals')
-  await expect(page.getByRole('heading', { name: /Funde? warte[nt] auf Ihre Entscheidung\./ })).toBeVisible()
+  // the header depends on the queue: "Nichts wartet …", "1 Fund wartet …" or "n Funde warten …"
+  await expect(page.getByRole('heading', { name: /^(Nichts wartet|1 Fund wartet|\d+ Funde warten) auf Ihre Entscheidung\.$/ })).toBeVisible()
   await page.getByRole('tab', { name: 'Prüflast', exact: true }).click()
 
   const intro = page.getByText('Ihre Entscheidungen senken die Prüflast')

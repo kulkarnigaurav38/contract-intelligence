@@ -129,6 +129,14 @@ def apply(session: Session, audit: Audit) -> dict:
             f.policy = {"kind": "auto", "review_rate": rate}
             f.method_chain = f.method_chain + [f"policy: class review rate {rate:.0%}, auto-approved (AI-confirmed)"]
             _log(session, f, "finding.auto_approved", {"reason": "trusted_class", "class_key": key, "review_rate": rate})
+    if counts["auto_approved"] and not counts["spot_check"]:  # every run that automates anything still gets one human look
+        f = min((f for f in audit.findings if f.policy.get("kind") == "auto"), key=lambda f: f.document.sha256)
+        f.review_status, f.reviewed_at, f.policy = "pending", None, {"kind": "spot_check", "review_rate": rate, "minimum": True}
+        f.method_chain = f.method_chain[:-1] + [f"policy: class review rate {rate:.0%}, selected as the run's minimum spot check"]
+        session.query(AuditLog).filter(AuditLog.target_type == "finding", AuditLog.target_id == f.id,
+                                       AuditLog.action == "finding.auto_approved").delete()
+        counts["auto_approved"] -= 1
+        counts["spot_check"] += 1
     session.commit()
     return counts
 

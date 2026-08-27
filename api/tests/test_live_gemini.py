@@ -138,7 +138,7 @@ def test_review_load_falls_after_the_team_agrees(db_client):
     review = second["summary"]["review"]
     assert review["carried_over"] == len(open_findings)  # nobody reviews the same thing twice
     new = [f for f in second["findings"] if f["filename"].startswith("N0") and f["verdict"] == "confirmed"]
-    assert len(new) == 3 and review["auto_approved"] + review["spot_check"] == 3
+    assert len(new) == 3 and review["auto_approved"] + review["spot_check"] == 3 and review["spot_check"] >= 1
     assert all(f["review_status"] == "auto_approved" or f["policy"]["kind"] == "spot_check" for f in new)
     assert second["summary"]["precedents"] >= 1  # the verifier saw the team's notes
     log = db_client.get("/api/audit-log").json()

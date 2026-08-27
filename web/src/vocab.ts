@@ -18,6 +18,7 @@ export const AUDIT_QUESTIONS: Record<string, L> = {
 export const VERDICTS: Record<string, L> = {
   confirmed: { de: 'KI-bestätigt', en: 'AI-confirmed' },
   unverified: { de: 'Nicht gegengeprüft', en: 'Not cross-checked' },
+  partial: { de: 'Teilweise – bitte prüfen', en: 'Partly – please review' },
   dismissed: { de: 'Entkräftet', en: 'Cleared' },
   unreadable: { de: 'Nicht lesbar', en: 'Unreadable' },
 }
@@ -25,6 +26,7 @@ export const VERDICTS: Record<string, L> = {
 export const VERDICT_HELP: Record<string, L> = {
   confirmed: { de: 'Regelprüfung und KI-Gegenprüfung im Volltext stimmen überein.', en: 'Rule check and AI full-text cross-check agree.' },
   unverified: { de: 'Regelbasiert gefunden; eine KI-Gegenprüfung war nicht verfügbar. Bitte prüfen Sie den Beleg selbst.', en: 'Found by the rule check; no AI cross-check was available. Please verify the evidence yourself.' },
+  partial: { de: 'Eine Regelung zum Thema ist vorhanden, aber deutlich enger als gesucht. Bitte beurteilen Sie den Beleg selbst.', en: 'A provision on the subject exists but is materially narrower than asked for. Please judge the evidence yourself.' },
   dismissed: { de: 'Die KI-Gegenprüfung hat im Volltext eine passende Regelung gefunden. Kein Handlungsbedarf.', en: 'The AI cross-check found a matching provision in the full text. No action needed.' },
   unreadable: { de: 'Der Scan konnte nicht zuverlässig gelesen werden. Dieser Vertrag wurde nicht geprüft und gilt nicht als unauffällig. Bitte prüfen Sie das Original.', en: 'The scan could not be read reliably. This contract was not checked and does not count as fine. Please check the original.' },
 }
@@ -104,7 +106,7 @@ export const INPUT_TYPES: Record<string, L> = {
   scanned_pdf: { de: 'Scan', en: 'Scan' },
   mixed_pdf: { de: 'PDF mit gescannten Seiten', en: 'PDF with scanned pages' },
   image: { de: 'Foto', en: 'Photo' },
-  image_handwritten: { de: 'Handschrift (Foto)', en: 'Handwritten (photo)' },
+  image_handwritten: { de: 'Handschrift (Foto)', en: 'Handwritten (photo)' }, // ground-truth grouping on the Quality page only
   unknown: { de: 'Unbekannt', en: 'Unknown' },
 }
 

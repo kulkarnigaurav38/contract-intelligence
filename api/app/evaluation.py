@@ -84,7 +84,7 @@ def run_eval(session: Session) -> dict:
             continue
         by_id = {d.id: fn for fn, d in docs.items()}
         pred = {truth[by_id[f.document_id]]["id"] for f in audit.findings
-                if f.verdict in ("confirmed", "unverified") and f.document_id in by_id}
+                if f.verdict in ("confirmed", "unverified", "partial") and f.document_id in by_id}
         metrics, errors = _score(pred, actual)
         audits.append({"audit_id": audit.id, "kind": audit.kind, "params": audit.params,
                        "verified": audit.summary.get("verified", False), "metrics": metrics, "errors": errors})

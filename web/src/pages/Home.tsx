@@ -64,6 +64,7 @@ const T = {
   no_findings: { de: 'keine Funde', en: 'no findings' },
   v_confirmed: { de: '{n} KI-bestätigt', en: '{n} AI-confirmed' },
   v_unverified: { de: '{n} nicht gegengeprüft', en: '{n} not cross-checked' },
+  v_partial: { de: '{n} teilweise', en: '{n} partly' },
   v_dismissed: { de: '{n} entkräftet', en: '{n} cleared' },
   v_unreadable: { de: '{n} nicht lesbar', en: '{n} unreadable' },
   empty_title: { de: 'Noch keine Verträge.', en: 'No contracts yet.' },
@@ -77,7 +78,7 @@ const T = {
 
 const REGISTRY_NAMES = 'arvato Financial Solutions, Arvato Payment Solutions GmbH, AFS → Riverty GmbH'
 const CLAUSE_KEY = 'home.clause_type'
-const VERDICT_ORDER = ['confirmed', 'unverified', 'dismissed', 'unreadable'] as const
+const VERDICT_ORDER = ['confirmed', 'unverified', 'partial', 'dismissed', 'unreadable'] as const
 const LEGIBILITY_ORDER = ['good', 'partial', 'unreadable', 'reading'] as const
 
 const isReading = (d: Doc) => d.status === 'queued' || d.status === 'processing'

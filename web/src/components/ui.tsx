@@ -100,7 +100,7 @@ export function useFindingSentence() {
 export function VerdictChip({ verdict }: { verdict: string }) {
   const { lang } = useSettings()
   const icon = verdict === 'unreadable' ? <VisibilityOffIcon /> : verdict === 'dismissed' ? <CheckCircleOutlineIcon /> : <SearchIcon />
-  const color = verdict === 'confirmed' ? 'error' : verdict === 'unverified' ? 'warning' : verdict === 'dismissed' ? 'success' : 'info'
+  const color = verdict === 'confirmed' ? 'error' : verdict === 'unverified' || verdict === 'partial' ? 'warning' : verdict === 'dismissed' ? 'success' : 'info'
   return (
     <Tooltip title={VERDICT_HELP[verdict]?.[lang] ?? ''}>
       <Chip size="small" icon={icon} label={VERDICTS[verdict]?.[lang] ?? verdict} color={color} variant={verdict === 'dismissed' ? 'outlined' : 'filled'} />

@@ -75,16 +75,18 @@ def test_arvato_systems_is_third_party_not_old_entity():
 
 
 # ---------------------------------------------------------------- OCR confidence gate
-def test_clean_scan_stays_on_tesseract():
+def test_clean_scan_reads_well_but_coverage_gate_catches_a_dropped_region():
     _, pages = loader.load(fixture("C07"))
-    text, conf = ocr.tesseract(pages[0].image)
+    text, conf, uncovered = ocr.tesseract(pages[0].image)
     assert conf >= ocr.ESCALATE_BELOW
     assert "Merchant" in text and "Helios" in text
+    assert uncovered and ocr.needs_escalation(text, conf, uncovered)  # lower half of the page came back empty
+    assert not ocr.needs_escalation(text, conf, [])
 
 
 def test_handwriting_triggers_escalation():
     _, pages = loader.load(fixture("C08"))
-    _, conf = ocr.tesseract(pages[0].image)
+    _, conf, _ = ocr.tesseract(pages[0].image)
     assert conf < ocr.ESCALATE_BELOW
 
 
@@ -121,7 +123,7 @@ def test_signature_block_is_its_own_segment():
 
 def test_sparse_high_confidence_ocr_still_escalates():
     _, ps = loader.load(fixture("C09"))
-    text, _ = ocr.tesseract(ps[0].image)
+    text, _, _ = ocr.tesseract(ps[0].image)
     assert len(text) < ocr.MIN_CHARS  # the faded typewriter page yields almost no text
     assert ocr.needs_escalation(text, 0.87)  # ...even when the few recognised words score well (eng+deu tesseract)
     assert not ocr.needs_escalation("word " * 200, 0.9)

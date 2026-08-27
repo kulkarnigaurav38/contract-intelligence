@@ -173,9 +173,9 @@ function useSummarySentence() {
     const s = a.summary
     const v = verdictCounts(s)
     const scope = num(s, 'scope')
-    // uncertain contracts are reported as (unverified) findings too, but they are not hits
-    const unclear = num(s, 'uncertain')
-    const hits = Math.max(0, (v.confirmed ?? 0) + (v.unverified ?? 0) - unclear)
+    // hits = findings that need a decision; "partial" = a narrower provision exists, a lawyer must judge
+    const unclear = v.partial ?? 0
+    const hits = (v.confirmed ?? 0) + (v.unverified ?? 0)
     const unreadable = num(s, 'unreadable')
     if (scope === 0) return t('scope_empty')
     if (hits === 0 && unclear === 0) return t('all_clear') + (unreadable ? ' ' + pl(unreadable, 'unreadable') + '.' : '')
@@ -234,8 +234,8 @@ function SelectedCheck({ id, inScope, onChanged }: { id: number; inScope: (contr
   const s = audit.summary
   const v = verdictCounts(s)
   const verified = s.verified === true
-  const unclear = num(s, 'uncertain')
-  const hits = Math.max(0, (v.confirmed ?? 0) + (v.unverified ?? 0) - unclear)
+  const unclear = v.partial ?? 0
+  const hits = (v.confirmed ?? 0) + (v.unverified ?? 0)
   const fine = num(s, 'present') + num(s, 'historical_only') + (v.dismissed ?? 0)
   const rows = [...audit.findings].sort((a, b) => Number(a.verdict === 'dismissed') - Number(b.verdict === 'dismissed'))
   const isPending = (f: Finding) => f.review_status === 'pending' && f.verdict !== 'dismissed'
@@ -361,7 +361,7 @@ function SelectedCheck({ id, inScope, onChanged }: { id: number; inScope: (contr
                                       <Typography variant="body2">{f.reasoning}</Typography>
                                     </Box>
                                   )}
-                                  <HowFound steps={f.method_chain} verified={f.verdict === 'confirmed' || f.verdict === 'dismissed'} />
+                                  <HowFound steps={f.method_chain} verified={f.verdict === 'confirmed' || f.verdict === 'dismissed' || f.verdict === 'partial'} />
                                   {isPending(f) && (
                                     <Stack direction="row" spacing={1}>
                                       <Button variant="contained" color="success" onClick={() => setDecision({ finding: f, decision: 'approved' })}>

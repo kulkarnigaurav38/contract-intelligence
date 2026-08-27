@@ -222,7 +222,7 @@ function PendingCard({
   const navigate = useNavigate()
   const sentence = useFindingSentence()
   const unreadable = f.verdict === 'unreadable'
-  const verified = f.verdict === 'confirmed' || f.verdict === 'dismissed'
+  const verified = f.verdict === 'confirmed' || f.verdict === 'dismissed' || f.verdict === 'partial'
   const openContract = () => navigate(`/contracts?open=${f.document_id}&page=${f.evidence[0]?.page ?? 1}`)
 
   return (

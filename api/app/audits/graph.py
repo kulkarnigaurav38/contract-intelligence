@@ -165,11 +165,12 @@ def build(session: Session):
             if verdict.quote:
                 evidence = [{"page": verdict.page, "quote": verdict.quote[:400]}] + evidence
             if claim["direction"] == "missing":
-                status = "confirmed" if verdict.verdict == "confirmed" else "dismissed"
+                status = {"confirmed": "confirmed", "refuted": "dismissed", "partial": "partial"}[verdict.verdict]
                 _store(session, state["audit_id"], claim, status, verdict.confidence, chain, verdict.reasoning, evidence)
-            elif verdict.verdict == "refuted":  # "present" claim refuted => the clause is actually missing
+            elif verdict.verdict != "confirmed":  # "present" claim refuted or only partly true => flag it
                 claim = dict(claim, claim=claim["claim"].replace("contains a", "does not contain a", 1))
-                _store(session, state["audit_id"], claim, "confirmed", verdict.confidence, chain, verdict.reasoning, evidence)
+                status = "confirmed" if verdict.verdict == "refuted" else "partial"
+                _store(session, state["audit_id"], claim, status, verdict.confidence, chain, verdict.reasoning, evidence)
         session.commit()
         return {"summary": summary}
 

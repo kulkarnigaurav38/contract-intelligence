@@ -7,6 +7,12 @@ test.describe.configure({ mode: 'serial' })
 
 const shot = (page: Page, name: string) => page.screenshot({ path: `e2e/screenshots/${name}.png`, fullPage: true })
 
+/** The stack runs with or without a Gemini key; the UI wording differs accordingly. */
+const aiEnabled = async (page: Page): Promise<boolean> => {
+  const res = await page.request.get('/api/config')
+  return ((await res.json()) as { llm_enabled: boolean }).llm_enabled
+}
+
 test('Home shows the three question cards and the contract-set strip', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Was möchten Sie wissen?' })).toBeVisible()
@@ -27,7 +33,7 @@ test('Contracts table shows Lesbarkeit chips and opens a contract dialog', async
   await expect(page.getByText('C01_merchant_agreement_nordlicht.pdf')).toBeVisible()
   await expect(page.getByText('Lesbarkeit', { exact: true })).toBeVisible()
   expect(await page.getByText('Gut lesbar', { exact: true }).count()).toBeGreaterThan(5)
-  await expect(page.getByText('Nicht lesbar', { exact: true }).first()).toBeVisible()
+  if (!(await aiEnabled(page))) await expect(page.getByText('Nicht lesbar', { exact: true }).first()).toBeVisible() // offline: the bad scan cannot be read
   await page.getByRole('row', { name: /C10_merchant_agreement_lumen_mixed\.pdf/ }).click()
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
@@ -67,12 +73,13 @@ test('Old-company-name check from Home lands on the check detail', async ({ page
   // one summary sentence once the check has finished
   await expect(page.getByText(/^14 Verträge geprüft: .*nennen noch den alten Firmennamen/)).toBeVisible({ timeout: 60_000 })
   await expect(page.getByText('auffällig', { exact: true })).toBeVisible()
-  await expect(page.getByText('Ohne KI-Gegenprüfung', { exact: true }).first()).toBeVisible()
+  const ai = await aiEnabled(page)
+  await expect(page.getByText(ai ? 'KI-gegengeprüft' : 'Ohne KI-Gegenprüfung', { exact: true }).first()).toBeVisible()
   // verdict chips are words: KI-… or "Nicht gegengeprüft"
   const verdict = page.getByText(/^(KI-bestätigt|Nicht gegengeprüft)$/).first()
   await expect(verdict).toBeVisible()
   // expand a finding row: the provenance disclosure is collapsed by default
-  await page.getByRole('row').filter({ hasText: 'Nicht gegengeprüft' }).first().click()
+  await page.getByRole('row').filter({ hasText: ai ? 'KI-bestätigt' : 'Nicht gegengeprüft' }).first().click()
   const howFound = page.getByRole('button', { name: 'So kam der Fund zustande' })
   await expect(howFound).toBeVisible()
   await expect(page.getByText('Über das Namensregister gefunden')).toBeHidden()
@@ -117,13 +124,17 @@ test('Approvals: approve, confirm, file to storage, and the log lists it', async
   await expect(page.getByText('finding.pushed_to_storage')).toBeHidden()
 })
 
-test('Ask: example chip returns Belege in offline mode without the English preamble', async ({ page }) => {
+test('Ask: example chip returns Belege (cited answer with AI, passages only without)', async ({ page }) => {
   await page.goto('/ask')
   await expect(page.getByRole('heading', { name: 'Fragen Sie Ihre Verträge' })).toBeVisible()
   await page.getByText('Welcher Gerichtsstand gilt im Vertrag mit Nordlicht Möbelhaus?', { exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Antwort' })).toBeVisible({ timeout: 30_000 })
-  await expect(page.getByText('Nur Fundstellen (ohne KI)')).toBeVisible()
-  await expect(page.getByText('Ohne KI-Verbindung zeigen wir die passendsten Stellen statt einer Antwort.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Antwort' })).toBeVisible({ timeout: 60_000 })
+  if (await aiEnabled(page)) {
+    await expect(page.getByText('Antwort mit Belegen (KI)')).toBeVisible()
+  } else {
+    await expect(page.getByText('Nur Fundstellen (ohne KI)')).toBeVisible()
+    await expect(page.getByText('Ohne KI-Verbindung zeigen wir die passendsten Stellen statt einer Antwort.')).toBeVisible()
+  }
   await expect(page.getByText(/Baden-Baden/).first()).toBeVisible()
   await expect(page.getByRole('button', { name: 'Vertrag öffnen' }).first()).toBeVisible()
   await expect(page.getByText(/Weitere gefundene Stellen \(\d+\)/)).toBeVisible()
@@ -141,7 +152,7 @@ test('Quality measurement runs and reports precision and recall in words', async
   await expect(page.getByText(/Von den Verträgen mit altem Firmennamen wurden \d+[\s ]% gefunden/)).toBeVisible()
   await expect(page.getByText('Treffergenauigkeit (Precision)').first()).toBeVisible()
   await expect(page.getByText('Abgeschlossene Prüfungen')).toBeVisible()
-  await expect(page.getByText(/wurde als nicht lesbar an Sie weitergegeben/)).toBeVisible()
+  if (!(await aiEnabled(page))) await expect(page.getByText(/wurde als nicht lesbar an Sie weitergegeben/)).toBeVisible() // offline only
   await shot(page, '07-quality')
 })
 
@@ -161,7 +172,7 @@ test('Switching to EN changes the nav labels', async ({ page }) => {
 test('The technical switch reveals model IDs on /tech/models', async ({ page }) => {
   await page.goto('/tech/models')
   await expect(page.getByRole('heading', { name: 'Modelle' })).toBeVisible()
-  await expect(page.getByText(/Keine KI verbunden|KI-Gegenprüfung aktiv/)).toBeVisible()
+  await expect(page.getByText(/Keine KI verbunden|KI-Gegenprüfung aktiv/).first()).toBeVisible()
   await expect(page.getByText('Großes Modell').first()).toBeVisible()
   await expect(page.getByText('Funde gegenprüfen')).toBeVisible()
   await expect(page.getByText('gemini-3.1-pro-preview')).toHaveCount(0)

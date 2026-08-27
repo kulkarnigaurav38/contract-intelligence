@@ -76,8 +76,6 @@ def _process(session: Session, doc: Document, path: Path) -> None:
         page_texts.append((p.page_no, text))
         summary.append({"page": p.page_no, "method": method, "confidence": confidence, "note": note})
     doc.ingest_summary = summary
-    if input_type == "image":
-        doc.input_type = "image_handwritten" if any(s["method"] == "vision_llm" for s in summary) else "image"
 
     full_text = "\n".join(t for _, t in page_texts)
     doc.language = detect_language(full_text)

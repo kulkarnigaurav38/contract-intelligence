@@ -14,7 +14,7 @@ from app.llm import DOC_GUARD, chat
 
 
 class Verdict(BaseModel):
-    verdict: Literal["confirmed", "refuted"]
+    verdict: Literal["confirmed", "refuted", "partial"]
     confidence: float = Field(ge=0, le=1)
     page: int = Field(description="Page of the decisive passage, 0 if none")
     quote: str = Field(description="Verbatim decisive passage, or empty")
@@ -36,7 +36,9 @@ def verify(pages: list[tuple[int, str]], claim: str, language: str = "en") -> Ve
             "correct. A claim that a clause is missing is refuted if an equivalent provision exists under any "
             "heading or wording, in any language. A claim that an old company name is used as an active party is "
             "refuted if the name only appears as a historical reference (e.g. 'formerly', 'vormals') or belongs to "
-            "a different company. Quote the decisive passage verbatim with its page number. Be conservative with "
+            "a different company. Answer 'partial' when a provision on the same subject exists but is materially "
+            "narrower than what the claim asks for (e.g. a bare warranty where a compliance-and-procedures obligation "
+            "is expected) - a lawyer must then judge. Quote the decisive passage verbatim with its page number. Be conservative with "
             "confidence: sensitive legal documents, mistakes are costly. Write the reasoning in "
             + LANGUAGES.get(language, "English") + ", for a lawyer, in two or three sentences. " + DOC_GUARD
         )),

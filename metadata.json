@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M10ZHAT41XFRN3HZN7XDNHQY",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "api/tests/test_live_gemini.py",
+    "web/e2e/smoke.spec.ts",
+    "web/src/pages/Approvals.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 260,
+    "cache_creation_tokens": 6503,
+    "cache_read_tokens": 2553522,
+    "output_tokens": 3542,
+    "api_call_count": 4
+  }
+}

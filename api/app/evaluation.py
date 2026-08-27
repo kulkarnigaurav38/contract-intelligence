@@ -77,8 +77,9 @@ def run_eval(session: Session) -> dict:
     for audit in session.scalars(select(Audit).where(Audit.status == "done").order_by(Audit.id)):
         if audit.params.get("document_ids"):  # scoped to a benchmark (e.g. CUAD): scored in real_data, not here
             continue
-        scope = {fn for fn, d in docs.items()
-                 if not audit.params.get("contract_type") or d.contract_type == audit.params["contract_type"]}
+        scope = {fn for fn, d in docs.items()  # only documents that existed when the check ran
+                 if (not audit.params.get("contract_type") or d.contract_type == audit.params["contract_type"])
+                 and d.created_at <= audit.created_at}
         if audit.kind == "missing_clause":
             actual = {truth[fn]["id"] for fn in scope if audit.params["clause_type"] in truth[fn]["clauses_missing"]}
         elif audit.kind == "rename" and not audit.params.get("old_name"):

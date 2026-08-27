@@ -95,12 +95,12 @@ Riverty's own public documents) with URL/licence verification selected:
 | change_of_control | 0.92 | 1.00 | 1.00 | 0.80 | 11 |
 | governing_law | 0.09 | 1.00 | 1.00 | 1.00 | 1 |
 | liability_cap | 0.22 | 0.67 | 1.00 | 1.00 | 3 |
-| **all five** | **0.43** | **0.95** | **1.00** | **0.95** | 22 |
+| **all five** | **0.43** | **0.95** | **1.00** | **0.91** | 22 |
 
 Reading: on long, heterogeneous real contracts the rule layer (keywords + Flash labels on segmented clauses) is
 **recall-first** — it found 21 of 22 true absences but over-flagged (28 false alarms; e.g. governing law inside a
 “Miscellaneous” section, audit rights phrased as inspection rights). The **verifier reading the whole contract**
-restored precision to 1.00 on every type and kept recall at 1.00 on four of five; its two change-of-control misses
+restored precision to 1.00 on every type and kept recall at 1.00 on four of five (0.91 overall, 20 of 22); its two change-of-control misses
 are dismissals on provisions CUAD's annotators did not count as change-of-control clauses — a disputable call,
 surfaced with its quote and reasoning, not a silent error. This is the two-layer design doing what it claims:
 structure gives recall, verification gives precision, and nothing is lost between them because only the verifier

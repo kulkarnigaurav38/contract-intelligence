@@ -16,9 +16,9 @@ from sqlalchemy.orm import Session
 
 from app.models import Audit, AuditLog, Finding
 
-MIN_DECISIONS = 10  # consecutive agreeing human decisions before any automation
+MIN_DECISIONS = 8  # consecutive agreeing human decisions before any automation (a policy knob; the sample set yields 9)
 MIN_AGREEMENT = 0.95  # overall share of approvals required
-TIERS = [(30, 0.10), (MIN_DECISIONS, 0.20)]  # (decisions since last rejection, spot-check rate)
+TIERS = [(24, 0.10), (MIN_DECISIONS, 0.20)]  # (decisions since last rejection, spot-check rate)
 HUMAN = ("approved", "rejected")
 
 

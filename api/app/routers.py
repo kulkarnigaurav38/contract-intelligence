@@ -76,8 +76,10 @@ def _ingest_many(paths: list[Path], actor: str) -> None:
 
 
 @router.post("/documents/ingest-samples")
-def ingest_samples(background: BackgroundTasks, actor: str = "system") -> dict:
-    paths = sorted(p for p in (settings.data_dir / "contracts").iterdir() if p.suffix.lower() in (".pdf", ".jpg", ".jpeg", ".png"))
+def ingest_samples(background: BackgroundTasks, actor: str = "system", batch: int = 1) -> dict:
+    """batch 1 = the sample set; batch 2 = the 'new arrivals' used to show the review policy at work."""
+    folder = settings.data_dir / ("contracts" if batch == 1 else "contracts_batch2")
+    paths = sorted(p for p in folder.iterdir() if p.suffix.lower() in (".pdf", ".jpg", ".jpeg", ".png"))
     background.add_task(_ingest_many, paths, actor)
     return {"queued": len(paths)}
 

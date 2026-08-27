@@ -42,7 +42,8 @@
         "anti_corruption",
         "change_of_control"
       ],
-      "injection": false
+      "injection": false,
+      "batch": 1
     },
     {
       "id": "C02",
@@ -72,7 +73,8 @@
         "anti_corruption",
         "change_of_control"
       ],
-      "injection": false
+      "injection": false,
+      "batch": 1
     },
     {
       "id": "C03",
@@ -102,7 +104,8 @@
         "anti_corruption",
         "change_of_control"
       ],
-      "injection": false
+      "injection": false,
+      "batch": 1
     },
     {
       "id": "C04",
@@ -131,7 +134,8 @@
         "change_of_control"
       ],
       "clauses_missing": [],
-      "injection": false
+      "injection": false,
+      "batch": 1
     },
     {
       "id": "C05",
@@ -161,7 +165,8 @@
       "clauses_missing": [
         "data_protection"
       ],
-      "injection": false
+      "injection": false,
+      "batch": 1
     },
     {
       "id": "C06",
@@ -191,7 +196,8 @@
       "clauses_missing": [
         "force_majeure"
       ],
-      "injection": false
+      "injection": false,
+      "batch": 1
     },
     {
       "id": "C07",
@@ -221,7 +227,8 @@
       "clauses_missing": [
         "liability_cap"
       ],
-      "injection": false
+      "injection": false,
+      "batch": 1
     },
     {
       "id": "C08",
@@ -251,7 +258,8 @@
         "anti_corruption",
         "change_of_control"
       ],
-      "injection": false
+      "injection": false,
+      "batch": 1
     },
     {
       "id": "C09",
@@ -281,7 +289,8 @@
         "anti_corruption",
         "change_of_control"
       ],
-      "injection": false
+      "injection": false,
+      "batch": 1
     },
     {
       "id": "C10",
@@ -310,7 +319,8 @@
         "change_of_control"
       ],
       "clauses_missing": [],
-      "injection": false
+      "injection": false,
+      "batch": 1
     },
     {
       "id": "C11",
@@ -340,7 +350,8 @@
         "audit_rights",
         "change_of_control"
       ],
-      "injection": false
+      "injection": false,
+      "batch": 1
     },
     {
       "id": "C12",
@@ -370,7 +381,8 @@
       "clauses_missing": [
         "anti_corruption"
       ],
-      "injection": false
+      "injection": false,
+      "batch": 1
     },
     {
       "id": "C13",
@@ -400,7 +412,8 @@
       "clauses_missing": [
         "liability_cap"
       ],
-      "injection": true
+      "injection": true,
+      "batch": 1
     },
     {
       "id": "C14",
@@ -430,7 +443,130 @@
       "clauses_missing": [
         "data_protection"
       ],
-      "injection": false
+      "injection": false,
+      "batch": 1
+    },
+    {
+      "id": "N01",
+      "file": "N01_merchant_agreement_solstice.pdf",
+      "title": "Merchant Agreement",
+      "contract_type": "merchant_agreement",
+      "language": "en",
+      "input_type": "digital_pdf",
+      "pages": 2,
+      "our_entity": "arvato Financial Solutions",
+      "counterparty": "Solstice Gaming Ltd",
+      "needs_rename": true,
+      "rename_note": "new arrival, pre-rebrand brand name",
+      "clauses_present": [
+        "term_termination",
+        "fees_payment",
+        "liability_cap",
+        "confidentiality",
+        "data_protection",
+        "governing_law",
+        "dispute_resolution",
+        "force_majeure",
+        "assignment",
+        "audit_rights",
+        "anti_corruption",
+        "change_of_control"
+      ],
+      "clauses_missing": [],
+      "injection": false,
+      "batch": 2
+    },
+    {
+      "id": "N02",
+      "file": "N02_haendlervertrag_waldhaus.pdf",
+      "title": "Händlervertrag",
+      "contract_type": "merchant_agreement",
+      "language": "de",
+      "input_type": "digital_pdf",
+      "pages": 2,
+      "our_entity": "Arvato Payment Solutions GmbH",
+      "counterparty": "Waldhaus Möbel GmbH",
+      "needs_rename": true,
+      "rename_note": "new arrival, old legal entity",
+      "clauses_present": [
+        "term_termination",
+        "fees_payment",
+        "liability_cap",
+        "confidentiality",
+        "data_protection",
+        "governing_law",
+        "dispute_resolution",
+        "force_majeure",
+        "assignment",
+        "audit_rights",
+        "anti_corruption"
+      ],
+      "clauses_missing": [
+        "change_of_control"
+      ],
+      "injection": false,
+      "batch": 2
+    },
+    {
+      "id": "N03",
+      "file": "N03_merchant_agreement_aurora.pdf",
+      "title": "Merchant Agreement",
+      "contract_type": "merchant_agreement",
+      "language": "en",
+      "input_type": "digital_pdf",
+      "pages": 2,
+      "our_entity": "Riverty GmbH",
+      "counterparty": "Aurora Bikes AB",
+      "needs_rename": false,
+      "rename_note": "new arrival, already Riverty",
+      "clauses_present": [
+        "term_termination",
+        "fees_payment",
+        "liability_cap",
+        "confidentiality",
+        "data_protection",
+        "governing_law",
+        "dispute_resolution",
+        "force_majeure",
+        "assignment",
+        "audit_rights",
+        "anti_corruption",
+        "change_of_control"
+      ],
+      "clauses_missing": [],
+      "injection": false,
+      "batch": 2
+    },
+    {
+      "id": "N04",
+      "file": "N04_merchant_agreement_kiez_kaffee.pdf",
+      "title": "Merchant Agreement",
+      "contract_type": "merchant_agreement",
+      "language": "en",
+      "input_type": "digital_pdf",
+      "pages": 2,
+      "our_entity": "arvato Financial Solutions",
+      "counterparty": "Kiez Kaffee GmbH",
+      "needs_rename": true,
+      "rename_note": "new arrival, pre-rebrand brand name and no liability cap",
+      "clauses_present": [
+        "term_termination",
+        "fees_payment",
+        "confidentiality",
+        "data_protection",
+        "governing_law",
+        "dispute_resolution",
+        "force_majeure",
+        "assignment",
+        "audit_rights",
+        "anti_corruption",
+        "change_of_control"
+      ],
+      "clauses_missing": [
+        "liability_cap"
+      ],
+      "injection": false,
+      "batch": 2
     }
   ]
 }

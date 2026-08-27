@@ -13,7 +13,7 @@ GT = {c["id"]: c for c in json.loads((DATA / "ground_truth.json").read_text())["
 
 
 def fixture(cid: str) -> Path:
-    return DATA / "contracts" / GT[cid]["file"]
+    return DATA / ("contracts" if GT[cid].get("batch", 1) == 1 else "contracts_batch2") / GT[cid]["file"]
 
 
 def digital_pages(cid: str) -> list[tuple[int, str]]:

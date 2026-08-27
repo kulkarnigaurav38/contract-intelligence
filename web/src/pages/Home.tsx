@@ -47,6 +47,8 @@ const T = {
   pending_many: { de: '{n} Funde warten auf Ihre Entscheidung.', en: '{n} findings await your decision.' },
   to_approvals: { de: 'Zur Freigabe', en: 'Go to approvals' },
   nothing_pending: { de: 'Nichts wartet auf Sie.', en: 'Nothing is waiting for you.' },
+  auto_one: { de: '1 Fund wurde automatisch freigegeben.', en: '1 finding was approved automatically.' },
+  auto_many: { de: '{n} Funde wurden automatisch freigegeben.', en: '{n} findings were approved automatically.' },
   stock_title: { de: 'Ihr Vertragsbestand', en: 'Your contracts' },
   contracts_one: { de: '1 Vertrag', en: '1 contract' },
   contracts_many: { de: '{n} Verträge', en: '{n} contracts' },
@@ -195,6 +197,7 @@ export default function Home() {
   const { data: config } = usePolling(api.config, 0, never)
   const { data: coverage, refresh: refreshCoverage } = usePolling(api.coverage, 0, never)
   const { data: pending } = usePolling(() => api.findings('pending'), 0, never)
+  const { data: allFindings } = usePolling(() => api.findings(), 0, never)
   const { data: audits } = usePolling(api.audits, 2000, anyRunning)
 
   const [contractType, setContractType] = useState('')
@@ -276,6 +279,15 @@ export default function Home() {
 
   const recent = audits ? [...audits].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 3) : null
   const verifier = config?.routing.find((r) => r.task === 'verify')?.model ?? ''
+
+  // Second line of the approval card: findings the review policy approved without a person ("Prüflast").
+  const autoCount = allFindings?.filter((f) => f.review_status === 'auto_approved').length ?? 0
+  const autoLine =
+    autoCount > 0 ? (
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+        {autoCount === 1 ? t('auto_one') : t('auto_many', { n: autoCount })}
+      </Typography>
+    ) : null
 
   return (
     <Stack spacing={3} sx={{ maxWidth: 1100 }}>
@@ -388,16 +400,22 @@ export default function Home() {
               </Typography>
               {pending && pending.length > 0 && (
                 <Stack spacing={1.5} sx={{ mt: 0.5, alignItems: 'flex-start' }}>
-                  <Typography variant="body1">{pending.length === 1 ? t('pending_one') : t('pending_many', { n: pending.length })}</Typography>
+                  <Box>
+                    <Typography variant="body1">{pending.length === 1 ? t('pending_one') : t('pending_many', { n: pending.length })}</Typography>
+                    {autoLine}
+                  </Box>
                   <Button variant="contained" startIcon={<HowToRegIcon />} component={RouterLink} to="/approvals">
                     {t('to_approvals')}
                   </Button>
                 </Stack>
               )}
               {pending && pending.length === 0 && (
-                <Stack direction="row" spacing={1} sx={{ mt: 0.5, alignItems: 'center' }}>
-                  <CheckCircleOutlinedIcon color="success" fontSize="small" />
-                  <Typography variant="body1">{t('nothing_pending')}</Typography>
+                <Stack direction="row" spacing={1} sx={{ mt: 0.5, alignItems: 'flex-start' }}>
+                  <CheckCircleOutlinedIcon color="success" fontSize="small" sx={{ mt: 0.25 }} />
+                  <Box>
+                    <Typography variant="body1">{t('nothing_pending')}</Typography>
+                    {autoLine}
+                  </Box>
                 </Stack>
               )}
             </Paper>

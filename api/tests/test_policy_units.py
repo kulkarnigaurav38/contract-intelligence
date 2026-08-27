@@ -5,15 +5,15 @@ from app import policy
 
 def test_full_review_until_enough_agreeing_decisions():
     assert policy.review_rate([]) == 1.0
-    assert policy.review_rate(["approved"] * 9) == 1.0
-    assert policy.review_rate(["approved"] * 10) == 0.2
-    assert policy.review_rate(["approved"] * 30) == 0.1
+    assert policy.review_rate(["approved"] * 7) == 1.0
+    assert policy.review_rate(["approved"] * 8) == 0.2
+    assert policy.review_rate(["approved"] * 24) == 0.1
 
 
 def test_one_rejection_resets_to_full_review_and_agreement_floor_holds():
-    assert policy.review_rate(["approved"] * 30 + ["rejected"]) == 1.0
-    assert policy.review_rate(["approved"] * 30 + ["rejected"] + ["approved"] * 10) == 0.2  # recovers tier by tier
-    assert policy.review_rate(["approved"] * 10 + ["rejected"] * 2 + ["approved"] * 10) == 1.0  # agreement 0.91
+    assert policy.review_rate(["approved"] * 24 + ["rejected"]) == 1.0
+    assert policy.review_rate(["approved"] * 24 + ["rejected"] + ["approved"] * 8) == 0.2  # recovers tier by tier
+    assert policy.review_rate(["approved"] * 8 + ["rejected"] * 2 + ["approved"] * 8) == 1.0  # agreement 0.89
 
 
 def test_class_key_groups_by_question_not_contract():

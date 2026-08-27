@@ -45,7 +45,7 @@ import {
   usePolling,
   useToast,
 } from '../components/ui'
-import { AUDIT_KINDS, AUDIT_QUESTIONS, AUDIT_STATUS, CLAUSE_TYPES, COMMON, CONTRACT_TYPES, CONTRACT_TYPE_KEYS } from '../vocab'
+import { AUDIT_KINDS, AUDIT_QUESTIONS, AUDIT_STATUS, CLAUSE_TYPES, COMMON, CONTRACT_TYPES, CONTRACT_TYPE_KEYS, POLICY, REVIEW_STATUS } from '../vocab'
 
 const T = {
   title: { de: 'Prüfungen', en: 'Checks' },
@@ -95,6 +95,13 @@ const T = {
   unclear_n: { de: '{n} sind unklar', en: '{n} are unclear' },
   unreadable_1: { de: '1 konnte nicht gelesen werden und gilt nicht als geprüft', en: '1 could not be read and does not count as checked' },
   unreadable_n: { de: '{n} konnten nicht gelesen werden und gelten nicht als geprüft', en: '{n} could not be read and do not count as checked' },
+  // review load ("Prüflast"): appended to the summary sentence when the policy touched any finding
+  review_line: { de: 'Davon {parts}.', en: 'Of these, {parts}.' },
+  review_auto: { de: '{n} automatisch freigegeben', en: '{n} auto-approved' },
+  review_spot_1: { de: '1 Stichprobe', en: '1 spot check' },
+  review_spot_n: { de: '{n} Stichproben', en: '{n} spot checks' },
+  review_carried: { de: '{n} bereits entschieden', en: '{n} already decided' },
+  carried_over_nodate: { de: 'Bereits entschieden', en: 'Already decided' },
   tile_hits: { de: 'auffällig', en: 'flagged' },
   tile_fine: { de: 'unauffällig', en: 'fine' },
   tile_unclear: { de: 'unklar', en: 'unclear' },
@@ -142,6 +149,9 @@ const trunc = (s: string, n: number) => (s.length > n ? s.slice(0, n).trimEnd() 
 const quoted = (s: string, lang: Lang) => (lang === 'de' ? `„${s}“` : `“${s}”`)
 const fmtDate = (iso: string, lang: Lang) =>
   new Date(iso).toLocaleString(lang === 'de' ? 'de-DE' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+const fmtDay = (iso: string, lang: Lang) => new Date(iso).toLocaleDateString(lang === 'de' ? 'de-DE' : 'en-GB', { dateStyle: 'medium' })
+const pct = (rate: number, lang: Lang) => `${Math.round(rate * 100)}${lang === 'de' ? ' %' : '%'}`
+const reviewCounts = (s: Audit['summary']): Record<string, number> | null => (typeof s.review === 'object' && s.review ? s.review : null)
 const firstPage = (f: Finding) => f.evidence.find((e) => e.page > 0)?.page ?? 1
 
 /** "Fehlende Klausel: Haftungsbegrenzung · Händlerverträge" — one line naming a check. */
@@ -197,6 +207,40 @@ function useSummarySentence() {
   }
 }
 
+/** "Davon 3 automatisch freigegeben, 1 Stichprobe, 2 bereits entschieden." — only the non-zero parts; '' when the policy touched nothing. */
+function useReviewSentence() {
+  const t = useT(T)
+  return (a: Audit): string => {
+    const r = reviewCounts(a.summary)
+    if (!r) return ''
+    const parts: string[] = []
+    if (r.auto_approved) parts.push(t('review_auto', { n: r.auto_approved }))
+    if (r.spot_check) parts.push(t(r.spot_check === 1 ? 'review_spot_1' : 'review_spot_n', { n: r.spot_check }))
+    if (r.carried_over) parts.push(t('review_carried', { n: r.carried_over }))
+    return parts.length ? t('review_line', { parts: parts.join(', ') }) : ''
+  }
+}
+
+/** Why a person did or did not have to look at this finding, in one small line; '' for a plain required review. */
+function usePolicyReason() {
+  const { lang } = useSettings()
+  const t = useT(T)
+  const c = useT(COMMON)
+  return (f: Finding): string => {
+    const p = f.policy
+    if (!p || !('kind' in p)) return ''
+    if (p.kind === 'spot_check') return POLICY.spot_check[lang]
+    if (p.kind === 'auto') return `${POLICY.auto[lang]} – ${c('review_rate')} ${pct(p.review_rate, lang)}`
+    if (p.kind === 'carried_over') {
+      let s = p.decided_at ? POLICY.carried_over[lang].replace('{date}', fmtDay(p.decided_at, lang)) : t('carried_over_nodate')
+      if (p.decision === 'rejected') s += ` – ${REVIEW_STATUS.rejected[lang]}`
+      if (p.note) s += lang === 'de' ? `: ‚${p.note}‘` : `: ‘${p.note}’`
+      return s
+    }
+    return ''
+  }
+}
+
 function Tile({ n, label, color }: { n: number; label: string; color: string }) {
   return (
     <Paper sx={{ p: 1.5 }}>
@@ -218,6 +262,8 @@ function SelectedCheck({ id, inScope, onChanged }: { id: number; inScope: (contr
   const navigate = useNavigate()
   const label = useCheckLabel()
   const sentence = useSummarySentence()
+  const reviewSentence = useReviewSentence()
+  const policyReason = usePolicyReason()
   const findingSentence = useFindingSentence()
   const statusLabel = useLabel(AUDIT_STATUS)
   const { data: audit, error, refresh } = usePolling(() => api.audit(id), 1500, IS_RUNNING)
@@ -241,6 +287,7 @@ function SelectedCheck({ id, inScope, onChanged }: { id: number; inScope: (contr
   const isPending = (f: Finding) => f.review_status === 'pending' && f.verdict !== 'dismissed'
   const pendingCount = rows.filter(isPending).length
   const scopeCount = inScope(audit.params.contract_type ?? '')
+  const review = reviewSentence(audit)
 
   return (
     <Stack spacing={2} sx={{ minWidth: 0 }}>
@@ -278,6 +325,7 @@ function SelectedCheck({ id, inScope, onChanged }: { id: number; inScope: (contr
         <>
           <Typography variant="body1" sx={{ fontSize: 17 }}>
             {sentence(audit)}
+            {review ? ' ' + review : ''}
           </Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 1.5 }}>
             <Tile n={hits} label={t('tile_hits')} color="error.main" />
@@ -312,6 +360,7 @@ function SelectedCheck({ id, inScope, onChanged }: { id: number; inScope: (contr
                     {rows.map((f) => {
                       const isOpen = open === f.id
                       const quote = f.evidence[0]
+                      const reason = policyReason(f)
                       return (
                         <Fragment key={f.id}>
                           <TableRow hover onClick={() => setOpen(isOpen ? null : f.id)} sx={{ cursor: 'pointer', '& > td': { borderBottom: isOpen ? 'none' : undefined } }}>
@@ -362,15 +411,26 @@ function SelectedCheck({ id, inScope, onChanged }: { id: number; inScope: (contr
                                     </Box>
                                   )}
                                   <HowFound steps={f.method_chain} verified={f.verdict === 'confirmed' || f.verdict === 'dismissed' || f.verdict === 'partial'} />
-                                  {isPending(f) && (
-                                    <Stack direction="row" spacing={1}>
-                                      <Button variant="contained" color="success" onClick={() => setDecision({ finding: f, decision: 'approved' })}>
-                                        {c('approve')}
-                                      </Button>
-                                      <Button variant="outlined" color="inherit" onClick={() => setDecision({ finding: f, decision: 'rejected' })}>
-                                        {c('reject')}
-                                      </Button>
+                                  {f.review_status === 'auto_approved' ? (
+                                    // decided by the system: no Freigeben/Ablehnen here, the chip and the reason instead
+                                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                                      <ReviewChip finding={f} />
+                                      {reason && <Small>{reason}</Small>}
                                     </Stack>
+                                  ) : (
+                                    <>
+                                      {reason && <Small>{reason}</Small>}
+                                      {isPending(f) && (
+                                        <Stack direction="row" spacing={1}>
+                                          <Button variant="contained" color="success" onClick={() => setDecision({ finding: f, decision: 'approved' })}>
+                                            {c('approve')}
+                                          </Button>
+                                          <Button variant="outlined" color="inherit" onClick={() => setDecision({ finding: f, decision: 'rejected' })}>
+                                            {c('reject')}
+                                          </Button>
+                                        </Stack>
+                                      )}
+                                    </>
                                   )}
                                 </Stack>
                               </Collapse>

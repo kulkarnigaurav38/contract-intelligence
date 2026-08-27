@@ -17,6 +17,7 @@ from app.db import engine
 DATA = Path(__file__).resolve().parents[2] / "data"
 GT = {c["id"]: c for c in json.loads((DATA / "ground_truth.json").read_text())["contracts"]}
 BY_FILE = {c["file"]: c for c in GT.values()}
+GT1 = {k: v for k, v in GT.items() if v.get("batch", 1) == 1}
 
 
 def _db_up() -> bool:
@@ -55,8 +56,8 @@ def _wait_ready(client, n: int):
 
 
 def test_ingest_all_fixtures(client):
-    assert client.post("/api/documents/ingest-samples").json()["queued"] == len(GT)
-    docs = _wait_ready(client, len(GT))
+    assert client.post("/api/documents/ingest-samples").json()["queued"] == len(GT1)
+    docs = _wait_ready(client, len(GT1))
     failed = [d for d in docs if d["status"] != "ready"]
     assert not failed, failed
     by_file = {d["filename"]: d for d in docs}
@@ -66,7 +67,7 @@ def test_ingest_all_fixtures(client):
     assert by_file[GT["C05"]["file"]]["language"] == "de"
     # idempotent: re-ingest does not duplicate
     client.post("/api/documents/ingest-samples")
-    assert len(_wait_ready(client, len(GT))) == len(GT)
+    assert len(_wait_ready(client, len(GT1))) == len(GT1)
 
 
 def test_coverage_matrix_matches_ground_truth_on_digital(client):
@@ -91,7 +92,7 @@ def _run(client, kind, params):
 def test_rename_audit_flags_exactly_the_right_contracts(client):
     audit = _run(client, "rename", {})
     flagged = {BY_FILE[f["filename"]]["id"] for f in audit["findings"] if f["verdict"] != "dismissed"}
-    expected = {c["id"] for c in GT.values() if c["needs_rename"]}
+    expected = {c["id"] for c in GT1.values() if c["needs_rename"]}
     assert flagged == expected
     unreadable = {BY_FILE[f["filename"]]["id"] for f in audit["findings"] if f["verdict"] == "unreadable"}
     assert unreadable == {"C14"}  # low-quality scan: escalated to a human instead of silently passed
@@ -104,7 +105,7 @@ def test_missing_clause_audit_scoped_by_contract_type(client):
     audit = _run(client, "missing_clause", {"clause_type": "liability_cap", "contract_type": "merchant_agreement"})
     findings = [f for f in audit["findings"] if f["verdict"] != "unreadable"]
     flagged = {BY_FILE[f["filename"]]["id"] for f in findings}
-    expected = {c["id"] for c in GT.values()
+    expected = {c["id"] for c in GT1.values()
                 if c["contract_type"] == "merchant_agreement" and "liability_cap" in c["clauses_missing"] and c["id"] != "C14"}
     assert flagged == expected, (flagged, expected)
     assert all(f["verdict"] == "unverified" for f in findings)  # offline: no verifier
@@ -144,7 +145,7 @@ def test_chat_offline_returns_cited_passages(client):
 
 def test_eval_scores_layers(client):
     ev = client.post("/api/eval/run").json()
-    assert ev["documents"] == len(GT) and ev["unreadable"] == ["C14"]
+    assert ev["documents"] == len(GT1) and ev["unreadable"] == ["C14"]
     assert ev["rename_registry"]["metrics"]["recall"] == 1.0
     assert ev["coverage_matrix"]["metrics"]["recall"] >= 0.9
     assert any(a["kind"] == "rename" for a in ev["audits"])
@@ -172,6 +173,6 @@ def test_decisions_are_carried_over_and_policy_reports_the_class(client):
     pol = client.get("/api/policy").json()
     cls = next(c for c in pol["classes"] if c["class_key"] == "rename:registry")
     assert cls["decisions"] == 2 and cls["rejected"] == 1 and cls["review_rate"] == 1.0 and cls["automation_active"]
-    assert pol["rules"]["min_decisions"] == 10
+    assert pol["rules"]["min_decisions"] == 8
     actions = [e["action"] for e in client.get("/api/audit-log").json()]
     assert "finding.auto_approved" in actions

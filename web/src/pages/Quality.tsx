@@ -75,6 +75,17 @@ const T = {
   false_negative: { de: 'Übersehen', en: 'Missed' },
 
   audits_title: { de: 'Abgeschlossene Prüfungen', en: 'Completed checks' },
+  real_title: { de: 'Echte Verträge (CUAD)', en: 'Real contracts (CUAD)' },
+  real_intro: { de: '{n} echte Verträge aus der US-Börsenaufsicht mit Klausel-Annotationen von Juristen (CUAD, CC BY 4.0). Für fünf Klauseltypen ist bekannt, ob die Klausel fehlt. Zwei Stufen getrennt gemessen: die Regelprüfung allein und die Regelprüfung mit KI-Gegenprüfung im Volltext.', en: '{n} real contracts from SEC filings with clause annotations by lawyers (CUAD, CC BY 4.0). For five clause types it is known whether the clause is missing. Two layers measured separately: the rule check alone and the rule check with the full-text AI cross-check.' },
+  real_none: { de: 'Noch keine echten Verträge eingelesen (data/real/cuad).', en: 'No real contracts read in yet (data/real/cuad).' },
+  real_col_type: { de: 'Klauseltyp', en: 'Clause type' },
+  real_col_rules: { de: 'Regelprüfung allein', en: 'Rule check alone' },
+  real_col_verified: { de: 'Mit KI-Gegenprüfung', en: 'With AI cross-check' },
+  real_col_n: { de: 'echte Lücken', en: 'true gaps' },
+  real_all: { de: 'Alle fünf Typen', en: 'All five types' },
+  real_pr: { de: 'Treffergenauigkeit {p} · Vollständigkeit {r}', en: 'Precision {p} · Recall {r}' },
+  real_pending: { de: 'noch nicht geprüft', en: 'not checked yet' },
+  real_reading: { de: 'Lesart: Die Regelprüfung übersieht fast nichts, meldet aber zu viel; die Gegenprüfung im Volltext stellt die Treffergenauigkeit wieder her. Nur die Gegenprüfung kann eine Meldung entfernen – dazwischen geht nichts verloren.', en: 'Reading: the rule check misses almost nothing but over-reports; the full-text cross-check restores precision. Only the cross-check can remove a claim – nothing is lost in between.' },
   audits_hint: {
     de: 'Gemessen werden Prüfungen der Art „Fehlende Klausel“ und „Alter Firmenname“ (ohne bestimmten Namen), weil nur dafür eine Musterlösung vorliegt.',
     en: 'Only checks of the kinds “Missing clause” and “Old company name” (without a specific name) are measured, because only those have a reference solution.',
@@ -113,6 +124,13 @@ type Scored = { metrics: Metrics; errors: EvalError[] }
 type EvalAudit = { audit_id: number; kind: string; params: Record<string, string>; verified: boolean; metrics: Metrics; errors: EvalError[] }
 type Extraction = Record<string, { pages: number; methods: Record<string, number>; confidence: number }>
 type Injection = { id: string; expected: boolean; flagged: boolean }
+type RealData = {
+  source: string
+  documents: number
+  types?: string[]
+  coverage_matrix?: Scored & { per_type: Record<string, Metrics> }
+  audits?: { audit_id: number; clause_type: string; verified: boolean; metrics: Metrics; errors: EvalError[] }[]
+}
 type EvalResult = {
   documents: number
   unreadable: string[]
@@ -122,6 +140,7 @@ type EvalResult = {
   extraction: Extraction
   audits: EvalAudit[]
   injection: Injection[]
+  real_data?: RealData | null
 }
 
 /** The ground truth names sources slightly differently from the ingest pipeline. */
@@ -254,6 +273,7 @@ export default function Quality() {
 
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
             <ExtractionSection extraction={result.extraction} />
+            <RealDataSection data={result.real_data ?? null} />
             <InjectionSection injection={result.injection} titleOf={titleOf} />
           </Box>
         </>
@@ -546,6 +566,81 @@ function InjectionSection({ injection, titleOf }: { injection: Injection[]; titl
           </TableContainer>
         )}
       </Details>
+    </Paper>
+  )
+}
+
+
+function RealDataSection({ data }: { data: RealData | null }) {
+  const t = useT(T)
+  const clauseName = useLabel(CLAUSE_TYPES)
+  const pct = (v: number) => `${Math.round(v * 100)} %`
+  if (!data || !data.documents || !data.coverage_matrix) {
+    return (
+      <Paper sx={{ p: 2.5 }}>
+        <Typography variant="subtitle1" gutterBottom>
+          {t('real_title')}
+        </Typography>
+        <Small>{t('real_none')}</Small>
+      </Paper>
+    )
+  }
+  const byType = Object.fromEntries((data.audits ?? []).map((a) => [a.clause_type, a.metrics]))
+  const types = Object.keys(data.coverage_matrix.per_type)
+  const cm = data.coverage_matrix.metrics
+  return (
+    <Paper sx={{ p: 2.5 }}>
+      <Typography variant="subtitle1" gutterBottom>
+        {t('real_title')}
+      </Typography>
+      <Typography variant="body2" sx={{ mb: 2 }}>
+        {t('real_intro', { n: data.documents })}
+      </Typography>
+      <TableContainer sx={{ overflowX: 'auto' }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>{t('real_col_type')}</TableCell>
+              <TableCell>{t('real_col_rules')}</TableCell>
+              <TableCell>{t('real_col_verified')}</TableCell>
+              <TableCell align="right">{t('real_col_n')}</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {types.map((ct) => {
+              const r = data.coverage_matrix!.per_type[ct]
+              const v = byType[ct]
+              return (
+                <TableRow key={ct}>
+                  <TableCell>{clauseName(ct)}</TableCell>
+                  <TableCell>{t('real_pr', { p: pct(r.precision), r: pct(r.recall) })}</TableCell>
+                  <TableCell>{v ? t('real_pr', { p: pct(v.precision), r: pct(v.recall) }) : <Small>{t('real_pending')}</Small>}</TableCell>
+                  <TableCell align="right">{r.tp + r.fn}</TableCell>
+                </TableRow>
+              )
+            })}
+            <TableRow>
+              <TableCell sx={{ fontWeight: 600 }}>{t('real_all')}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t('real_pr', { p: pct(cm.precision), r: pct(cm.recall) })}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>
+                {(() => {
+                  const vs = Object.values(byType)
+                  if (!vs.length) return <Small>{t('real_pending')}</Small>
+                  const tp = vs.reduce((n, m) => n + m.tp, 0)
+                  const fp = vs.reduce((n, m) => n + m.fp, 0)
+                  const fn = vs.reduce((n, m) => n + m.fn, 0)
+                  return t('real_pr', { p: pct(tp / Math.max(1, tp + fp)), r: pct(tp / Math.max(1, tp + fn)) })
+                })()}
+              </TableCell>
+              <TableCell align="right" sx={{ fontWeight: 600 }}>{cm.tp + cm.fn}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <Small sx={{ mt: 1.5 }}>{t('real_reading')}</Small>
+      <Tech>
+        <Small sx={{ mt: 1, fontFamily: 'monospace' }}>{data.source}</Small>
+      </Tech>
     </Paper>
   )
 }

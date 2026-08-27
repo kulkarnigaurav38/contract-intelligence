@@ -1,0 +1,50 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M10Z0ABAYRBZ4RRKBGAHYV1N",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "api/app/policy.py",
+    "api/app/routers.py",
+    "api/tests/test_end_to_end_db.py",
+    "api/tests/test_ingest_units.py",
+    "api/tests/test_policy_units.py",
+    "data/contracts/C01_merchant_agreement_nordlicht.pdf",
+    "data/contracts/C02_dpa_bergmann.pdf",
+    "data/contracts/C03_nda_fjordline.pdf",
+    "data/contracts/C04_vendor_agreement_arvato_systems.pdf",
+    "data/contracts/C05_forderungskauf_kastanienhof.pdf",
+    "data/contracts/C06_inkasso_rheinland.pdf",
+    "data/contracts/C07_merchant_agreement_helios_scan.pdf",
+    "data/contracts/C10_merchant_agreement_lumen_mixed.pdf",
+    "data/contracts/C11_saas_agreement_orbital.pdf",
+    "data/contracts/C12_haendlervertrag_bergwald.pdf",
+    "data/contracts/C13_merchant_agreement_velora_injection.pdf",
+    "data/contracts/C14_merchant_agreement_polarstern_lowscan.pdf",
+    "data/contracts_batch2/N01_merchant_agreement_solstice.pdf",
+    "data/contracts_batch2/N02_haendlervertrag_waldhaus.pdf",
+    "data/contracts_batch2/N03_merchant_agreement_aurora.pdf",
+    "data/contracts_batch2/N04_merchant_agreement_kiez_kaffee.pdf",
+    "data/generate.py",
+    "data/ground_truth.json",
+    "web/src/pages/Checks.tsx",
+    "web/src/pages/Home.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 245,
+    "cache_creation_tokens": 23373,
+    "cache_read_tokens": 2488963,
+    "output_tokens": 13346,
+    "api_call_count": 4
+  }
+}

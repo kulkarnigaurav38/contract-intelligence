@@ -561,6 +561,14 @@ function liveNumbers(stage: string, docs: Doc[] | null, audits: Audit[] | null, 
   }
 }
 
+function policyWord(f: Finding, lang: 'de' | 'en'): string {
+  const p = f.policy
+  if (!p || !('kind' in p) || p.kind === 'required') return ''
+  const word = POLICY[p.kind]?.[lang] ?? p.kind
+  const date = p.kind === 'carried_over' && p.decided_at ? new Date(p.decided_at).toLocaleDateString(lang === 'de' ? 'de-DE' : 'en-GB') : ''
+  return ` · ${word.replace('{date}', date)}`
+}
+
 function traceLines(stage: string, doc: DocDetail | null, findings: Finding[], t: Tr, lang: 'de' | 'en'): string[] {
   if (!doc) return []
   const mine = findings.filter((f) => f.document_id === doc.id)
@@ -591,7 +599,7 @@ function traceLines(stage: string, doc: DocDetail | null, findings: Finding[], t
     case 'review':
     case 'file':
       return mine.length
-        ? mine.map((f) => t('d_finding', { kind: AUDIT_KINDS[f.audit_kind]?.[lang] ?? f.audit_kind, verdict: VERDICTS[f.verdict]?.[lang] ?? f.verdict, status: REVIEW_STATUS[f.review_status]?.[lang] ?? f.review_status }) + (f.policy && 'kind' in f.policy && f.policy.kind !== 'required' ? ` · ${(POLICY[f.policy.kind]?.[lang] ?? f.policy.kind).replace('{date}', '')}` : ''))
+        ? mine.map((f) => t('d_finding', { kind: AUDIT_KINDS[f.audit_kind]?.[lang] ?? f.audit_kind, verdict: VERDICTS[f.verdict]?.[lang] ?? f.verdict, status: REVIEW_STATUS[f.review_status]?.[lang] ?? f.review_status }) + policyWord(f, lang))
         : [t('d_no_findings')]
     default:
       return []

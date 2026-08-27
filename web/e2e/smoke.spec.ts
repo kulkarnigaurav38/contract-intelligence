@@ -188,3 +188,36 @@ test('The technical switch reveals model IDs on /tech/models', async ({ page }) 
   await page.getByLabel('Technische Details anzeigen').uncheck()
   await expect(page.getByText(/Text direkt gelesen · 100[\s ]%/)).toHaveCount(0)
 })
+
+test('Approvals › Prüflast explains the review load and shows the review rate per question', async ({ page }) => {
+  await page.goto('/approvals')
+  await expect(page.getByRole('heading', { name: /Funde? warte[nt] auf Ihre Entscheidung\./ })).toBeVisible()
+  await page.getByRole('tab', { name: 'Prüflast', exact: true }).click()
+
+  const intro = page.getByText('Ihre Entscheidungen senken die Prüflast')
+  const failed = page.getByText('Das hat leider nicht funktioniert') // ErrorAlert: an older API build has no /api/policy
+  const empty = page.getByText('Noch keine Entscheidungen')
+  const rateHeader = page.getByRole('columnheader', { name: 'Prüfquote', exact: true })
+
+  // the tab renders in every API build …
+  await expect(intro.or(failed).first()).toBeVisible()
+  // … and the policy request settles into one of three states: error, empty state, or the table
+  await expect(failed.or(empty).or(rateHeader).first()).toBeVisible()
+
+  if (await failed.isVisible()) {
+    // older API without /api/policy: the friendly sentence, no crash; the raw status stays under Details
+    await expect(page.getByText(/^404 /)).toBeHidden()
+  } else {
+    await expect(intro).toBeVisible()
+    await expect(empty.or(rateHeader).first()).toBeVisible()
+    if (await rateHeader.isVisible()) {
+      // one row per question: the rate is a word, not a bare number
+      for (const h of ['Frage', 'Entscheidungen', 'Übereinstimmung', 'Automatisch freigegeben']) await expect(page.getByRole('columnheader', { name: h, exact: true })).toBeVisible()
+      await expect(page.getByText(/^(Volle Prüfung|Stichprobe \d+\s?%)$/).first()).toBeVisible()
+      await expect(page.getByText(/(\d+ von \d+ Entscheidungen bis zur nächsten Stufe|Höchste Stufe erreicht)/).first()).toBeVisible()
+    }
+  }
+  // the raw rule parameters are technical and stay hidden while the switch is off
+  await expect(page.getByText(/min_decisions/)).toHaveCount(0)
+  await shot(page, '09-review-load')
+})

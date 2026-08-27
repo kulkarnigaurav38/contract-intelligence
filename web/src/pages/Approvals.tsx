@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -19,15 +19,17 @@ import TableRow from '@mui/material/TableRow'
 import Tabs from '@mui/material/Tabs'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
+import AutoModeIcon from '@mui/icons-material/AutoMode'
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined'
 import EditNoteIcon from '@mui/icons-material/EditNote'
 import Inventory2Icon from '@mui/icons-material/Inventory2'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
-import { api, type Doc, type Finding, type LogEntry } from '../api'
+import RuleIcon from '@mui/icons-material/Rule'
+import { api, type Doc, type Finding, type LogEntry, type Policy, type PolicyClass, type PolicyReport } from '../api'
 import { useLabel, useSettings, useT } from '../i18n'
 import { Details, Small, Tech } from '../components/tech'
 import { AuditKindChip, DecisionDialog, EmptyState, ErrorAlert, EvidenceList, HowFound, Reliability, ReviewChip, useFindingSentence, usePolling, useToast, VerdictChip } from '../components/ui'
-import { AUDIT_KINDS, CLAUSE_TYPES, COMMON, CONTRACT_TYPES, INPUT_TYPES, LOG_ACTIONS, VERDICT_HELP } from '../vocab'
+import { AUDIT_KINDS, CLAUSE_TYPES, COMMON, CONTRACT_TYPES, INPUT_TYPES, LOG_ACTIONS, POLICY, POLICY_HELP, REVIEW_STATUS, VERDICT_HELP } from '../vocab'
 
 // ---------------------------------------------------------------- words
 const T = {
@@ -58,6 +60,8 @@ const T = {
   log_intro: { de: 'Einträge können nachträglich nicht geändert oder gelöscht werden.', en: 'Entries cannot be changed or deleted afterwards.' },
   log_empty: { de: 'Noch keine Einträge.', en: 'No entries yet.' },
   log_empty_filter: { de: 'Keine Einträge zu dieser Auswahl.', en: 'No entries match this selection.' },
+  log_auto_approved: { de: 'hat Fund Nr. {id} automatisch freigegeben', en: 'auto-approved finding no. {id}' },
+  log_carried: { de: 'Entscheidung übernommen von Fund Nr. {id}', en: 'decision carried over from finding no. {id}' },
   filter_contracts: { de: 'Verträge', en: 'Contracts' },
   filter_checks: { de: 'Prüfungen', en: 'Checks' },
   filter_decisions: { de: 'Entscheidungen', en: 'Decisions' },
@@ -66,16 +70,40 @@ const T = {
   yesterday: { de: 'Gestern', en: 'Yesterday' },
   system: { de: 'System', en: 'System' },
   all_types_inline: { de: 'alle Vertragsarten', en: 'all contract types' },
+  registry_all: { de: 'alle bekannten alten Namen', en: 'all known old names' },
   note_line: { de: 'Anmerkung: „{note}“', en: 'Note: “{note}”' },
   storage_line: { de: 'Ablage-Nr. {ref}', en: 'Storage ref. {ref}' },
   sha_label: { de: 'SHA-256', en: 'SHA-256' },
   check_label: { de: 'Prüfung', en: 'Check' },
   document_label: { de: 'Dokument', en: 'Document' },
+  // Prüflast
+  policy_intro: {
+    de: 'Ihre Entscheidungen senken die Prüflast: Funde, die Sie wiederholt freigegeben haben, legen wir Ihnen nur noch stichprobenartig vor. Eine Ablehnung setzt die Prüfung für diese Art von Fund sofort wieder auf 100 % zurück.',
+    en: 'Your decisions lower the review load: findings you have approved repeatedly are only put to you as a sample. One rejection immediately puts this kind of finding back to 100% review.',
+  },
+  policy_empty: { de: 'Noch keine Entscheidungen – die Prüfquote liegt bei 100 %.', en: 'No decisions yet – the review rate is 100%.' },
+  policy_empty_text: {
+    de: 'Sobald Sie Funde freigeben oder ablehnen, sehen Sie hier, wie sich die Prüfquote je Frage entwickelt.',
+    en: 'Once you approve or reject findings, you will see here how the review rate develops per question.',
+  },
+  to_open: { de: 'Zur Freigabe', en: 'Go to approvals' },
+  col_question: { de: 'Frage', en: 'Question' },
+  col_decisions: { de: 'Entscheidungen', en: 'Decisions' },
+  col_agreement: { de: 'Übereinstimmung', en: 'Agreement' },
+  col_auto: { de: 'Automatisch freigegeben', en: 'Auto-approved' },
+  col_next: { de: 'Nächste Stufe', en: 'Next level' },
+  rejected_of: { de: 'davon {n} abgelehnt', en: '{n} of them rejected' },
+  next_tier: { de: '{n} von {m} Entscheidungen bis zur nächsten Stufe', en: '{n} of {m} decisions until the next level' },
+  top_tier: { de: 'Höchste Stufe erreicht', en: 'Highest level reached' },
+  agreement_low: { de: 'Wegen früherer Ablehnungen bleibt die Prüfquote vorerst bei 100 %.', en: 'Because of earlier rejections the review rate stays at 100% for now.' },
+  rules_label: { de: 'Regeln', en: 'Rules' },
 }
 
 const REVIEWER = 'legal.reviewer'
 type Decision = 'approved' | 'rejected'
+type TabKey = 'open' | 'decided' | 'log' | 'policy'
 type Data = { findings: Finding[]; docs: Doc[]; log: LogEntry[] }
+type CarriedOver = Extract<Policy, { kind: 'carried_over' }>
 
 const ALWAYS = () => true
 
@@ -90,6 +118,7 @@ const CATEGORY: Record<string, string> = {
   'audit.create': 'checks',
   'finding.approved': 'decisions',
   'finding.rejected': 'decisions',
+  'finding.auto_approved': 'decisions',
   'finding.pushed_to_storage': 'storage',
 }
 const FILTERS = ['contracts', 'checks', 'decisions', 'storage'] as const
@@ -97,6 +126,22 @@ const FILTERS = ['contracts', 'checks', 'decisions', 'storage'] as const
 const locale = (lang: string) => (lang === 'de' ? 'de-DE' : 'en-GB')
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString()
 const truncate = (s: string, n: number) => (s.length > n ? s.slice(0, n) + '…' : s)
+const pct = (x: number, lang: string) => `${Math.round(x * 100)}${lang === 'de' ? ' %' : '%'}`
+
+/** The policy kind of a finding; findings created before the policy existed carry an empty object. */
+const policyKind = (f: Finding): string => (f.policy as { kind?: string } | null | undefined)?.kind ?? ''
+const carriedOver = (f: Finding): CarriedOver | null => (policyKind(f) === 'carried_over' ? (f.policy as CarriedOver) : null)
+/** A carried-over rejection: the backend dismisses the verdict but leaves review_status 'pending' and reviewed_at empty. */
+const carriedRejection = (f: Finding): boolean => f.review_status === 'pending' && carriedOver(f)?.decision === 'rejected'
+/** When a finding was decided – by a person, by the system, or by the earlier decision it inherited. */
+const decidedAt = (f: Finding): string | null => f.reviewed_at ?? carriedOver(f)?.decided_at ?? null
+
+/** The smallest tier threshold still above the class's run of approvals; undefined once the top tier is reached. */
+const nextThreshold = (rules: PolicyReport['rules'], since: number): number | undefined =>
+  rules.tiers
+    .map(([n]) => n)
+    .filter((n) => n > since)
+    .sort((a, b) => a - b)[0]
 
 /** Formatting helpers that follow the interface language. */
 function useFormat() {
@@ -106,6 +151,7 @@ function useFormat() {
   return {
     quote: (s: string) => (lang === 'de' ? `„${s}“` : `“${s}”`),
     time: (iso: string) => new Date(iso).toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' }),
+    date: (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(loc, { dateStyle: 'medium' }) : '–'),
     dateTime: (iso: string | null) => (iso ? new Date(iso).toLocaleString(loc, { dateStyle: 'medium', timeStyle: 'short' }) : '–'),
     day: (iso: string) => {
       const d = new Date(iso)
@@ -137,11 +183,28 @@ function useAuditTitle() {
   }
 }
 
+/** The question behind a finding class in plain words. A class spans all contract types, so no scope is shown. */
+function useClassQuestion() {
+  const { lang } = useSettings()
+  const t = useT(T)
+  const fmt = useFormat()
+  const clauseLabel = useLabel(CLAUSE_TYPES)
+  return (kind: string, params: Record<string, string>): { base: string; detail: string } => {
+    const base = AUDIT_KINDS[kind]?.[lang] ?? kind.replace(/_/g, ' ')
+    let detail = ''
+    if (kind === 'missing_clause' && params.clause_type) detail = clauseLabel(params.clause_type)
+    else if (kind === 'missing_passage' && params.passage) detail = fmt.quote(truncate(params.passage.trim(), 70))
+    else if (kind === 'rename') detail = params.old_name || t('registry_all')
+    return { base, detail }
+  }
+}
+
 // ---------------------------------------------------------------- one activity-log entry as a sentence
 function LogLine({ e, docs, findings }: { e: LogEntry; docs: Map<number, Doc>; findings: Map<number, Finding> }) {
   const t = useT(T)
   const tc = useT(COMMON)
   const la = useT(LOG_ACTIONS)
+  const { lang } = useSettings()
   const fmt = useFormat()
   const auditTitle = useAuditTitle()
   const inputLabel = useLabel(INPUT_TYPES)
@@ -164,12 +227,20 @@ function LogLine({ e, docs, findings }: { e: LogEntry; docs: Map<number, Doc>; f
     if (f) sub.push(f.title || f.filename)
     if (str(d.note)) sub.push(t('note_line', { note: str(d.note) }))
     if (str(d.external_id)) sub.push(t('storage_line', { ref: str(d.external_id) }))
+    if (e.action === 'finding.auto_approved') {
+      if (str(d.reason) === 'carried_over' && typeof d.from_finding === 'number') sub.push(t('log_carried', { id: d.from_finding }))
+      else if (typeof d.review_rate === 'number') sub.push(`${tc('review_rate')} ${pct(d.review_rate, lang)}`)
+    }
   }
   const sha = str(d.sha256)
   if (sha && e.target_type === 'finding') sub.push(`${tc('checksum')} ${sha.slice(0, 8)}`)
 
   const actor = e.actor === 'system' ? t('system') : e.actor
-  const action = LOG_ACTIONS[e.action] ? la(e.action, { target, id: e.target_id }) : e.action.replace(/[._]/g, ' ')
+  const action = LOG_ACTIONS[e.action]
+    ? la(e.action, { target, id: e.target_id })
+    : e.action === 'finding.auto_approved'
+      ? t('log_auto_approved', { id: e.target_id })
+      : e.action.replace(/[._]/g, ' ')
 
   return (
     <Stack direction="row" spacing={2} sx={{ py: 1.25, alignItems: 'flex-start' }}>
@@ -223,6 +294,7 @@ function PendingCard({
   const sentence = useFindingSentence()
   const unreadable = f.verdict === 'unreadable'
   const verified = f.verdict === 'confirmed' || f.verdict === 'dismissed' || f.verdict === 'partial'
+  const kind = policyKind(f)
   const openContract = () => navigate(`/contracts?open=${f.document_id}&page=${f.evidence[0]?.page ?? 1}`)
 
   return (
@@ -241,6 +313,11 @@ function PendingCard({
           <Stack direction="row" useFlexGap spacing={1} sx={{ flexWrap: 'wrap' }}>
             <AuditKindChip kind={f.audit_kind} />
             <VerdictChip verdict={f.verdict} />
+            {kind === 'spot_check' && (
+              <Tooltip title={POLICY_HELP.spot_check[lang]}>
+                <Chip size="small" variant="outlined" color="info" icon={<RuleIcon />} label={POLICY.spot_check[lang]} />
+              </Tooltip>
+            )}
           </Stack>
         </Stack>
 
@@ -288,6 +365,8 @@ function PendingCard({
         <Tech>
           <Small sx={{ fontFamily: 'monospace' }}>
             {tc('finding')} #{f.id} · {t('check_label')} #{f.audit_id} · {t('document_label')} #{f.document_id} · {f.verdict} · {f.review_status}
+            {kind ? ` · policy ${kind}` : ''}
+            {f.class_key ? ` · ${f.class_key}` : ''}
           </Small>
         </Tech>
 
@@ -304,22 +383,144 @@ function PendingCard({
   )
 }
 
+// ---------------------------------------------------------------- Prüflast: one finding class
+function PolicyRow({ c, rules }: { c: PolicyClass; rules: PolicyReport['rules'] }) {
+  const t = useT(T)
+  const tc = useT(COMMON)
+  const { lang } = useSettings()
+  const question = useClassQuestion()
+  const { base, detail } = question(c.kind, c.params ?? {})
+  const next = nextThreshold(rules, c.since_rejection)
+  const auto = c.findings?.auto_approved ?? 0
+  const full = c.review_rate >= 1
+  // Enough approvals in a row, but too many rejections overall: the rule stays at full review.
+  const stalled = full && c.agreement !== null && c.agreement < rules.min_agreement && c.since_rejection >= rules.min_decisions
+
+  return (
+    <TableRow sx={{ verticalAlign: 'top' }}>
+      <TableCell>
+        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+          {base}
+        </Typography>
+        {detail && (
+          <Typography variant="body2" color="text.secondary">
+            {detail}
+          </Typography>
+        )}
+        <Tech>
+          <Small sx={{ fontFamily: 'monospace' }}>
+            {c.class_key} · automation_active={String(c.automation_active)}
+          </Small>
+        </Tech>
+      </TableCell>
+      <TableCell>
+        <Typography variant="body2">{c.decisions}</Typography>
+        {c.decisions > 0 && <Small>{t('rejected_of', { n: c.rejected })}</Small>}
+      </TableCell>
+      <TableCell>
+        <Typography variant="body2">{c.agreement === null ? '–' : pct(c.agreement, lang)}</Typography>
+      </TableCell>
+      <TableCell>
+        {full ? (
+          <Chip size="small" variant="outlined" label={tc('full_review')} />
+        ) : (
+          <Chip size="small" variant="outlined" color="info" icon={<RuleIcon />} label={tc('sample_rate', { rate: pct(c.review_rate, lang) })} />
+        )}
+      </TableCell>
+      <TableCell>
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+          {auto > 0 && <AutoModeIcon fontSize="inherit" color="success" />}
+          <Typography variant="body2">{auto}</Typography>
+        </Stack>
+      </TableCell>
+      <TableCell sx={{ minWidth: 220 }}>
+        <Small sx={{ mb: 0.5 }}>{next ? t('next_tier', { n: c.since_rejection, m: next }) : t('top_tier')}</Small>
+        <LinearProgress variant="determinate" value={next ? Math.min(100, (c.since_rejection / next) * 100) : 100} sx={{ height: 6, borderRadius: 3 }} />
+        {stalled && <Small sx={{ mt: 0.5 }}>{t('agreement_low')}</Small>}
+      </TableCell>
+    </TableRow>
+  )
+}
+
+// ---------------------------------------------------------------- Prüflast: the whole tab
+function PolicyPanel({ report, pending, onOpen }: { report: PolicyReport; pending: number; onOpen: () => void }) {
+  const t = useT(T)
+  const tc = useT(COMMON)
+  const rules = report.rules
+  const decisions = report.classes.reduce((n, c) => n + c.decisions, 0)
+  const classes = [...report.classes].sort((a, b) => a.review_rate - b.review_rate || b.decisions - a.decisions)
+
+  return (
+    <>
+      {decisions === 0 ? (
+        <Paper>
+          <EmptyState
+            icon={<RuleIcon color="disabled" sx={{ fontSize: 40 }} />}
+            title={t('policy_empty')}
+            text={t('policy_empty_text')}
+            action={
+              pending > 0 ? (
+                <Button variant="outlined" onClick={onOpen}>
+                  {t('to_open')}
+                </Button>
+              ) : (
+                <Button component={RouterLink} to="/checks" variant="outlined">
+                  {t('new_check')}
+                </Button>
+              )
+            }
+          />
+        </Paper>
+      ) : (
+        <TableContainer component={Paper}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>{t('col_question')}</TableCell>
+                <TableCell>{t('col_decisions')}</TableCell>
+                <TableCell>{t('col_agreement')}</TableCell>
+                <TableCell>{tc('review_rate')}</TableCell>
+                <TableCell>{t('col_auto')}</TableCell>
+                <TableCell>{t('col_next')}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {classes.map((c) => (
+                <PolicyRow key={c.class_key} c={c} rules={rules} />
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+      <Tech>
+        <Small sx={{ fontFamily: 'monospace' }}>
+          {t('rules_label')}: min_decisions = {rules.min_decisions} · min_agreement = {rules.min_agreement} · tiers = {JSON.stringify(rules.tiers)}
+        </Small>
+      </Tech>
+    </>
+  )
+}
+
 // ---------------------------------------------------------------- page
 export default function Approvals() {
   const t = useT(T)
   const tc = useT(COMMON)
+  const tp = useT(POLICY)
+  const { lang } = useSettings()
   const toast = useToast()
   const fmt = useFormat()
   const sentence = useFindingSentence()
   const typeLabel = useLabel(CONTRACT_TYPES)
   const { data, error, refresh } = usePolling(load, 15000, ALWAYS)
 
-  const [tab, setTab] = useState<'open' | 'decided' | 'log'>('open')
+  const [tab, setTab] = useState<TabKey>('open')
   const [dlg, setDlg] = useState<{ finding: Finding; decision: Decision; fromQueue: boolean } | null>(null)
   const [doneInSession, setDoneInSession] = useState(0)
   const [filing, setFiling] = useState<number | null>(null)
   const [menu, setMenu] = useState<{ anchor: HTMLElement; finding: Finding } | null>(null)
   const [filters, setFilters] = useState<string[]>([])
+  const [policy, setPolicy] = useState<PolicyReport | null>(null)
+  const [policyError, setPolicyError] = useState('')
 
   const findings = useMemo(() => data?.findings ?? [], [data])
   const log = useMemo(() => data?.log ?? [], [data])
@@ -327,17 +528,37 @@ export default function Approvals() {
   const byId = useMemo(() => new Map(findings.map((f) => [f.id, f])), [findings])
 
   const pending = useMemo(() => findings.filter((f) => f.review_status === 'pending' && f.verdict !== 'dismissed'), [findings])
+  /** Human decisions, system decisions (auto_approved) and inherited rejections alike; all can be changed. */
   const decided = useMemo(
     () =>
       findings
-        .filter((f) => f.review_status !== 'pending')
-        .sort((a, b) => (b.reviewed_at ?? '').localeCompare(a.reviewed_at ?? '') || b.id - a.id),
+        .filter((f) => f.review_status !== 'pending' || carriedRejection(f))
+        .sort((a, b) => (decidedAt(b) ?? '').localeCompare(decidedAt(a) ?? '') || b.id - a.id),
     [findings],
   )
   const entriesFor = (id: number) => log.filter((e) => e.target_type === 'finding' && e.target_id === id)
   /** The reviewer who took the latest decision on a finding, as recorded in the log. */
   const decidedBy = (id: number) =>
     log.find((e) => e.target_type === 'finding' && e.target_id === id && (e.action === 'finding.approved' || e.action === 'finding.rejected'))?.actor ?? REVIEWER
+
+  // The review-load report is fetched only while its tab is open, and again after every refresh of the findings.
+  useEffect(() => {
+    if (tab !== 'policy') return
+    let cancelled = false
+    api
+      .policy()
+      .then((p) => {
+        if (cancelled) return
+        setPolicy(p)
+        setPolicyError('')
+      })
+      .catch((e) => {
+        if (!cancelled) setPolicyError(String(e))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [tab, data])
 
   const push = async (id: number) => {
     setFiling(id)
@@ -383,10 +604,11 @@ export default function Approvals() {
       {error && <ErrorAlert msg={error} sx={{ mb: 2 }} />}
       {!data && !error && <LinearProgress sx={{ mb: 2 }} />}
 
-      <Tabs value={tab} onChange={(_, v: 'open' | 'decided' | 'log') => setTab(v)} sx={{ mb: 2.5, borderBottom: 1, borderColor: 'divider' }}>
+      <Tabs value={tab} onChange={(_, v: TabKey) => setTab(v)} sx={{ mb: 2.5, borderBottom: 1, borderColor: 'divider' }}>
         <Tab value="open" label={t('tab_open', { n: pending.length })} />
         <Tab value="decided" label={t('tab_decided', { n: decided.length })} />
         <Tab value="log" label={t('tab_log')} />
+        <Tab value="policy" label={tc('review_load')} />
       </Tabs>
 
       {/* ---------------------------------------------------------- Offen */}
@@ -452,6 +674,9 @@ export default function Approvals() {
               <TableBody>
                 {decided.map((f) => {
                   const doc = docs.get(f.document_id)
+                  const auto = f.review_status === 'auto_approved'
+                  const co = carriedOver(f)
+                  const coRejected = carriedRejection(f)
                   return (
                     <TableRow key={f.id} sx={{ verticalAlign: 'top' }}>
                       <TableCell>
@@ -471,10 +696,15 @@ export default function Approvals() {
                       </TableCell>
                       <TableCell>
                         <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
-                          <ReviewChip finding={{ review_status: f.review_status, storage_ref: '' }} />
+                          {coRejected ? (
+                            <Chip size="small" variant="outlined" label={REVIEW_STATUS.rejected[lang]} />
+                          ) : (
+                            <ReviewChip finding={{ review_status: f.review_status, storage_ref: '' }} />
+                          )}
                           <Small>
-                            {decidedBy(f.id)} · {fmt.dateTime(f.reviewed_at)}
+                            {auto || coRejected ? t('system') : decidedBy(f.id)} · {fmt.dateTime(decidedAt(f))}
                           </Small>
+                          {co && <Small>{tp('carried_over', { date: fmt.date(co.decided_at) })}</Small>}
                           <Button size="small" variant="text" sx={{ px: 0, fontSize: 11.5 }} onClick={(ev) => setMenu({ anchor: ev.currentTarget, finding: f })}>
                             {t('change_decision')}
                           </Button>
@@ -488,7 +718,7 @@ export default function Approvals() {
                       <TableCell>
                         {f.storage_ref ? (
                           <ReviewChip finding={f} />
-                        ) : f.review_status === 'approved' ? (
+                        ) : f.review_status === 'approved' || auto ? (
                           <Tooltip title={tc('file_hint')}>
                             <span>
                               <Button size="small" variant="outlined" startIcon={<Inventory2Icon />} disabled={filing === f.id} onClick={() => push(f.id)}>
@@ -548,6 +778,18 @@ export default function Approvals() {
               </Box>
             ))
           )}
+        </Stack>
+      )}
+
+      {/* ---------------------------------------------------------- Prüflast */}
+      {tab === 'policy' && (
+        <Stack spacing={2}>
+          <Typography variant="body2" color="text.secondary">
+            {t('policy_intro')}
+          </Typography>
+          {policyError && <ErrorAlert msg={policyError} />}
+          {!policy && !policyError && <LinearProgress />}
+          {policy && <PolicyPanel report={policy} pending={pending.length} onOpen={() => setTab('open')} />}
         </Stack>
       )}
 

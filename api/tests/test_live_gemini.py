@@ -1,10 +1,12 @@
 """Live tests of every model stage. Skipped without GEMINI_API_KEY; they call the real API."""
 
 import json
+import time
 from pathlib import Path
 
 import pytest
 
+from app import policy
 from app.audits.verify import verify
 from app.config import settings
 from app.ingest import classify, entities, loader, ocr, screen, segment
@@ -104,3 +106,40 @@ def test_chat_cites_only_the_contract_the_question_names(db_client):
     assert res["mode"] == "llm" and res["citations"]
     assert all(c["filename"].startswith("C01_") for c in res["citations"])
     assert "Frankfurt" in res["answer"] and "Baden-Baden" not in res["answer"]  # Nordlicht: DIS arbitration, no court
+
+
+def _run(client, kind, params):
+    audit = client.post("/api/audits", json={"kind": kind, "params": params}).json()
+    for _ in range(600):
+        audit = client.get(f"/api/audits/{audit['id']}").json()
+        if audit["status"] in ("done", "failed"):
+            return audit
+        time.sleep(1)
+    raise AssertionError("audit did not finish")
+
+
+def test_review_load_falls_after_the_team_agrees(db_client):
+    """The loop the presentation shows: decide the first batch, new contracts arrive, most findings are auto-approved."""
+    first = _run(db_client, "rename", {"language": "de"})
+    open_findings = [f for f in first["findings"] if f["review_status"] == "pending"]
+    assert len(open_findings) >= policy.MIN_DECISIONS, "need enough undecided rename findings to teach the policy"
+    for f in open_findings:
+        db_client.post(f"/api/findings/{f['id']}/review", json={"decision": "approved", "note": "Nachtrag wird erstellt."})
+    cls = next(c for c in db_client.get("/api/policy").json()["classes"] if c["class_key"] == "rename:registry")
+    assert cls["review_rate"] == 0.2 and cls["since_rejection"] >= policy.MIN_DECISIONS
+
+    db_client.post("/api/documents/ingest-samples", params={"batch": 2})
+    for _ in range(300):
+        docs = db_client.get("/api/documents").json()
+        if len(docs) >= 18 and all(d["status"] in ("ready", "failed") for d in docs):
+            break
+        time.sleep(1)
+    second = _run(db_client, "rename", {"language": "de"})
+    review = second["summary"]["review"]
+    assert review["carried_over"] == len(open_findings)  # nobody reviews the same thing twice
+    new = [f for f in second["findings"] if f["filename"].startswith("N0") and f["verdict"] == "confirmed"]
+    assert len(new) == 3 and review["auto_approved"] + review["spot_check"] == 3
+    assert all(f["review_status"] == "auto_approved" or f["policy"]["kind"] == "spot_check" for f in new)
+    assert second["summary"]["precedents"] >= 1  # the verifier saw the team's notes
+    log = db_client.get("/api/audit-log").json()
+    assert any(e["action"] == "finding.auto_approved" and e["actor"] == "system" for e in log)

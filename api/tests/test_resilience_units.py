@@ -30,6 +30,9 @@ def test_with_retry_gives_up_loudly_and_raises_non_transient_immediately(monkeyp
         llm.with_retry(down, "verify", attempts=4)
     assert len(calls) == 4
 
+    for msg in ("Server disconnected without sending a response.", "502 Bad Gateway", "Connection reset by peer", "DeadlineExceeded"):
+        assert llm.TRANSIENT.search(msg), msg  # network weather, retried
+
     def bug():
         raise ValueError("schema mismatch")
 

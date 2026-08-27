@@ -21,7 +21,8 @@ from app.config import settings
 
 log = logging.getLogger("contracts.llm")
 T = TypeVar("T")
-TRANSIENT = re.compile(r"\b(503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overloaded|high demand|timed? ?out|rate limit)\b", re.I)
+TRANSIENT = re.compile(r"\b(50[0234]|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overloaded|high demand|timed? ?out|rate limit|"
+                       r"disconnected|connection (reset|error|aborted)|reset by peer|ServiceUnavailable|InternalServerError|DeadlineExceeded)\b", re.I)
 
 # task -> (model tier, thinking level, purpose)
 TASKS: dict[str, tuple[str, str, str]] = {

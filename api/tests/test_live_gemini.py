@@ -129,7 +129,7 @@ def test_review_load_falls_after_the_team_agrees(db_client):
     assert cls["review_rate"] == 0.2 and cls["since_rejection"] >= policy.MIN_DECISIONS
 
     db_client.post("/api/documents/ingest-samples", params={"batch": 2})
-    for _ in range(300):
+    for _ in range(900):  # a throttled provider can take a while; the pipeline retries with back-off
         docs = db_client.get("/api/documents").json()
         if len(docs) >= 18 and all(d["status"] in ("ready", "failed") for d in docs):
             break

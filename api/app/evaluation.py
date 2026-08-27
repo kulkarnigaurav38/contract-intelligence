@@ -75,6 +75,8 @@ def run_eval(session: Session) -> dict:
     # finished audits: findings (confirmed + unverified) vs truth
     audits = []
     for audit in session.scalars(select(Audit).where(Audit.status == "done").order_by(Audit.id)):
+        if audit.params.get("document_ids"):  # scoped to a benchmark (e.g. CUAD): scored in real_data, not here
+            continue
         scope = {fn for fn, d in docs.items()
                  if not audit.params.get("contract_type") or d.contract_type == audit.params["contract_type"]}
         if audit.kind == "missing_clause":

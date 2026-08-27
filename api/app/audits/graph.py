@@ -152,10 +152,18 @@ def build(session: Session):
 
     def verify_claims(state: AuditState) -> AuditState:
         summary = dict(state["summary"], verified=settings.llm_enabled, verifier=settings.model_pro)
-        history = policy.precedents(session, policy.class_key(state["kind"], state["params"]))
+        key = policy.class_key(state["kind"], state["params"])
+        history = policy.precedents(session, key)
         for claim in state["claims"]:
+            decided = policy.previous_decision(session, claim["document_id"], key)
+            if decided is not None:  # the team already decided this: no need to pay for another verification
+                _store(session, state["audit_id"], claim, decided.verdict, decided.confidence,
+                       claim["method_chain"] + [f"verification skipped: reviewer decided finding #{decided.id}"],
+                       decided.reasoning, decided.evidence)
+                continue
             pages = [(p.page_no, p.text) for p in session.scalars(
                 select(Page).where(Page.document_id == claim["document_id"]).order_by(Page.page_no))]
+            session.commit()  # never hold a transaction (and its locks) across a model call
             verdict = verify(pages, claim["claim"], state["params"].get("language", "en"), history)
             if verdict is None:
                 if claim["direction"] == "missing":

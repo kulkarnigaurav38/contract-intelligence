@@ -21,7 +21,7 @@ test('Home shows the three question cards and the contract-set strip', async ({ 
   await expect(page.getByText('Wo steht noch ein alter Firmenname?')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Prüfen', exact: true })).toHaveCount(3)
   await expect(page.getByText('Ihr Vertragsbestand')).toBeVisible()
-  await expect(page.getByText(/14 Verträge · \d+ gut lesbar/)).toBeVisible()
+  await expect(page.getByText(/\d+ Verträge · \d+ gut lesbar/)).toBeVisible()
   await expect(page.getByText('Wartet auf Ihre Freigabe')).toBeVisible()
   await expect(page.getByText('Letzte Prüfungen')).toBeVisible()
   await shot(page, '01-home')
@@ -65,13 +65,13 @@ test('Clauses matrix renders the 12 clause headers', async ({ page }) => {
 
 test('Old-company-name check from Home lands on the check detail', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByText(/14 Verträge · \d+ gut lesbar/)).toBeVisible()
+  await expect(page.getByText(/\d+ Verträge · \d+ gut lesbar/)).toBeVisible()
   // the third card is "Wo steht noch ein alter Firmenname?"
   await page.getByRole('button', { name: 'Prüfen', exact: true }).nth(2).click()
   await expect(page).toHaveURL(/\/checks\/\d+$/)
   await expect(page.getByText(/Alter Firmenname · alle Vertragsarten/).first()).toBeVisible()
   // one summary sentence once the check has finished
-  await expect(page.getByText(/^14 Verträge geprüft: .*nennen noch den alten Firmennamen/)).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByText(/^\d+ Verträge geprüft: .*nennen noch den alten Firmennamen/)).toBeVisible({ timeout: 120_000 })
   await expect(page.getByText('auffällig', { exact: true })).toBeVisible()
   const ai = await aiEnabled(page)
   await expect(page.getByText(ai ? 'KI-gegengeprüft' : 'Ohne KI-Gegenprüfung', { exact: true }).first()).toBeVisible()

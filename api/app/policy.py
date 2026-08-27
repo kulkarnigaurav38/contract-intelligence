@@ -83,6 +83,14 @@ def precedents(session: Session, key: str, limit: int = 3) -> list[dict]:
             for f in rows]
 
 
+def previous_decision(session: Session, document_id: int, key: str, exclude_id: int | None = None) -> Finding | None:
+    """The team's latest decision on the same contract and question, if any."""
+    q = select(Finding).where(Finding.document_id == document_id, Finding.class_key == key, Finding.review_status.in_(HUMAN))
+    if exclude_id is not None:
+        q = q.where(Finding.id != exclude_id)
+    return session.scalar(q.order_by(Finding.reviewed_at.desc()).limit(1))
+
+
 def _spot_check(audit_id: int, sha256: str, rate: float) -> bool:
     """Deterministic sample: reproducible for the audit trail, rotating across runs."""
     return int(hashlib.sha256(f"{audit_id}:{sha256}".encode()).hexdigest()[:8], 16) % 100 < round(rate * 100)
@@ -98,10 +106,7 @@ def apply(session: Session, audit: Audit) -> dict:
         f.class_key = key
         if f.verdict in ("dismissed", "unreadable"):
             continue
-        previous = session.scalar(
-            select(Finding).where(Finding.document_id == f.document_id, Finding.class_key == key,
-                                  Finding.review_status.in_(HUMAN), Finding.id != f.id)
-            .order_by(Finding.reviewed_at.desc()).limit(1))
+        previous = previous_decision(session, f.document_id, key, exclude_id=f.id)
         if previous is not None:
             counts["carried_over"] += 1
             f.policy = {"kind": "carried_over", "decision": previous.review_status, "note": previous.review_note,

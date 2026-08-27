@@ -166,6 +166,7 @@ def test_decisions_are_carried_over_and_policy_reports_the_class(client):
     assert by_id["C02"]["verdict"] == "dismissed" and by_id["C02"]["policy"]["kind"] == "carried_over"
     assert by_id["C05"]["review_status"] == "auto_approved" and by_id["C05"]["policy"]["decision"] == "approved"
     assert by_id["C05"]["review_note"] == "Nachtrag wird erstellt."
+    assert any("verification skipped" in step for step in by_id["C05"]["method_chain"])  # no second verifier call
     assert second["summary"]["review"]["carried_over"] == 2
     assert by_id["C01"]["policy"] == {"kind": "required", "reason": "not_verified", "review_rate": 1.0}  # offline: never automated
     assert client.post(f"/api/findings/{by_id['C05']['id']}/push-to-storage").json()["storage_ref"].startswith("CS-")

@@ -211,6 +211,7 @@ export const COMMON = {
   nav_approvals: { de: 'Freigabe', en: 'Approvals' },
   nav_ask: { de: 'Fragen', en: 'Ask' },
   nav_tech: { de: 'Technik', en: 'Technical' },
+  nav_pipeline: { de: 'Pipeline', en: 'Pipeline' },
   nav_quality: { de: 'Qualitätsmessung', en: 'Quality measurement' },
   nav_models: { de: 'Modelle', en: 'Models' },
   tech_switch: { de: 'Technische Details anzeigen', en: 'Show technical details' },

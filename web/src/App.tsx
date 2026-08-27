@@ -27,6 +27,7 @@ import HowToRegIcon from '@mui/icons-material/HowToReg'
 import QuestionAnswerIcon from '@mui/icons-material/QuestionAnswer'
 import AssessmentIcon from '@mui/icons-material/Assessment'
 import MemoryIcon from '@mui/icons-material/Memory'
+import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import GavelIcon from '@mui/icons-material/Gavel'
@@ -42,6 +43,7 @@ import Approvals from './pages/Approvals'
 import Ask from './pages/Ask'
 import Quality from './pages/Quality'
 import Models from './pages/Models'
+import Pipeline from './pages/Pipeline'
 
 const theme = createTheme({
   palette: {
@@ -75,6 +77,7 @@ const MAIN_NAV = [
 ] as const
 
 const TECH_NAV = [
+  { to: '/tech/pipeline', key: 'nav_pipeline', icon: <AccountTreeIcon /> },
   { to: '/tech/quality', key: 'nav_quality', icon: <AssessmentIcon /> },
   { to: '/tech/models', key: 'nav_models', icon: <MemoryIcon /> },
 ] as const
@@ -157,6 +160,7 @@ function Shell() {
           <Route path="/checks/:id" element={<Checks />} />
           <Route path="/approvals" element={<Approvals />} />
           <Route path="/ask" element={<Ask />} />
+          <Route path="/tech/pipeline" element={<Pipeline />} />
           <Route path="/tech/quality" element={<Quality />} />
           <Route path="/tech/models" element={<Models />} />
           <Route path="/coverage" element={<Navigate to="/clauses" replace />} />

@@ -9,11 +9,11 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import StopIcon from '@mui/icons-material/Stop'
-import { api, type Audit, type Config, type Doc, type DocDetail, type Finding, type PolicyReport } from '../api'
+import { api, type Audit, type Config, type Doc, type DocDetail, type Finding, type PolicyClass, type PolicyReport } from '../api'
 import { useSettings, useT } from '../i18n'
 import { Small } from '../components/tech'
 import { usePolling } from '../components/ui'
-import { AUDIT_KINDS, CLAUSE_TYPES, POLICY, THINKING, VERDICTS, REVIEW_STATUS } from '../vocab'
+import { AUDIT_KINDS, CLAUSE_SHORT, CLAUSE_TYPES, INPUT_TYPES, PAGE_METHODS, POLICY, THINKING, VERDICTS, REVIEW_STATUS } from '../vocab'
 
 // ---------------------------------------------------------------- the diagram
 type Lane = 'ingest' | 'audit' | 'ask'
@@ -110,8 +110,8 @@ const T = {
   code: { de: 'Code', en: 'Code' },
   live: { de: 'Live im System', en: 'Live in the system' },
   for_doc: { de: 'Für {title}', en: 'For {title}' },
-  offline_model: { de: 'ohne Schlüssel: dieser Schritt entfällt, der Regelanteil läuft weiter', en: 'without a key: this step is skipped, the rule part keeps running' },
-  feedback: { de: 'Entscheidungen fließen als Präzedenzfälle in die nächste Gegenprüfung zurück', en: 'decisions flow back as precedents into the next cross-check' },
+  offline_model: { de: 'Ohne KI-Verbindung entfällt dieser Schritt; der Regelanteil läuft weiter.', en: 'Without an AI connection this step is skipped; the rule part keeps running.' },
+  feedback: { de: 'Entscheidungen fließen als Präzedenzfälle in die nächste KI-Gegenprüfung zurück', en: 'decisions flow back as precedents into the next AI cross-check' },
   n_docs: { de: 'Verträge', en: 'contracts' },
   n_pages: { de: 'Seiten', en: 'pages' },
   n_text: { de: 'direkt aus der Textebene gelesen', en: 'read directly from the text layer' },
@@ -124,31 +124,27 @@ const T = {
   n_cells: { de: 'Klauseln in der Übersicht', en: 'clauses in the overview' },
   n_audits: { de: 'Prüfungen', en: 'checks' },
   n_scope: { de: 'Verträge im letzten Prüfumfang', en: 'contracts in the last check' },
-  n_claims: { de: 'Meldungen der Regelprüfung (letzte Prüfung)', en: 'claims from the rule check (last check)' },
-  n_verified: { de: 'gegengeprüft', en: 'cross-checked' },
+  n_claims: { de: 'Funde der Regelprüfung (letzte Prüfung)', en: 'findings from the rule check (last check)' },
+  n_verified: { de: 'KI-Gegenprüfung durch', en: 'AI cross-check by' },
   n_precedents: { de: 'Präzedenzfälle im Prompt', en: 'precedents in the prompt' },
   n_auto: { de: 'automatisch freigegeben', en: 'auto-approved' },
   n_spot: { de: 'Stichproben', en: 'spot checks' },
   n_carried: { de: 'bereits entschieden', en: 'already decided' },
   n_pending: { de: 'warten auf Entscheidung', en: 'awaiting a decision' },
-  n_decided: { de: 'von Menschen entschieden', en: 'decided by people' },
+  n_decided: { de: 'von einer Person entschieden', en: 'decided by a person' },
   n_filed: { de: 'in der Vertragsablage', en: 'in contract storage' },
   n_rate: { de: 'Prüfquote {cls}', en: 'review rate {cls}' },
   d_page: { de: 'Seite {n}: {method}, {conf} %', en: 'Page {n}: {method}, {conf}%' },
   d_input: { de: 'Form: {t}', en: 'Form: {t}' },
   d_checksum: { de: 'Prüfsumme {sha}', en: 'Checksum {sha}' },
-  d_clauses: { de: '{n} Klauseln, davon {k} Standardtypen', en: '{n} clauses, {k} of the standard types' },
+  d_clauses: { de: '{n} Klauseln, davon {k} mit einem der zwölf Standardtypen', en: '{n} clauses, {k} of them with one of the twelve standard types' },
   d_entities: { de: '{n} Namen, davon {old} alte Riverty-Namen', en: '{n} names, {old} old Riverty names' },
   d_injection_yes: { de: 'Verdächtiger Text erkannt', en: 'Suspicious text detected' },
   d_injection_no: { de: 'Kein verdächtiger Text', en: 'No suspicious text' },
   d_finding: { de: '{kind}: {verdict} · {status}', en: '{kind}: {verdict} · {status}' },
   d_no_findings: { de: 'Keine Funde zu diesem Vertrag', en: 'No findings for this contract' },
-  m_text_layer: { de: 'Textebene', en: 'text layer' },
-  m_tesseract: { de: 'Texterkennung', en: 'text recognition' },
-  m_vision_llm: { de: 'Bildmodell', en: 'vision model' },
-  method_text_layer: { de: 'Textebene', en: 'text layer' },
-  method_tesseract: { de: 'Tesseract', en: 'Tesseract' },
-  method_vision_llm: { de: 'KI-Bilderkennung', en: 'AI image reading' },
+  note_escalated: { de: 'eskaliert', en: 'escalated' },
+  note_offline: { de: 'eskaliert, Bildmodell nicht verfügbar', en: 'escalated, vision model unavailable' },
 } as const
 
 // Per stage: label (on the node), purpose (one plain sentence), how (bullets, "\n"-separated), rules (short).
@@ -156,10 +152,10 @@ const STAGE_TEXT: Record<string, { label: { de: string; en: string }; purpose: {
   source: {
     label: { de: 'Dokument', en: 'Document' },
     purpose: { de: 'Ein Vertrag kommt als PDF oder Foto an – aus SharePoint oder per Upload.', en: 'A contract arrives as PDF or photo – from SharePoint or by upload.' },
-    how: { de: 'SHA-256-Prüfsumme der Datei als eindeutiger Fingerabdruck\nDieselbe Datei wird nie zweimal eingelesen (idempotent)\nJeder Einlesevorgang landet im Protokoll', en: 'SHA-256 checksum of the file as unique fingerprint\nThe same file is never read twice (idempotent)\nEvery ingest is written to the activity log' },
+    how: { de: 'SHA-256-Prüfsumme der Datei als eindeutiger Fingerabdruck\nDieselbe Datei wird nie zweimal eingelesen (idempotent)\nJeder Einlesevorgang wird im Protokoll festgehalten', en: 'SHA-256 checksum of the file as unique fingerprint\nThe same file is never read twice (idempotent)\nEvery ingest is written to the activity log' },
   },
   route: {
-    label: { de: 'Seiten-Routing', en: 'Page routing' },
+    label: { de: 'Seiten zuordnen', en: 'Page routing' },
     purpose: { de: 'Jede Seite wird danach behandelt, was sie ist – nicht nach der Dateiendung.', en: 'Every page is treated by what it is – not by file extension.' },
     how: { de: 'Seite mit brauchbarer Textebene → direkt lesen (exakt, kostenlos)\nSeite ohne Textebene → eingebettetes Scanbild in Originalauflösung → Texterkennung\nDeshalb funktioniert ein digitaler Vertrag mit eingescannter Unterschriftenseite', en: 'Page with a usable text layer → read directly (exact, free)\nPage without one → embedded scan at native resolution → text recognition\nThat is why a digital contract with a scanned signature page works' },
     rules: { de: 'Textebene gilt ab 40 Zeichen', en: 'Text layer counts from 40 characters' },
@@ -167,24 +163,24 @@ const STAGE_TEXT: Record<string, { label: { de: string; en: string }; purpose: {
   text: {
     label: { de: 'Textebene', en: 'Text layer' },
     purpose: { de: 'Digitale PDFs liefern ihren Text selbst.', en: 'Digital PDFs provide their own text.' },
-    how: { de: 'PyMuPDF liest den Text der Seite\nVerlässlichkeit 100 %, kein Modell nötig\nAuch verstecktes Weiß-auf-Weiß landet im Text – wichtig für die Erkennung verdächtiger Anweisungen', en: 'PyMuPDF reads the page text\n100% reliable, no model needed\nHidden white-on-white text lands in the text too – important for the suspicious-text screen' },
+    how: { de: 'PyMuPDF liest den Text der Seite\nVerlässlichkeit 100 %, kein Modell nötig\nAuch versteckter Weiß-auf-Weiß-Text wird mitgelesen – wichtig für die Erkennung verdächtiger Anweisungen', en: 'PyMuPDF reads the page text\n100% reliable, no model needed\nHidden white-on-white text is read as well – important for the suspicious-text screen' },
   },
   ocr: {
     label: { de: 'Texterkennung', en: 'Text recognition' },
     purpose: { de: 'Scans werden lokal mit Tesseract gelesen – die Daten verlassen den Rechner nicht.', en: 'Scans are read locally with Tesseract – data does not leave the machine.' },
-    how: { de: 'Graustufen zuerst (auf Farbbildern liefert Tesseract sonst nichts)\nWortweise Konfidenz aus Tesseract\nZusätzlich: Abdeckungsprüfung – jede Seitenzone mit Tinte muss Wörter geliefert haben', en: 'Grayscale first (Tesseract returns nothing on colour input)\nWord-level confidence from Tesseract\nPlus a coverage check – every inked band of the page must have produced words' },
+    how: { de: 'Graustufen zuerst (auf Farbbildern ist Tesseract unzuverlässig)\nVerlässlichkeit je Wort aus Tesseract\nZusätzlich: Abdeckungsprüfung – jede Seitenzone mit Tinte muss Wörter geliefert haben', en: 'Grayscale first (Tesseract is unreliable on colour input)\nWord-level confidence from Tesseract\nPlus a coverage check – every inked band of the page must have produced words' },
     rules: { de: 'eng + deu Sprachpakete; 8 horizontale Bänder für die Abdeckung', en: 'eng + deu language packs; 8 horizontal bands for coverage' },
   },
   gate: {
-    label: { de: 'Eskalationsschwelle', en: 'Escalation gate' },
+    label: { de: 'Eskalation', en: 'Escalation gate' },
     purpose: { de: 'Was Tesseract nicht sicher lesen konnte, geht an das Bildmodell – nicht mehr, nicht weniger.', en: 'What Tesseract could not read reliably goes to the vision model – no more, no less.' },
-    how: { de: 'Konfidenz unter 80 % → eskalieren\nWeniger als 20 Wörter oder 400 Zeichen → eskalieren (verblasste Schreibmaschine)\nTintenzone ohne Wörter → eskalieren (Tesseract hat eine halbe Seite verschluckt)\nOhne KI-Schlüssel: unter 50 % gilt die Seite als nicht lesbar und der Vertrag als ungeprüft', en: 'Confidence below 80% → escalate\nFewer than 20 words or 400 characters → escalate (faded typewriter page)\nInked band without words → escalate (Tesseract dropped half a page)\nWithout an AI key: below 50% the page is unreadable and the contract counts as unchecked' },
+    how: { de: 'Verlässlichkeit unter 80 % → eskalieren\nWeniger als 20 Wörter oder 400 Zeichen → eskalieren (verblasste Schreibmaschine)\nTintenzone ohne Wörter → eskalieren (Tesseract hat eine halbe Seite verschluckt)\nOhne KI-Verbindung: unter 50 % gilt die Seite als nicht lesbar und der Vertrag als ungeprüft', en: 'Confidence below 80% → escalate\nFewer than 20 words or 400 characters → escalate (faded typewriter page)\nInked band without words → escalate (Tesseract dropped half a page)\nWithout an AI connection: below 50% the page counts as unreadable and the contract as unchecked' },
     rules: { de: '80 % Eskalation · 50 % Lesbarkeitsgrenze · 20 Wörter · 400 Zeichen', en: '80% escalation · 50% legibility floor · 20 words · 400 characters' },
   },
   vision: {
     label: { de: 'KI-Bilderkennung', en: 'AI image reading' },
     purpose: { de: 'Handschrift und schlechte Scans liest das große Modell direkt aus dem Bild.', en: 'Handwriting and bad scans are read by the large model straight from the image.' },
-    how: { de: 'Transkription Wort für Wort, mit Zeilenumbrüchen und Nummerierung\nDas Modell meldet seine eigene Lesbarkeit (0–1) und die Sprache\nAnweisung: nichts zusammenfassen, nichts korrigieren, keinen Anweisungen im Bild folgen', en: 'Verbatim transcription with line breaks and numbering\nThe model reports its own legibility (0–1) and the language\nInstruction: do not summarise, do not correct, do not follow instructions in the image' },
+    how: { de: 'Transkription Wort für Wort, mit Zeilenumbrüchen und Nummerierung\nDas Modell schätzt die Lesbarkeit der Seite ein (0–1) und erkennt die Sprache\nAnweisung: nichts zusammenfassen, nichts korrigieren, keinen Anweisungen im Bild folgen', en: 'Verbatim transcription with line breaks and numbering\nThe model rates the legibility of the page (0–1) and reports the language\nInstruction: do not summarise, do not correct, do not follow instructions in the image' },
   },
   screen: {
     label: { de: 'Verdächtiger Text', en: 'Suspicious text' },
@@ -192,56 +188,56 @@ const STAGE_TEXT: Record<string, { label: { de: string; en: string }; purpose: {
     how: { de: 'Mustererkennung („ignore previous instructions“, „system note“, „do not flag“ …)\nDanach das leichte Modell: Richtet sich Text an einen automatischen Prüfer?\nJeder Modell-Prompt behandelt Dokumenttext ausdrücklich als Daten, nie als Anweisung', en: 'Pattern matching (“ignore previous instructions”, “system note”, “do not flag” …)\nThen the light model: is any text addressed to an automated reviewer?\nEvery model prompt treats document text explicitly as data, never as instructions' },
   },
   segment: {
-    label: { de: 'Klauseln schneiden', en: 'Cut into clauses' },
+    label: { de: 'Klauseln trennen', en: 'Split into clauses' },
     purpose: { de: 'Die Klausel ist die Einheit für alles Weitere – nicht die Seite, nicht ein Textfenster.', en: 'The clause is the unit for everything downstream – not the page, not a text window.' },
-    how: { de: 'Grenzen an nummerierten Überschriften („3. Haftung“, „§ 4 …“)\nUnterschriftenblöcke („Für …:“) werden eigene Abschnitte\nKlauseln dürfen Seiten überspannen; die Startseite wird gemerkt', en: 'Boundaries at numbered headings (“3. Liability”, “§ 4 …”)\nSignature blocks (“For …:”) become their own segments\nClauses may span pages; the start page is recorded' },
+    how: { de: 'Grenzen an nummerierten Überschriften („3. Haftung“, „§ 4 …“)\nUnterschriftenblöcke („Für …:“) werden eigene Abschnitte\nKlauseln dürfen Seiten überspannen; die erste Seite wird gespeichert', en: 'Boundaries at numbered headings (“3. Liability”, “§ 4 …”)\nSignature blocks (“For …:”) become their own segments\nClauses may span pages; the first page is recorded' },
   },
   classify: {
-    label: { de: 'Klauseln einordnen', en: 'Label clauses' },
-    purpose: { de: 'Jede Klausel bekommt einen von zwölf Standardtypen – daraus entsteht die Klausel-Übersicht.', en: 'Every clause gets one of twelve standard types – that becomes the clause overview.' },
+    label: { de: 'Klauseltypen', en: 'Clause types' },
+    purpose: { de: 'Jede Klausel bekommt einen Typ: einen der zwölf Standardtypen oder einen von fünf Strukturtypen (Präambel, Leistungsumfang, Mitteilungen, Unterschriften, Sonstiges) – daraus entsteht die Klausel-Übersicht.', en: 'Every clause gets a type: one of the twelve standard types or one of five structural ones (preamble, scope, notices, signature, other) – that becomes the clause overview.' },
     how: { de: 'Regelprüfung zuerst: Schlüsselwörter in Überschrift (dreifach gewichtet) und Text, Deutsch und Englisch\nDann das schnelle Modell mit denselben Klauseln\nEinigkeit erhöht die Verlässlichkeit, Widerspruch senkt sie und wird gespeichert', en: 'Rule check first: keywords in heading (triple weight) and body, German and English\nThen the fast model on the same clauses\nAgreement raises reliability, disagreement lowers it and is recorded' },
     rules: { de: 'Zwölf Typen: Laufzeit, Vergütung, Haftung, Vertraulichkeit, Datenschutz, Recht, Gerichtsstand, Höhere Gewalt, Abtretung, Audit, Antikorruption, Kontrollwechsel', en: 'Twelve types: term, fees, liability, confidentiality, data protection, law, disputes, force majeure, assignment, audit, anti-corruption, change of control' },
   },
   entities: {
     label: { de: 'Namensregister', en: 'Name registry' },
-    purpose: { de: 'Der alte Firmenname ist ein Namensproblem, keine Textsuche.', en: 'The old company name is a name problem, not a text search.' },
-    how: { de: 'Register bekannter Namen mit Rolle: alter Riverty-Name, aktueller Name, Vertragspartner, anderes Unternehmen (Arvato Systems)\n„vormals / formerly“ davor → historischer Verweis, kein Handlungsbedarf\nAuf OCR-Seiten zusätzlich Schreibvarianten-Abgleich („Arvate Payment Solutions:“)\nDas schnelle Modell ergänzt Parteien, Titel und Vertragsart', en: 'Registry of known names with a role: old Riverty name, current name, counterparty, unrelated company (Arvato Systems)\n“formerly / vormals” before it → historical reference, no action\nOn OCR pages an additional near-match (“Arvate Payment Solutions:”)\nThe fast model adds parties, title and contract type' },
+    purpose: { de: 'Der alte Firmenname wird über ein Namensregister erkannt, nicht über eine Textsuche.', en: 'The old company name is recognised through a name registry, not through a text search.' },
+    how: { de: 'Register bekannter Namen mit Rolle: alter Riverty-Name, aktueller Name, anderes Unternehmen (Arvato Systems); Vertragspartner über Rechtsform-Endungen (GmbH, AG, B.V. …)\n„vormals / formerly“ davor → historischer Verweis, kein Handlungsbedarf\nAuf OCR-Seiten zusätzlich Schreibvarianten-Abgleich („Arvate Payment Solutions:“)\nDas schnelle Modell ergänzt Parteien, Titel und Vertragsart', en: 'Registry of known names with a role: old Riverty name, current name, unrelated company (Arvato Systems); counterparties via legal-form suffixes (GmbH, AG, B.V. …)\n“formerly / vormals” before it → historical reference, no action\nOn OCR pages an additional near-match (“Arvate Payment Solutions:”)\nThe fast model adds parties, title and contract type' },
     rules: { de: 'Schreibvariante ab 80 % Ähnlichkeit, nur mehrteilige Namen', en: 'Near match from 80% similarity, multi-word names only' },
   },
   embed: {
     label: { de: 'Einbettungen', en: 'Embeddings' },
     purpose: { de: 'Jede Klausel wird als Vektor abgelegt, damit sinngemäße Suche möglich ist.', en: 'Every clause is stored as a vector so search by meaning works.' },
-    how: { de: 'gemini-embedding-001 mit 768 Dimensionen in pgvector\nZusätzlich Volltext-Index mit deutscher und englischer Wortstammbildung\nOhne Schlüssel: deterministischer Hash-Vektor, die Volltextsuche trägt', en: 'gemini-embedding-001 with 768 dimensions in pgvector\nPlus a full-text index with German and English stemming\nWithout a key: deterministic hash vector, full-text search carries' },
+    how: { de: 'gemini-embedding-001 mit 768 Dimensionen in pgvector\nZusätzlich Volltext-Index mit deutscher und englischer Wortstammbildung\nOhne KI-Verbindung: deterministischer Hash-Vektor, die Volltextsuche übernimmt', en: 'gemini-embedding-001 with 768 dimensions in pgvector\nPlus a full-text index with German and English stemming\nWithout an AI connection: deterministic hash vector, full-text search takes over' },
   },
   store: {
     label: { de: 'Datenbank', en: 'Database' },
     purpose: { de: 'PostgreSQL hält alles, was die Prüfungen brauchen – schon bevor eine Frage gestellt wird.', en: 'PostgreSQL holds everything the checks need – before any question is asked.' },
-    how: { de: 'Seiten mit Lesemethode und Konfidenz, Klauseln mit Typ und Verlässlichkeit, Namen mit Rolle\nDie Klausel-Übersicht ist damit ein Nachschlagen, keine Suche\nProtokoll: nur anhängen, nie ändern', en: 'Pages with reading method and confidence, clauses with type and reliability, names with role\nThe clause overview is therefore a lookup, not a search\nActivity log: append only, never edit' },
+    how: { de: 'Seiten mit Lesemethode und Verlässlichkeit, Klauseln mit Typ und Verlässlichkeit, Namen mit Rolle\nDie Klausel-Übersicht ist damit ein Nachschlagen, keine Suche\nProtokoll: nur anhängen, nie ändern', en: 'Pages with reading method and confidence, clauses with type and reliability, names with role\nThe clause overview is therefore a lookup, not a search\nActivity log: append only, never edit' },
   },
   question: {
     label: { de: 'Frage', en: 'Question' },
     purpose: { de: 'Drei Fragen der Rechtsabteilung: fehlende Klausel, fehlende Regelung, alter Firmenname.', en: 'Three questions from Legal: missing clause, missing passage, old company name.' },
-    how: { de: 'Eingrenzung auf eine Vertragsart möglich\nDie Sprache der Oberfläche geht mit – Begründungen kommen auf Deutsch zurück\nDie Prüfung läuft im Hintergrund, meist unter einer Minute', en: 'Can be limited to a contract type\nThe interface language travels along – reasoning comes back in German\nThe check runs in the background, usually under a minute' },
+    how: { de: 'Eingrenzung auf eine Vertragsart möglich\nDie Sprache der Oberfläche wird übergeben – Begründungen kommen in dieser Sprache zurück\nDie Prüfung läuft im Hintergrund, meist unter einer Minute', en: 'Can be limited to a contract type\nThe interface language is passed along – reasoning comes back in that language\nThe check runs in the background, usually under a minute' },
   },
   plan: {
     label: { de: 'Prüfumfang', en: 'Scope' },
     purpose: { de: 'Welche Verträge werden geprüft – und welche können es nicht?', en: 'Which contracts are checked – and which cannot be?' },
-    how: { de: 'Alle fertig gelesenen Verträge, optional nach Vertragsart\nVerträge mit unlesbaren Seiten werden ausdrücklich als „nicht lesbar“ gemeldet, nie stillschweigend als unauffällig', en: 'All fully read contracts, optionally by contract type\nContracts with unreadable pages are reported explicitly as “unreadable”, never silently as fine' },
+    how: { de: 'Alle fertig gelesenen Verträge, optional nach Vertragsart', en: 'All fully read contracts, optionally by contract type' },
   },
   deterministic: {
     label: { de: 'Regelprüfung', en: 'Rule check' },
     purpose: { de: 'Die Antwort kommt zuerst aus Daten, nicht aus einem Modell.', en: 'The answer comes from data first, not from a model.' },
-    how: { de: 'Fehlende Klausel: Nachschlagen in der Klausel-Übersicht – kein Eintrag heißt: nicht gefunden\nFehlende Regelung: ähnlichste Klausel je Vertrag per Vektor- und Volltextsuche, zwei Schwellen\nAlter Firmenname: aktive Nennungen aus dem Namensregister, historische Verweise ausgenommen\nJede Meldung trägt Beleg, Seite, Verlässlichkeit und ihren Entstehungsweg', en: 'Missing clause: lookup in the clause overview – no entry means: not found\nMissing passage: closest clause per contract via vector and full-text search, two thresholds\nOld company name: active mentions from the name registry, historical references excluded\nEvery claim carries evidence, page, reliability and how it was produced' },
-    rules: { de: 'Ähnlichkeit ≥ 0,75 vorhanden · ≤ 0,60 fehlt · dazwischen unklar · Klauseltyp ab 90 % sicher', en: 'Similarity ≥ 0.75 present · ≤ 0.60 missing · in between uncertain · clause type certain from 90%' },
+    how: { de: 'Fehlende Klausel: Nachschlagen in der Klausel-Übersicht – kein Eintrag heißt: nicht gefunden\nFehlende Regelung: ähnlichste Klausel je Vertrag per Vektorähnlichkeit, zwei Schwellen\nAlter Firmenname: aktive Nennungen aus dem Namensregister, historische Verweise ausgenommen\nVerträge mit einer Seite unter 50 % Lesbarkeit (ohne Bildmodell) werden ausdrücklich als „nicht lesbar“ gemeldet, nie stillschweigend als unauffällig\nJeder Fund trägt Beleg, Seite, Verlässlichkeit und seinen Entstehungsweg', en: 'Missing clause: lookup in the clause overview – no entry means: not found\nMissing passage: closest clause per contract by vector similarity, two thresholds\nOld company name: active mentions from the name registry, historical references excluded\nContracts with a page below 50% legibility (no vision model) are reported explicitly as “unreadable”, never silently as fine\nEvery finding carries evidence, page, reliability and how it was produced' },
+    rules: { de: 'Ähnlichkeit ≥ 0,75 vorhanden · ≤ 0,60 fehlt · dazwischen unklar (ohne KI-Verbindung: 0,45 / 0,25) · Klauseltyp ab 90 % sicher', en: 'Similarity ≥ 0.75 present · ≤ 0.60 missing · in between uncertain (without an AI connection: 0.45 / 0.25) · clause type certain from 90%' },
   },
   verify: {
     label: { de: 'KI-Gegenprüfung', en: 'AI cross-check' },
-    purpose: { de: 'Ein unabhängiges Modell liest den ganzen Vertrag und urteilt über jede Meldung.', en: 'An independent model reads the whole contract and rules on every claim.' },
-    how: { de: 'Der komplette Vertragstext, nicht nur Suchtreffer – Suche kann übersehen, der Volltext nicht\nUrteil: bestätigt, entkräftet oder teilweise (Regelung vorhanden, aber enger)\nZitat mit Seitenzahl ist Pflicht; Begründung in der Sprache der Oberfläche\nPräzedenzfälle: die letzten Entscheidungen der Rechtsabteilung mit Anmerkung stehen im Prompt\nBereits entschiedene Funde werden nicht erneut gegengeprüft', en: 'The complete contract text, not just search hits – search can miss, the full text cannot\nVerdict: confirmed, refuted or partial (a provision exists but is narrower)\nA quote with page number is mandatory; reasoning in the interface language\nPrecedents: the team’s latest decisions with notes are in the prompt\nAlready decided findings are not verified again' },
+    purpose: { de: 'Ein unabhängiges Modell liest den ganzen Vertrag und beurteilt jeden Fund.', en: 'An independent model reads the whole contract and rules on every finding.' },
+    how: { de: 'Der komplette Vertragstext, nicht nur Suchtreffer – Suche kann übersehen, der Volltext nicht\nUrteil: bestätigt, entkräftet oder teilweise (Regelung vorhanden, aber enger)\nZitat mit Seitenzahl wird verlangt; fehlt es, bleibt der Beleg der Regelprüfung stehen; Begründung in der Sprache der Oberfläche\nPräzedenzfälle: die letzten Entscheidungen der Rechtsabteilung mit Anmerkung stehen im Prompt\nBereits entschiedene Funde werden nicht erneut gegengeprüft', en: 'The complete contract text, not just search hits – search can miss, the full text cannot\nVerdict: confirmed, refuted or partial (a provision exists but is narrower)\nA quote with page number is requested; without one the rule-check evidence stays; reasoning in the interface language\nPrecedents: the team’s latest decisions with notes are in the prompt\nAlready decided findings are not verified again' },
     rules: { de: 'Klauseltypen ab 90 % Verlässlichkeit werden nicht erneut geprüft', en: 'Clause types at 90%+ reliability are not re-checked' },
   },
   policy: {
-    label: { de: 'Prüfpolitik', en: 'Review policy' },
+    label: { de: 'Prüflast', en: 'Review load' },
     purpose: { de: 'Wer muss hinschauen? Die Prüflast sinkt, wenn die Rechtsabteilung dem System wiederholt zustimmt.', en: 'Who has to look? The review load falls as Legal repeatedly agrees with the system.' },
     how: { de: 'Jede Fundart beginnt bei 100 % Prüfung\nNach 8 übereinstimmenden Entscheidungen: 20 % Stichprobe, ab 24: 10 % – der Rest wird automatisch freigegeben\nNur KI-bestätigte Funde, mindestens eine Stichprobe pro Prüfung, deterministische Auswahl\nEine Ablehnung setzt die Fundart auf 100 % zurück\nBereits entschiedene Verträge werden übernommen, nie erneut vorgelegt', en: 'Every finding class starts at 100% review\nAfter 8 agreeing decisions: 20% spot check, from 24: 10% – the rest is auto-approved\nOnly AI-confirmed findings, at least one spot check per run, deterministic selection\nA rejection resets the class to 100%\nAlready decided contracts are carried over, never re-queued' },
     rules: { de: '8 Entscheidungen · 95 % Übereinstimmung · 20 % / 10 % Stichprobe', en: '8 decisions · 95% agreement · 20% / 10% spot check' },
@@ -249,11 +245,11 @@ const STAGE_TEXT: Record<string, { label: { de: string; en: string }; purpose: {
   review: {
     label: { de: 'Freigabe', en: 'Approval' },
     purpose: { de: 'Nichts verlässt das System ohne eine Person – auch eine automatische Freigabe bleibt änderbar.', en: 'Nothing leaves the system without a person – even an auto-approval stays changeable.' },
-    how: { de: 'Freigeben oder Ablehnen mit Anmerkung\nJede Entscheidung wird mit Kürzel, Zeit und Dokument-Prüfsumme protokolliert\nAnmerkungen werden zu Präzedenzfällen für die nächste Gegenprüfung', en: 'Approve or reject with a note\nEvery decision is logged with reviewer, time and document checksum\nNotes become precedents for the next cross-check' },
+    how: { de: 'Freigeben oder Ablehnen mit Anmerkung\nJede Entscheidung wird mit Kürzel, Zeit und Dokument-Prüfsumme protokolliert\nAnmerkungen werden zu Präzedenzfällen für die nächste KI-Gegenprüfung', en: 'Approve or reject with a note\nEvery decision is logged with reviewer, time and document checksum\nNotes become precedents for the next AI cross-check' },
   },
   file: {
     label: { de: 'Vertragsablage', en: 'Contract storage' },
-    purpose: { de: 'Freigegebene Funde werden als rechtskonforme Kopie abgelegt.', en: 'Approved findings are filed as a compliant copy.' },
+    purpose: { de: 'Freigegebene Funde werden in der Vertragsablage abgelegt.', en: 'Approved findings are filed in contract storage.' },
     how: { de: 'REST-Aufruf mit Idempotenz-Schlüssel – ein zweiter Klick legt keine Kopie an\nAblagenummer bleibt am Fund sichtbar\nAlles steht im Protokoll', en: 'REST call with an idempotency key – filing twice creates no copy\nThe storage reference stays visible on the finding\nEverything is in the activity log' },
   },
   ask: {
@@ -269,12 +265,12 @@ const STAGE_TEXT: Record<string, { label: { de: string; en: string }; purpose: {
   retrieve: {
     label: { de: 'Hybride Suche', en: 'Hybrid search' },
     purpose: { de: 'Vektor- und Volltextsuche zusammen, damit weder Sinn noch Wortlaut verloren gehen.', en: 'Vector and full-text search together, so neither meaning nor wording is lost.' },
-    how: { de: 'Top-25 per Vektorähnlichkeit und Top-25 per Volltext (deutsch + englisch gestemmt)\nVerschmelzung per Reciprocal Rank Fusion\nAcht Klauseln gehen an das Modell', en: 'Top-25 by vector similarity and top-25 by full text (German + English stemming)\nMerged with reciprocal rank fusion\nEight clauses go to the model' },
+    how: { de: 'Top-25 per Vektorähnlichkeit und Top-25 per Volltext (deutsche und englische Wortstammbildung)\nVerschmelzung per Reciprocal Rank Fusion\nAcht Klauseln gehen an das Modell', en: 'Top-25 by vector similarity and top-25 by full text (German + English stemming)\nMerged with reciprocal rank fusion\nEight clauses go to the model' },
   },
   answer: {
-    label: { de: 'Antwort mit Belegen', en: 'Cited answer' },
+    label: { de: 'Belegte Antwort', en: 'Cited answer' },
     purpose: { de: 'Jede Aussage muss eine zitierte Stelle haben – ohne Beleg keine Aussage.', en: 'Every statement must cite a passage – no evidence, no statement.' },
-    how: { de: 'Das schnelle Modell antwortet nur aus den acht Klauseln\nZitate mit Vertrag und Seite; „Vertrag öffnen“ springt zur Stelle\nOhne Schlüssel: nur die passendsten Stellen, keine formulierte Antwort', en: 'The fast model answers only from the eight clauses\nCitations with contract and page; “Open contract” jumps to the spot\nWithout a key: only the best passages, no written answer' },
+    how: { de: 'Das schnelle Modell antwortet nur aus den acht Klauseln\nZitate mit Vertrag und Seite; „Vertrag öffnen“ springt zur Stelle\nOhne KI-Verbindung: nur die passendsten Stellen, keine formulierte Antwort', en: 'The fast model answers only from the eight clauses\nCitations with contract and page; “Open contract” jumps to the spot\nWithout an AI connection: only the best passages, no written answer' },
   },
 }
 
@@ -317,7 +313,7 @@ export default function Pipeline() {
   const stage = byId[selected]
   const text = STAGE_TEXT[selected]
   const routing = config?.routing.find((r) => r.task === stage?.task)
-  const live = useMemo(() => liveNumbers(selected, docs, audits, findings, policy, config, t), [selected, docs, audits, findings, policy, config, t])
+  const live = useMemo(() => liveNumbers(selected, docs, audits, findings, policy, config, t, lang), [selected, docs, audits, findings, policy, config, t, lang])
   const docLines = useMemo(() => traceLines(selected, trace, findings ?? [], t, lang), [selected, trace, findings, t, lang])
 
   return (
@@ -512,10 +508,12 @@ function tracePath(doc: DocDetail | null, findings: Finding[]): Set<string> {
   return new Set(path)
 }
 
-function liveNumbers(stage: string, docs: Doc[] | null, audits: Audit[] | null, findings: Finding[] | null, policy: PolicyReport | null, config: Config | null, t: Tr): [string, string][] {
+function liveNumbers(stage: string, docs: Doc[] | null, audits: Audit[] | null, findings: Finding[] | null, policy: PolicyReport | null, config: Config | null, t: Tr, lang: 'de' | 'en'): [string, string][] {
   const ready = (docs ?? []).filter((d) => d.status === 'ready')
   const pages = ready.flatMap((d) => d.ingest_summary)
   const count = (m: string) => pages.filter((p) => p.method === m).length
+  // pages that hit the escalation gate: read by the vision model, or left at Tesseract because it was unavailable offline
+  const escalated = pages.filter((p) => p.method === 'vision_llm' || p.note.includes('unavailable offline')).length
   const last = (audits ?? []).find((a) => a.status === 'done')
   const s = (last?.summary ?? {}) as Record<string, number | Record<string, number>>
   const num = (k: string) => (typeof s[k] === 'number' ? (s[k] as number) : 0)
@@ -528,9 +526,9 @@ function liveNumbers(stage: string, docs: Doc[] | null, audits: Audit[] | null, 
     case 'text':
       return [[t('n_text'), String(count('text_layer'))]]
     case 'ocr':
-      return [[t('n_ocr'), String(count('tesseract'))], [t('n_escalated'), String(pages.filter((p) => p.note.includes('escalated')).length)]]
+      return [[t('n_ocr'), String(count('tesseract'))], [t('n_escalated'), String(escalated)]]
     case 'gate':
-      return [[t('n_escalated'), String(pages.filter((p) => p.note.includes('escalated')).length)], [t('n_vision'), String(count('vision_llm'))]]
+      return [[t('n_escalated'), String(escalated)], [t('n_vision'), String(count('vision_llm'))]]
     case 'vision':
       return [[t('n_vision'), String(count('vision_llm'))]]
     case 'screen':
@@ -551,7 +549,7 @@ function liveNumbers(stage: string, docs: Doc[] | null, audits: Audit[] | null, 
       return [[t('n_verified'), s.verified ? (config?.routing.find((r) => r.task === 'verify')?.model ?? '✓') : '–'], [t('n_precedents'), String(num('precedents'))]]
     case 'policy':
       return [[t('n_auto'), String(review.auto_approved ?? 0)], [t('n_spot'), String(review.spot_check ?? 0)], [t('n_carried'), String(review.carried_over ?? 0)],
-        ...(policy?.classes ?? []).slice(0, 3).map((c): [string, string] => [t('n_rate', { cls: c.class_key.split(':')[0] }), `${Math.round(c.review_rate * 100)} %`])]
+        ...(policy?.classes ?? []).slice(0, 3).map((c): [string, string] => [t('n_rate', { cls: classWord(c, lang) }), `${Math.round(c.review_rate * 100)} %`])]
     case 'review':
       return [[t('n_pending'), String(all.filter((f) => f.review_status === 'pending').length)], [t('n_decided'), String(all.filter((f) => f.review_status === 'approved' || f.review_status === 'rejected').length)], [t('n_auto'), String(all.filter((f) => f.review_status === 'auto_approved').length)]]
     case 'file':
@@ -559,6 +557,14 @@ function liveNumbers(stage: string, docs: Doc[] | null, audits: Audit[] | null, 
     default:
       return []
   }
+}
+
+/** A finding class in words: the audit kind plus what it was asked for (clause type, old name or passage). */
+function classWord(c: PolicyClass, lang: 'de' | 'en'): string {
+  const kind = AUDIT_KINDS[c.kind]?.[lang] ?? c.kind
+  const passage = c.params.passage ? (c.params.passage.length > 30 ? `${c.params.passage.slice(0, 30)}…` : c.params.passage) : ''
+  const param = c.params.clause_type ? (CLAUSE_SHORT[c.params.clause_type]?.[lang] ?? c.params.clause_type) : c.params.old_name ? c.params.old_name : passage ? (lang === 'de' ? `„${passage}“` : `“${passage}”`) : ''
+  return param ? `${kind} ${param}` : kind
 }
 
 function policyWord(f: Finding, lang: 'de' | 'en'): string {
@@ -572,16 +578,21 @@ function policyWord(f: Finding, lang: 'de' | 'en'): string {
 function traceLines(stage: string, doc: DocDetail | null, findings: Finding[], t: Tr, lang: 'de' | 'en'): string[] {
   if (!doc) return []
   const mine = findings.filter((f) => f.document_id === doc.id)
-  const methodWord = (m: string) => t(`method_${m}` as keyof typeof T)
+  const methodWord = (m: string) => PAGE_METHODS[m]?.[lang] ?? m
+  // backend notes are English; known ones are translated, unknown ones are shown only in the English interface
+  const noteWord = (note: string) => (note.includes('escalated') ? t('note_escalated') : note.includes('unavailable offline') ? t('note_offline') : lang === 'en' ? note : '')
   switch (stage) {
     case 'source':
-      return [t('d_input', { t: doc.input_type }), t('d_checksum', { sha: doc.sha256.slice(0, 12) })]
+      return [t('d_input', { t: INPUT_TYPES[doc.input_type]?.[lang] ?? doc.input_type }), t('d_checksum', { sha: doc.sha256.slice(0, 12) })]
     case 'route':
     case 'text':
     case 'ocr':
     case 'gate':
     case 'vision':
-      return doc.ingest_summary.map((p) => t('d_page', { n: p.page, method: methodWord(p.method), conf: Math.round(p.confidence * 100) }) + (p.note ? ` – ${p.note}` : ''))
+      return doc.ingest_summary.map((p) => {
+        const note = noteWord(p.note)
+        return t('d_page', { n: p.page, method: methodWord(p.method), conf: Math.round(p.confidence * 100) }) + (note ? ` – ${note}` : '')
+      })
     case 'screen':
       return [doc.injection_suspected ? t('d_injection_yes') : t('d_injection_no')]
     case 'segment':

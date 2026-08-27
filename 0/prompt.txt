@@ -1,0 +1,15 @@
+<task-notification>
+<task-id>bjde9984c</task-id>
+<tool-use-id>toolu_01GAAqtEV4pBXV4qWu4bJNa1</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-gaurav-Downloads-riverty-challenge/046eadd3-6aa8-4b09-adc8-e3efac5fd391/tasks/bjde9984c.output</output-file>
+<status>killed</status>
+<summary>Background command "Restart the Vite dev server on 5174" was stopped</summary>
+</task-notification>
+
+---
+
+tell now overall how it works the website, entire flow and the tech behind, and example flow through the pipeline
+
+---
+
+also, relook at the problem statement and check if all the points in the PS are covered. are we using the technologies mentioned there or if we are using otherwise, why and is it still possible to use these over microsoft. reasoning should be convincing to choose one over the recommended other. if not, use the prescribed tech. the final evaluation of the correctness and completeness of the task should be availalbe so that it can be evaluated. also, the main intial websearch for the input data, did you do deep research or just used whatever was there using a simple keyword search. surround the problem from more angles and work on finding better or more aligned input datasets or just a smaller but an aligned dataset. go through the PS again in detail.

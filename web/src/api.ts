@@ -117,11 +117,15 @@ export type Coverage = {
     contract_type: string
     language: string
     cells: Record<string, { confidence: number; method: string; page: number; heading: string }>
+    required: string[] // clause types the corporate guideline demands for this contract type
   }[]
 }
 
 export type Config = {
   llm_enabled: boolean
+  provider: string // gemini | foundry | none
+  ocr_provider: string // tesseract | document_intelligence
+  document_source: string // local | sharepoint
   routing: { task: string; model: string; thinking: string; purpose: string }[]
   taxonomy: string[]
   embedding: { model: string; dim: number }
@@ -180,6 +184,10 @@ export const api = {
     return request<{ queued: number }>('/api/documents/upload', { method: 'POST', body })
   },
   coverage: () => request<Coverage>('/api/coverage'),
+  guidelines: () => request<Record<string, string[]>>('/api/guidelines'),
+  guidelineAudits: (contract_type: string, language: string) =>
+    request<{ audits: number[] }>(`/api/audits/guideline?contract_type=${encodeURIComponent(contract_type)}&language=${language}`, { method: 'POST' }),
+  sync: () => request<{ source: string; queued: boolean }>('/api/documents/sync', { method: 'POST' }),
   audits: () => request<Audit[]>('/api/audits'),
   audit: (id: number) => request<Audit & { findings: Finding[] }>(`/api/audits/${id}`),
   createAudit: (kind: string, params: Record<string, string>, language: string) =>

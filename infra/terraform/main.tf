@@ -112,6 +112,35 @@ resource "azurerm_cognitive_account" "document_intelligence" {
   tags                  = local.tags
 }
 
+# ---------------------------------------------------------------- models via Azure AI Foundry (the Microsoft path)
+resource "azurerm_cognitive_account" "foundry" {
+  count                 = var.llm_provider == "foundry" ? 1 : 0
+  name                  = "oai-${local.name}"
+  location              = var.foundry_location
+  resource_group_name   = azurerm_resource_group.rg.name
+  kind                  = "OpenAI"
+  sku_name              = "S0"
+  custom_subdomain_name = "oai-${local.name}"
+  tags                  = local.tags
+}
+
+# One deployment per routing tier: the API keeps the same task -> tier table whichever provider is active.
+resource "azurerm_cognitive_deployment" "tier" {
+  for_each = var.llm_provider == "foundry" ? var.foundry_deployments : {}
+
+  name                 = each.key
+  cognitive_account_id = azurerm_cognitive_account.foundry[0].id
+  model {
+    format  = "OpenAI"
+    name    = each.value.model
+    version = each.value.version
+  }
+  sku {
+    name     = "GlobalStandard"
+    capacity = each.value.capacity
+  }
+}
+
 # ---------------------------------------------------------------- compute
 resource "azurerm_container_app_environment" "env" {
   name                       = "cae-${local.name}"
@@ -161,6 +190,11 @@ resource "azurerm_container_app" "api" {
     key_vault_secret_id = "${azurerm_key_vault.kv.vault_uri}secrets/database-url"
     identity            = azurerm_user_assigned_identity.api.id
   }
+  secret {
+    name                = "entra-client-secret"
+    key_vault_secret_id = "${azurerm_key_vault.kv.vault_uri}secrets/entra-client-secret"
+    identity            = azurerm_user_assigned_identity.api.id
+  }
 
   template {
     min_replicas = 1
@@ -179,12 +213,32 @@ resource "azurerm_container_app" "api" {
         secret_name = "database-url"
       }
       env {
+        name        = "ENTRA_CLIENT_SECRET"
+        secret_name = "entra-client-secret"
+      }
+      env {
         name  = "LLM_PROVIDER"
         value = var.llm_provider
       }
       env {
-        name  = "DOCUMENT_INTELLIGENCE_ENDPOINT"
+        name  = "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT"
         value = azurerm_cognitive_account.document_intelligence.endpoint
+      }
+      env {
+        name  = "OCR_PROVIDER"
+        value = "document_intelligence"
+      }
+      env {
+        name  = "AZURE_OPENAI_ENDPOINT"
+        value = var.llm_provider == "foundry" ? azurerm_cognitive_account.foundry[0].endpoint : ""
+      }
+      env {
+        name  = "DOCUMENT_SOURCE"
+        value = "sharepoint"
+      }
+      env {
+        name  = "SHAREPOINT_DRIVE_ID"
+        value = var.sharepoint_drive_id
       }
     }
   }

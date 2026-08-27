@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import chat, evaluation, policy
+from app import chat, evaluation, policy, sources
 from app.audits.graph import coverage_matrix, run_audit
 from app.config import settings
 from app.db import SessionLocal, get_session
@@ -31,8 +31,12 @@ def health() -> dict:
 
 @router.get("/config")
 def config() -> dict:
-    return {"llm_enabled": settings.llm_enabled, "routing": routing_table(), "taxonomy": TAXONOMY,
-            "embedding": {"model": settings.model_embedding, "dim": settings.embedding_dim}}
+    from app.llm import model_id
+
+    return {"llm_enabled": settings.llm_enabled, "provider": settings.llm_provider_resolved,
+            "ocr_provider": settings.ocr_provider_resolved, "document_source": settings.document_source,
+            "routing": routing_table(), "taxonomy": TAXONOMY,
+            "embedding": {"model": model_id("embedding"), "dim": settings.embedding_dim}}
 
 
 # ---------------------------------------------------------------- documents
@@ -84,6 +88,18 @@ def ingest_samples(background: BackgroundTasks, actor: str = "system", batch: in
     return {"queued": len(paths)}
 
 
+def _sync_job(actor: str) -> None:
+    with SessionLocal() as session:
+        sources.sync(session, actor)
+
+
+@router.post("/documents/sync")
+def sync_source(background: BackgroundTasks, actor: str = "system") -> dict:
+    """Pull whatever is new from the configured document source (local folder or SharePoint via Graph)."""
+    background.add_task(_sync_job, actor)
+    return {"source": settings.document_source, "queued": True}
+
+
 @router.post("/documents/upload")
 def upload(background: BackgroundTasks, file: UploadFile, actor: str = "legal.reviewer") -> dict:
     UPLOADS.mkdir(exist_ok=True)
@@ -94,9 +110,47 @@ def upload(background: BackgroundTasks, file: UploadFile, actor: str = "legal.re
     return {"queued": 1, "filename": path.name}
 
 
+def _guidelines() -> dict:
+    return json.loads((settings.data_dir / "guidelines.json").read_text())
+
+
+def required_clauses(contract_type: str) -> list[str]:
+    g = _guidelines()
+    return sorted(set(g.get("*", [])) | set(g.get(contract_type, [])))
+
+
+@router.get("/guidelines")
+def guidelines() -> dict:
+    g = _guidelines()
+    return {k: v for k, v in g.items() if not k.startswith("_")}
+
+
 @router.get("/coverage")
 def coverage(session: Session = Depends(get_session)) -> dict:
-    return coverage_matrix(session)
+    matrix = coverage_matrix(session)
+    for row in matrix["rows"]:
+        row["required"] = required_clauses(row["contract_type"])
+    return matrix
+
+
+@router.post("/audits/guideline")
+def guideline_audits(background: BackgroundTasks, contract_type: str = "", actor: str = "legal.reviewer",
+                     language: str = "de", session: Session = Depends(get_session)) -> dict:
+    """One missing-clause check per clause the guideline requires, for one contract type or for all."""
+    types = [contract_type] if contract_type else sorted({
+        d.contract_type for d in session.scalars(select(Document).where(Document.status == "ready"))})
+    created = []
+    for ct in types:
+        for clause_type in required_clauses(ct):
+            audit = Audit(kind="missing_clause", params={"clause_type": clause_type, "contract_type": ct, "language": language,
+                                                         "guideline": True})
+            session.add(audit)
+            session.commit()
+            log(session, actor, "audit.create", "audit", audit.id, {"kind": audit.kind, "params": audit.params})
+            session.commit()
+            background.add_task(_run_audit_job, audit.id)
+            created.append(audit.id)
+    return {"audits": created}
 
 
 # ---------------------------------------------------------------- audits

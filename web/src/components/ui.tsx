@@ -77,7 +77,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 /** Legibility from the OCR'd pages only (a page read from its text layer or by the vision model is fine). Mirrors the backend gates. */
 export function legibility(doc: Pick<Doc, 'ingest_summary' | 'status'>): 'good' | 'partial' | 'unreadable' | 'reading' {
   if (doc.status === 'queued' || doc.status === 'processing') return 'reading'
-  const ocr = doc.ingest_summary.filter((p) => p.method === 'tesseract').map((p) => p.confidence)
+  const ocr = doc.ingest_summary.filter((p) => p.method === 'tesseract' || p.method === 'document_intelligence').map((p) => p.confidence)
   if (!ocr.length) return 'good'
   const min = Math.min(...ocr)
   return min >= 0.8 ? 'good' : min >= 0.5 ? 'partial' : 'unreadable'

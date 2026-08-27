@@ -145,3 +145,12 @@ class StoredContract(Base):
     sha256: Mapped[str] = mapped_column(String(64))
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SyncState(Base):
+    """Small key/value store for source bookkeeping (e.g. the SharePoint delta link)."""
+
+    __tablename__ = "sync_state"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)

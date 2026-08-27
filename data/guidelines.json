@@ -1,0 +1,12 @@
+{
+  "_comment": "Corporate contracting guideline: which clause types every contract of a given type must contain. Edited by Legal, read by the API (GET /api/guidelines). '*' applies to every contract type.",
+  "*": ["governing_law", "term_termination", "confidentiality"],
+  "merchant_agreement": ["fees_payment", "liability_cap", "data_protection", "anti_corruption", "dispute_resolution"],
+  "dpa": ["data_protection", "audit_rights", "assignment"],
+  "nda": [],
+  "vendor_agreement": ["fees_payment", "liability_cap", "data_protection", "anti_corruption", "audit_rights"],
+  "receivables_purchase": ["fees_payment", "liability_cap", "data_protection", "assignment"],
+  "collection_services": ["fees_payment", "liability_cap", "data_protection", "audit_rights"],
+  "saas_agreement": ["fees_payment", "liability_cap", "data_protection", "change_of_control"],
+  "amendment": []
+}

@@ -132,6 +132,7 @@ export const LANGUAGES: Record<string, L> = {
 export const PAGE_METHODS: Record<string, L> = {
   text_layer: { de: 'Text direkt gelesen', en: 'Text read directly' },
   tesseract: { de: 'Texterkennung (OCR)', en: 'Text recognition (OCR)' },
+  document_intelligence: { de: 'Texterkennung (Azure Document Intelligence)', en: 'Text recognition (Azure Document Intelligence)' },
   vision_llm: { de: 'KI-Bilderkennung', en: 'AI image reading' },
 }
 

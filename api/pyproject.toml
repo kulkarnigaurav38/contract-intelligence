@@ -4,11 +4,14 @@ version = "0.1.0"
 description = "Contract Intelligence API - Riverty RAG case study"
 requires-python = ">=3.12"
 dependencies = [
+    "azure-ai-documentintelligence>=1.0.2",
     "fastapi>=0.141.1",
     "httpx>=0.28.1",
     "langchain-core>=1.6.0",
     "langchain-google-genai>=4.3.5",
+    "langchain-openai>=1.6.0",
     "langgraph>=1.2.11",
+    "msal>=1.38.0",
     "pgvector>=0.5.0",
     "pillow>=12.3.0",
     "psycopg[binary]>=3.3.4",

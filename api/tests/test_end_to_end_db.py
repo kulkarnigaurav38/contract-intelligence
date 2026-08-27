@@ -177,3 +177,32 @@ def test_decisions_are_carried_over_and_policy_reports_the_class(client):
     assert pol["rules"]["min_decisions"] == 8
     actions = [e["action"] for e in client.get("/api/audit-log").json()]
     assert "finding.auto_approved" in actions
+
+
+def test_guidelines_overlay_and_guideline_audits(client):
+    g = client.get("/api/guidelines").json()
+    assert "governing_law" in g["*"] and "anti_corruption" in g["merchant_agreement"]
+    rows = client.get("/api/coverage").json()["rows"]
+    nda = next(r for r in rows if r["contract_type"] == "nda")
+    assert set(nda["required"]) == set(g["*"])  # NDAs only carry the general rules
+    merchant = next(r for r in rows if r["contract_type"] == "merchant_agreement")
+    assert "liability_cap" in merchant["required"] and "governing_law" in merchant["required"]
+    created = client.post("/api/audits/guideline", params={"contract_type": "dpa"}).json()["audits"]
+    assert len(created) == len(set(g["*"]) | set(g["dpa"]))
+    for aid in created:
+        for _ in range(600):
+            a = client.get(f"/api/audits/{aid}").json()
+            if a["status"] in ("done", "failed"):
+                break
+        assert a["status"] == "done" and a["params"]["guideline"] is True and a["params"]["contract_type"] == "dpa"
+
+
+def test_local_source_sync_ingests_only_new_files(client):
+    settings.document_source_path = DATA / "contracts_batch2"
+    before = len(client.get("/api/documents").json())
+    assert client.post("/api/documents/sync").json() == {"source": "local", "queued": True}
+    docs = _wait_ready(client, before + 4)
+    assert len(docs) == before + 4 and all(d["status"] == "ready" for d in docs)
+    client.post("/api/documents/sync")  # nothing new -> nothing added
+    assert len(_wait_ready(client, before + 4)) == before + 4
+    assert any(e["action"] == "ingest" and "N01" in e["details"]["filename"] for e in client.get("/api/audit-log").json())

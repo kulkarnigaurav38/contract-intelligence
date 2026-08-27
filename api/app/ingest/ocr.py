@@ -16,6 +16,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from PIL import Image
 from pydantic import BaseModel, Field
 
+from app.config import settings
 from app.llm import DOC_GUARD, chat
 
 ESCALATE_BELOW = 0.80  # try the vision model below this
@@ -95,6 +96,31 @@ def vision_transcribe(image: bytes) -> Transcription | None:
     return llm.with_structured_output(Transcription).invoke(messages)
 
 
+def document_intelligence(image: bytes) -> tuple[str, float, list[int]]:
+    """Azure AI Document Intelligence 'prebuilt-read' (printed + handwritten, German included): the Microsoft
+    counterpart of Tesseract. Same contract: text, mean word confidence, and no coverage gaps (the service
+    reads the whole page). Not exercised in the test suite - no endpoint here."""
+    from azure.ai.documentintelligence import DocumentIntelligenceClient
+    from azure.ai.documentintelligence.models import AnalyzeDocumentRequest
+    from azure.core.credentials import AzureKeyCredential
+
+    client = DocumentIntelligenceClient(settings.azure_document_intelligence_endpoint,
+                                        AzureKeyCredential(settings.azure_document_intelligence_key))
+    result = client.begin_analyze_document("prebuilt-read", AnalyzeDocumentRequest(bytes_source=image)).result()
+    words = [w.confidence for page in (result.pages or []) for w in (page.words or [])]
+    confidence = statistics.mean(words) if words else 0.0
+    return result.content or "", round(confidence, 3), []
+
+
+def local_ocr(image: bytes) -> tuple[str, float, list[int], str]:
+    """(text, confidence, uncovered bands, method) from the configured local/cloud OCR."""
+    if settings.ocr_provider_resolved == "document_intelligence":
+        text, confidence, uncovered = document_intelligence(image)
+        return text, confidence, uncovered, "document_intelligence"
+    text, confidence, uncovered = tesseract(image)
+    return text, confidence, uncovered, "tesseract"
+
+
 def needs_escalation(text: str, confidence: float, uncovered: list[int] = ()) -> bool:
     """Low confidence, suspiciously little text (a faded typewriter page can score 87% on the few words it finds),
     or inked regions that produced no words at all (mean confidence cannot see what was never detected)."""
@@ -102,14 +128,14 @@ def needs_escalation(text: str, confidence: float, uncovered: list[int] = ()) ->
 
 
 def ocr_page(image: bytes) -> OcrResult:
-    text, confidence, uncovered = tesseract(image)
+    text, confidence, uncovered, method = local_ocr(image)
     if not needs_escalation(text, confidence, uncovered):
-        return OcrResult(text, "tesseract", confidence)
+        return OcrResult(text, method, confidence)
     transcription = vision_transcribe(image)
     if transcription is None:
         if uncovered and confidence >= ESCALATE_BELOW:  # text is fine where it exists, but regions are missing
             confidence = round(ESCALATE_BELOW - 0.01, 3)
         note = (f"page regions {uncovered} produced no text" if uncovered else f"low OCR confidence ({confidence:.0%})")
-        return OcrResult(text, "tesseract", confidence, note=note + "; vision OCR unavailable offline")
+        return OcrResult(text, method, confidence, note=note + "; vision OCR unavailable offline")
     return OcrResult(transcription.text, "vision_llm", round(transcription.legibility, 3),
-                     note=f"escalated from tesseract ({confidence:.0%})")
+                     note=f"escalated from {method} ({confidence:.0%})")

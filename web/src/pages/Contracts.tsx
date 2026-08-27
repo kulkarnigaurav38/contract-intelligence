@@ -24,6 +24,7 @@ import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks'
+import CloudSyncIcon from '@mui/icons-material/CloudSync'
 import GppMaybeIcon from '@mui/icons-material/GppMaybe'
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import { api, type Doc, type DocDetail } from '../api'
@@ -61,6 +62,8 @@ const T = {
     en: 'Load sample contracts (14 contracts, including scans and one handwritten page)',
   },
   samples_short: { de: 'Beispielverträge laden', en: 'Load sample contracts' },
+  sync: { de: 'Neue Verträge abholen', en: 'Fetch new contracts' },
+  sync_toast: { de: 'Wir holen neue Verträge aus der Quelle ab ({src}).', en: 'Fetching new contracts from the source ({src}).' },
   drop_title: { de: 'Dateien hier ablegen', en: 'Drop files here' },
   drop_text: { de: 'PDF, JPG oder PNG – gern auch mehrere auf einmal.', en: 'PDF, JPG or PNG – several at once is fine.' },
   reading: { de: 'Wir lesen gerade {x} von {y} Verträgen …', en: 'We are reading {x} of {y} contracts …' },
@@ -224,6 +227,17 @@ export default function Contracts() {
     e.target.value = ''
     if (files.length) void uploadFiles(files)
   }
+  const fetchNew = async () => {
+    setBusyAction(true)
+    try {
+      const { source } = await api.sync()
+      toast(t('sync_toast', { src: source }))
+      setTimeout(refresh, 1500)
+    } catch (e) {
+      toast(c('error', { msg: String(e) }))
+    }
+    setBusyAction(false)
+  }
   const loadSamples = async () => {
     setBusyAction(true)
     try {
@@ -315,6 +329,11 @@ export default function Contracts() {
       {label}
     </Button>
   )
+  const syncButton = (
+    <Button variant="outlined" startIcon={<CloudSyncIcon />} onClick={fetchNew} disabled={busyAction}>
+      {t('sync')}
+    </Button>
+  )
 
   return (
     <Box sx={{ maxWidth: 1200 }}>
@@ -357,6 +376,7 @@ export default function Contracts() {
         <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1, mb: 2, mt: list.length ? 0 : 2 }}>
           {uploadButton(t('upload'))}
           {samplesButton(t('samples'))}
+          {syncButton}
         </Stack>
       )}
 

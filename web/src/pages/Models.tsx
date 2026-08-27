@@ -19,6 +19,14 @@ import { ErrorAlert, usePolling } from '../components/ui'
 import { COMMON, ROUTING_TASKS, THINKING, modelTier } from '../vocab'
 
 const T = {
+  providers: { de: 'Aktive Anbieter: Modelle über {llm} · Texterkennung {ocr} · Verträge aus {src}. Jede Stufe hat eine Best-of-Breed- und eine Microsoft-Implementierung hinter demselben Schalter.', en: 'Active providers: models via {llm} · text recognition {ocr} · contracts from {src}. Each stage has a best-of-breed and a Microsoft implementation behind the same switch.' },
+  llm_gemini: { de: 'Google Gemini', en: 'Google Gemini' },
+  llm_foundry: { de: 'Azure AI Foundry', en: 'Azure AI Foundry' },
+  llm_none: { de: 'keinen Anbieter', en: 'no provider' },
+  ocr_tesseract: { de: 'Tesseract (lokal)', en: 'Tesseract (local)' },
+  ocr_document_intelligence: { de: 'Azure AI Document Intelligence', en: 'Azure AI Document Intelligence' },
+  src_local: { de: 'dem lokalen Ordner', en: 'the local folder' },
+  src_sharepoint: { de: 'SharePoint (Microsoft Graph)', en: 'SharePoint (Microsoft Graph)' },
   loading: { de: 'Wir laden die Einstellungen …', en: 'Loading the settings …' },
   status_on: { de: 'KI-Gegenprüfung aktiv – alle Stufen laufen.', en: 'AI cross-check active – all stages are running.' },
   status_off: {
@@ -173,6 +181,9 @@ export default function Models() {
           <Alert severity={config.llm_enabled ? 'success' : 'warning'}>{config.llm_enabled ? t('status_on') : t('status_off')}</Alert>
 
           <Typography variant="body1">{t('intro')}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t('providers', { llm: t(`llm_${config.provider}` as keyof typeof T), ocr: t(`ocr_${config.ocr_provider}` as keyof typeof T), src: t(`src_${config.document_source}` as keyof typeof T) })}
+          </Typography>
 
           <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
             <Table size="small">

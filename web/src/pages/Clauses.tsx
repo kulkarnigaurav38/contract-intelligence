@@ -32,9 +32,13 @@ const T = {
   title: { de: 'Klausel-Übersicht', en: 'Clause overview' },
   subtitle: { de: 'Welcher Vertrag enthält welche Klausel?', en: 'Which contract contains which clause?' },
   intro: {
-    de: 'Die Übersicht entsteht beim Einlesen jedes Vertrags. Ein Strich heißt: Wir haben keine solche Klausel gefunden.',
-    en: 'The overview is built while each contract is read in. A dash means: we found no such clause.',
+    de: 'Die Übersicht entsteht beim Einlesen jedes Vertrags. Ein grauer Strich heißt: keine solche Klausel gefunden. Ein roter Strich: laut Richtlinie erforderlich, aber nicht gefunden.',
+    en: 'The overview is built while each contract is read in. A grey dash means: no such clause found. A red dash: required by the guideline but not found.',
   },
+  gap: { de: 'fehlt – laut Richtlinie erforderlich', en: 'missing – required by the guideline' },
+  required_hint: { de: 'laut Richtlinie erforderlich', en: 'required by the guideline' },
+  check_guideline: { de: 'Richtlinie prüfen', en: 'Check guideline' },
+  guideline_started: { de: '{n} Prüfungen gestartet – eine je erforderlicher Klausel.', en: '{n} checks started – one per required clause.' },
   loading: { de: 'Wir laden die Übersicht …', en: 'Loading the overview …' },
   reading: { de: 'Wir lesen gerade {x} von {y} Verträgen …', en: 'We are reading {x} of {y} contracts …' },
   scope: { de: 'Wir zeigen {n} {w}, davon {m} mit mindestens einer Lücke.', en: 'Showing {n} {w}, {m} of them with at least one gap.' },
@@ -65,14 +69,15 @@ const load = (): Promise<Data> => Promise.all([api.coverage(), api.documents()])
 const isReading = (d: Doc) => d.status === 'queued' || d.status === 'processing'
 const stillReading = (d: Data | null) => !!d && d.docs.some(isReading)
 
-const cellState = (cell: Cell | undefined): 'present' | 'uncertain' | 'missing' =>
-  !cell ? 'missing' : cell.confidence >= CERTAIN ? 'present' : 'uncertain'
+type CellState = 'present' | 'uncertain' | 'missing' | 'gap'
+const cellState = (cell: Cell | undefined, required = false): CellState =>
+  !cell ? (required ? 'gap' : 'missing') : cell.confidence >= CERTAIN ? 'present' : 'uncertain'
 
 const STICKY = { position: 'sticky', left: 0, bgcolor: 'background.paper', borderRight: '1px solid', borderColor: 'divider' } as const
 
-function CellIcon({ state, cell }: { state: 'present' | 'uncertain' | 'missing'; cell?: Cell }) {
+function CellIcon({ state, cell }: { state: CellState; cell?: Cell }) {
   const { tech } = useSettings()
-  const color = state === 'present' ? 'success.main' : state === 'uncertain' ? 'warning.main' : 'text.disabled'
+  const color = state === 'present' ? 'success.main' : state === 'uncertain' ? 'warning.main' : state === 'gap' ? 'error.main' : 'text.disabled'
   const opacity = tech && cell ? 0.35 + 0.65 * cell.confidence : 1
   return (
     <Box component="span" sx={{ display: 'inline-flex', color, opacity, verticalAlign: 'middle' }}>
@@ -91,6 +96,16 @@ export default function Clauses() {
   const language = useLabel(LANGUAGES)
   const navigate = useNavigate()
   const toast = useToast()
+  const { lang: uiLang } = useSettings()
+  const checkGuideline = async () => {
+    try {
+      const { audits } = await api.guidelineAudits(type, uiLang)
+      toast(t('guideline_started', { n: audits.length }))
+      navigate('/checks')
+    } catch (e) {
+      toast(tc('error', { msg: String(e) }))
+    }
+  }
   const { data, error } = usePolling(load, 2000, stillReading)
   const [type, setType] = useState('')
   const [onlyGaps, setOnlyGaps] = useState(false)
@@ -193,6 +208,9 @@ export default function Clauses() {
                 </MenuItem>
               ))}
             </TextField>
+        <Button variant="outlined" onClick={checkGuideline} disabled={!data}>
+          {t('check_guideline')}
+        </Button>
             <FormControlLabel control={<Switch checked={onlyGaps} onChange={(e) => setOnlyGaps(e.target.checked)} />} label={t('only_gaps')} />
           </Stack>
 
@@ -243,11 +261,12 @@ export default function Clauses() {
                       </TableCell>
                       {taxonomy.map((ct) => {
                         const cell = row.cells[ct]
+                        const required = (row.required ?? []).includes(ct)
                         return (
                           <TableCell key={ct} align="center" sx={{ px: 0.5, cursor: 'pointer' }} onClick={() => openContract(row, cell)}>
-                            <Tooltip title={tooltip(ct, cell)}>
+                            <Tooltip title={<>{tooltip(ct, cell)}{required ? ` · ${t('required_hint')}` : ''}</>}>
                               <span>
-                                <CellIcon state={cellState(cell)} cell={cell} />
+                                <CellIcon state={cellState(cell, required)} cell={cell} />
                               </span>
                             </Tooltip>
                           </TableCell>
@@ -273,6 +292,10 @@ export default function Clauses() {
             <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
               <CellIcon state="missing" />
               <Small>{t('not_found')}</Small>
+            </Stack>
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+              <CellIcon state="gap" />
+              <Small>{t('gap')}</Small>
             </Stack>
             <Tech>
               <Small>{t('legend_tech')}</Small>

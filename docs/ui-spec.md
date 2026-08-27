@@ -41,6 +41,7 @@ re-implement it:
 | `/checks`, `/checks/:id` | `pages/Checks.tsx` | Prüfungen / Checks |
 | `/approvals` | `pages/Approvals.tsx` | Freigabe / Approvals |
 | `/ask` | `pages/Ask.tsx` | Fragen / Ask |
+| `/tech/pipeline` | `pages/Pipeline.tsx` | Pipeline / Pipeline (Technik group): interactive explainer of the three lanes, click-for-details, trace a contract, play |
 | `/tech/quality` | `pages/Quality.tsx` | Qualitätsmessung / Quality measurement (Technik group) |
 | `/tech/models` | `pages/Models.tsx` | Modelle / Models (Technik group) |
 

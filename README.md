@@ -30,7 +30,7 @@ alter Firmenname?* Verdicts name their author — **KI-bestätigt / Nicht gegeng
 so a machine verdict can never be mistaken for human sign-off; the check icon is reserved for people. Confidence is a
 word, evidence is a quote with a page, and every finding has a collapsed *„So kam der Fund zustande“*. Percentages,
 method traces, model IDs, OCR methods and checksums stay available behind the switch **Technische Details anzeigen**
-(off by default) and the low-key *Technik* group in the navigation. The full page contract is in `docs/ui-spec.md`.
+(off by default) and the low-key *Technik* group in the navigation, which also holds an **interactive pipeline page** (*Technik → Pipeline*): every stage explained on click with its rules, model, code file and live numbers; pick a contract to see the exact path it took. The full page contract is in `docs/ui-spec.md`.
 
 ## Architecture
 

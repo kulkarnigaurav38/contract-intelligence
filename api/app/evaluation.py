@@ -6,6 +6,7 @@ audit (deterministic + verifier).
 """
 
 import json
+import re
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -106,7 +107,12 @@ def real_data(session: Session) -> dict | None:
         return None
     gt = json.loads(path.read_text())
     truth = {c["file"]: c for c in gt["contracts"]}
-    docs = {d.filename: d for d in session.scalars(select(Document).where(Document.status == "ready")) if d.filename in truth}
+    # uploads are stored as <12-hex-hash>_<original name>; match on the original name
+    docs = {}
+    for d in session.scalars(select(Document).where(Document.status == "ready")):
+        name = d.filename.split("_", 1)[1] if re.match(r"^[0-9a-f]{12}_", d.filename) else d.filename
+        if name in truth:
+            docs[name] = d
     if not docs:
         return {"source": gt.get("note", ""), "documents": 0}
     types = sorted(set(gt["mapping"].values()))

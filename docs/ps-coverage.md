@@ -39,7 +39,7 @@ Unit tests `tests/test_providers_units.py` prove the switch: the same routing ta
 | Basic pipeline that analyses documents and makes them accessible | `api/app/ingest/*`, `retrieval.py`, `chat.py`; interactive explainer at *Technik → Pipeline* | ✅ |
 | Basic front-end demonstrating how the solution can be used | `web/` — German-first legal-team UI, 11 Playwright tests | ✅ |
 | Anything necessary for the end-to-end workflow | review queue, contract-storage push, audit log, adaptive review policy, evaluation page | ✅ |
-| Presentation: solution, technical solution, infrastructure, adoption concept, other | to be produced from this repository (`README.md`, `docs/*`, screenshots in `web/e2e/screenshots`) | ✗ next step |
+| Presentation: solution, technical solution, infrastructure, adoption concept, other | `docs/presentation.html` (15 slides; adoption concept on slide 13) | ✅ |
 | "AI usage encouraged as long as we understand what is happening" | `docs/how-ai-was-used.md` | ✅ |
 
 ## D. Correctness — measured, not asserted
@@ -62,16 +62,61 @@ Offline mode (no key): recall stays 1.0 on readable documents; the low-quality s
 instead of scored (by design).
 
 ### D2. Test suites
-`cd api && uv run pytest` → 36 unit · 11 end-to-end on PostgreSQL/pgvector · 10 live Gemini (incl. the full
+`cd api && uv run pytest` → 39 unit · 11 end-to-end on PostgreSQL/pgvector · 10 live Gemini (incl. the full
 learning loop). `cd web && npx playwright test` → 11 browser tests.
 
 ### D3. Real-world data
-See section E — the synthetic corpus proves the mechanics; real contracts prove the claims. *(Filled in by the
-real-data evaluation below.)*
+See section E — the synthetic corpus proves the mechanics; real contracts prove the claims.
 
 ## E. Real-data evaluation
 
-*(pending — populated from the dataset research and the run on the aligned subset)*
+### E1. Why and what
+The synthetic corpus proves the mechanics with exact ground truth; it cannot prove the claims on contracts nobody
+wrote for the test. A multi-angle dataset sweep (labelled corpora, German sources, scanned/handwritten collections,
+Riverty's own public documents) with URL/licence verification selected:
+
+- **CUAD v1** (The Atticus Project, CC BY 4.0): 510 real commercial contracts from SEC EDGAR with 41 expert-annotated
+  clause categories. Five categories map 1:1 onto our taxonomy (Governing Law, Cap On Liability, Audit Rights, Change
+  Of Control, Anti-Assignment); an empty/“No” annotation means the annotators found no such clause — real absence
+  ground truth. `data/real/build_cuad_subset.py` picks 12 contracts (8–45k characters) with a mix of presence and
+  absence; `data/real/cuad_ground_truth.json` is the answer key.
+- **Real German documents** (no clause answer key; used to show behaviour on authentic text): the 2019 **AfterPay
+  AGB** from the Wayback Machine (names *Arvato Payment Solutions GmbH* — a genuine pre-rebrand document), the
+  **LfDI Baden-Württemberg Muster-Auftragsverarbeitungsvertrag**, and the **IHK Muster-Handelsvertretervertrag**.
+- Considered and not used here: LEDGAR, ContractNLI, MAUD (English, lower alignment), UCSF Industry Documents
+  (real scanned/handwritten agreements, no open licence — a good source for an internal OCR benchmark).
+
+### E2. Results on the CUAD subset (12 contracts, Gemini 3.x, one run)
+
+| Clause type | Rule layer P | Rule layer R | With verifier P | With verifier R | true absences |
+| --- | --- | --- | --- | --- | --- |
+| assignment | 0.20 | 1.00 | 1.00 | 1.00 | 2 |
+| audit_rights | 0.55 | 1.00 | 1.00 | 1.00 | 6 |
+| change_of_control | 0.92 | 1.00 | 1.00 | 0.80 | 11 |
+| governing_law | 0.09 | 1.00 | 1.00 | 1.00 | 1 |
+| liability_cap | 0.22 | 0.67 | 1.00 | 1.00 | 3 |
+| **all five** | **0.43** | **0.95** | **1.00** | **0.95** | 22 |
+
+Reading: on long, heterogeneous real contracts the rule layer (keywords + Flash labels on segmented clauses) is
+**recall-first** — it found 21 of 22 true absences but over-flagged (28 false alarms; e.g. governing law inside a
+“Miscellaneous” section, audit rights phrased as inspection rights). The **verifier reading the whole contract**
+restored precision to 1.00 on every type and kept recall at 1.00 on four of five; its two change-of-control misses
+are dismissals on provisions CUAD's annotators did not count as change-of-control clauses — a disputable call,
+surfaced with its quote and reasoning, not a silent error. This is the two-layer design doing what it claims:
+structure gives recall, verification gives precision, and nothing is lost between them because only the verifier
+can remove a candidate.
+
+### E3. Real German documents
+- AfterPay AGB (2019): rename check **confirmed** — evidence page 1, „Diesen Service bieten wir, AfterPay (Arvato
+  Payment Solutions GmbH, Gütersloher Str. 123 …)“; reasoning in German. The two official templates were correctly
+  *not* flagged (no Riverty predecessor named).
+- LfDI Muster-AVV: recognised as a DPA; clause types found: data protection, audit rights, liability cap, assignment,
+  term/termination. IHK Handelsvertretervertrag: assignment, confidentiality, fees, governing law, term/termination.
+
+### E4. How to reproduce
+`docker compose up`, upload `data/real/cuad/*.pdf` and `data/real/german/*.pdf` (or `POST /api/documents/ingest-samples?batch=3|4`
+on a current image), run missing-clause checks scoped to the CUAD documents (`params.document_ids`), then
+`POST /api/eval/run` → `real_data`.
 
 ## F. Known gaps and honest limits
 

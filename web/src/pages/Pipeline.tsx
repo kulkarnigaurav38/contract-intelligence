@@ -13,7 +13,7 @@ import { api, type Audit, type Config, type Doc, type DocDetail, type Finding, t
 import { useSettings, useT } from '../i18n'
 import { Small } from '../components/tech'
 import { usePolling } from '../components/ui'
-import { CLAUSE_TYPES, THINKING, VERDICTS, REVIEW_STATUS } from '../vocab'
+import { AUDIT_KINDS, CLAUSE_TYPES, POLICY, THINKING, VERDICTS, REVIEW_STATUS } from '../vocab'
 
 // ---------------------------------------------------------------- the diagram
 type Lane = 'ingest' | 'audit' | 'ask'
@@ -343,7 +343,7 @@ export default function Pipeline() {
       </Typography>
 
       <Paper sx={{ p: 1, overflowX: 'auto' }}>
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} width={WIDTH} height={HEIGHT} style={{ display: 'block', fontFamily: 'Roboto, Helvetica, Arial, sans-serif' }} role="img" aria-label={t('title')}>
+        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} style={{ display: 'block', width: '100%', minWidth: 980, height: 'auto', fontFamily: 'Roboto, Helvetica, Arial, sans-serif' }} role="img" aria-label={t('title')}>
           <defs>
             <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 0 L 10 5 L 0 10 z" fill="#90a4ae" />
@@ -591,7 +591,7 @@ function traceLines(stage: string, doc: DocDetail | null, findings: Finding[], t
     case 'review':
     case 'file':
       return mine.length
-        ? mine.map((f) => t('d_finding', { kind: f.class_key || f.audit_kind, verdict: VERDICTS[f.verdict]?.[lang] ?? f.verdict, status: REVIEW_STATUS[f.review_status]?.[lang] ?? f.review_status }) + (f.policy && 'kind' in f.policy ? ` (${f.policy.kind})` : ''))
+        ? mine.map((f) => t('d_finding', { kind: AUDIT_KINDS[f.audit_kind]?.[lang] ?? f.audit_kind, verdict: VERDICTS[f.verdict]?.[lang] ?? f.verdict, status: REVIEW_STATUS[f.review_status]?.[lang] ?? f.review_status }) + (f.policy && 'kind' in f.policy && f.policy.kind !== 'required' ? ` · ${(POLICY[f.policy.kind]?.[lang] ?? f.policy.kind).replace('{date}', '')}` : ''))
         : [t('d_no_findings')]
     default:
       return []

@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M12DEDWY4N6ZQ84P480J2HBR",
+  "session_id": "046eadd3-6aa8-4b09-adc8-e3efac5fd391",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-27T20:09:14.490088Z",
+  "branch": "master",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "docs/ps-coverage.md"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-opus-5[1m]",
+  "turn_id": "98c5768895d3",
+  "checkpoint_transcript_start": 2095,
+  "transcript_lines_at_start": 2095,
+  "compact_transcript_start": 306,
+  "token_usage": {
+    "input_tokens": 3073,
+    "cache_creation_tokens": 26530,
+    "cache_read_tokens": 6425146,
+    "output_tokens": 14849,
+    "api_call_count": 9
+  },
+  "session_metrics": {
+    "turn_count": 12
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-27T20:09:14.004341Z",
+    "agent_lines": 83,
+    "agent_removed": 0,
+    "human_added": 190,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 273,
+    "total_lines_changed": 290,
+    "agent_percentage": 28.620689655172416,
+    "metric_version": 2
+  }
+}

@@ -17,11 +17,12 @@ import SearchIcon from '@mui/icons-material/Search'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import HowToRegIcon from '@mui/icons-material/HowToReg'
 import Inventory2Icon from '@mui/icons-material/Inventory2'
+import AutoModeIcon from '@mui/icons-material/AutoMode'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined'
 import { api, type Doc, type Evidence as EvidenceT, type Finding } from '../api'
 import { useSettings, useT } from '../i18n'
 import { Details, Small, Tech } from './tech'
-import { AUDIT_KINDS, CLAUSE_TYPES, COMMON, LEGIBILITY, RELIABILITY, REVIEW_STATUS, VERDICTS, VERDICT_HELP } from '../vocab'
+import { AUDIT_KINDS, CLAUSE_TYPES, COMMON, LEGIBILITY, POLICY_HELP, RELIABILITY, REVIEW_STATUS, VERDICTS, VERDICT_HELP } from '../vocab'
 
 // ---------------------------------------------------------------- data
 /** Poll `fn` every `ms` while `active`; always fetch once on mount. `refresh()` refetches now. */
@@ -114,6 +115,12 @@ export function ReviewChip({ finding }: { finding: Pick<Finding, 'review_status'
   if (finding.storage_ref)
     return <Chip size="small" icon={<Inventory2Icon />} color="success" label={`${REVIEW_STATUS.filed[lang]} · ${finding.storage_ref}`} />
   const s = finding.review_status
+  if (s === 'auto_approved')
+    return (
+      <Tooltip title={POLICY_HELP.auto[lang]}>
+        <Chip size="small" icon={<AutoModeIcon />} label={REVIEW_STATUS.auto_approved[lang]} color="success" variant="outlined" />
+      </Tooltip>
+    )
   return (
     <Chip
       size="small"

@@ -149,3 +149,29 @@ def test_eval_scores_layers(client):
     assert ev["coverage_matrix"]["metrics"]["recall"] >= 0.9
     assert any(a["kind"] == "rename" for a in ev["audits"])
     assert {i["id"] for i in ev["injection"] if i["flagged"]} == {"C13"}
+
+
+def test_decisions_are_carried_over_and_policy_reports_the_class(client):
+    first = _run(client, "rename", {"language": "de"})
+    findings = [f for f in first["findings"] if f["verdict"] != "unreadable"]
+    assert all(f["policy"]["kind"] == "required" and f["policy"]["review_rate"] == 1.0 for f in findings)
+    rejected = next(f for f in findings if BY_FILE[f["filename"]]["id"] == "C02")
+    approved = next(f for f in findings if BY_FILE[f["filename"]]["id"] == "C05")
+    client.post(f"/api/findings/{rejected['id']}/review", json={"decision": "rejected", "note": "Vertrag läuft 2026 aus, keine Änderung nötig."})
+    client.post(f"/api/findings/{approved['id']}/review", json={"decision": "approved", "note": "Nachtrag wird erstellt."})
+
+    second = _run(client, "rename", {"language": "de"})
+    by_id = {BY_FILE[f["filename"]]["id"]: f for f in second["findings"]}
+    assert by_id["C02"]["verdict"] == "dismissed" and by_id["C02"]["policy"]["kind"] == "carried_over"
+    assert by_id["C05"]["review_status"] == "auto_approved" and by_id["C05"]["policy"]["decision"] == "approved"
+    assert by_id["C05"]["review_note"] == "Nachtrag wird erstellt."
+    assert second["summary"]["review"]["carried_over"] == 2
+    assert by_id["C01"]["policy"] == {"kind": "required", "reason": "not_verified", "review_rate": 1.0}  # offline: never automated
+    assert client.post(f"/api/findings/{by_id['C05']['id']}/push-to-storage").json()["storage_ref"].startswith("CS-")
+
+    pol = client.get("/api/policy").json()
+    cls = next(c for c in pol["classes"] if c["class_key"] == "rename:registry")
+    assert cls["decisions"] == 2 and cls["rejected"] == 1 and cls["review_rate"] == 1.0 and cls["automation_active"]
+    assert pol["rules"]["min_decisions"] == 10
+    actions = [e["action"] for e in client.get("/api/audit-log").json()]
+    assert "finding.auto_approved" in actions

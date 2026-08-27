@@ -14,6 +14,7 @@ from langgraph.graph import END, START, StateGraph
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import policy
 from app.audits.verify import verify
 from app.config import settings
 from app.ingest.classify import TAXONOMY
@@ -151,10 +152,11 @@ def build(session: Session):
 
     def verify_claims(state: AuditState) -> AuditState:
         summary = dict(state["summary"], verified=settings.llm_enabled, verifier=settings.model_pro)
+        history = policy.precedents(session, policy.class_key(state["kind"], state["params"]))
         for claim in state["claims"]:
             pages = [(p.page_no, p.text) for p in session.scalars(
                 select(Page).where(Page.document_id == claim["document_id"]).order_by(Page.page_no))]
-            verdict = verify(pages, claim["claim"], state["params"].get("language", "en"))
+            verdict = verify(pages, claim["claim"], state["params"].get("language", "en"), history)
             if verdict is None:
                 if claim["direction"] == "missing":
                     _store(session, state["audit_id"], claim, "unverified", claim["confidence"],
@@ -176,10 +178,12 @@ def build(session: Session):
 
     def report(state: AuditState) -> AuditState:
         audit = session.get(Audit, state["audit_id"])
+        review = policy.apply(session, audit)  # who has to look, and who does not
         counts = {}
         for f in audit.findings:
             counts[f.verdict] = counts.get(f.verdict, 0) + 1
-        audit.summary = dict(state["summary"], findings=counts)
+        audit.summary = dict(state["summary"], findings=counts, review=review,
+                             precedents=len(policy.precedents(session, policy.class_key(audit.kind, audit.params))))
         audit.status = "done"
         session.commit()
         return {}

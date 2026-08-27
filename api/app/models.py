@@ -109,10 +109,12 @@ class Finding(Base):
     method_chain: Mapped[list] = mapped_column(JSON, default=list)  # ordered steps that produced the verdict
     evidence: Mapped[list] = mapped_column(JSON, default=list)  # [{page, quote}]
     reasoning: Mapped[str] = mapped_column(Text, default="")
-    review_status: Mapped[str] = mapped_column(String(16), default="pending")  # pending|approved|rejected
+    review_status: Mapped[str] = mapped_column(String(16), default="pending")  # pending|approved|rejected|auto_approved
     review_note: Mapped[str] = mapped_column(Text, default="")
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     storage_ref: Mapped[str] = mapped_column(String(64), default="")
+    class_key: Mapped[str] = mapped_column(String(64), default="", index=True)  # the question asked, see policy.py
+    policy: Mapped[dict] = mapped_column(JSON, default=dict)  # why a person did / did not have to look
 
     audit: Mapped[Audit] = relationship(back_populates="findings")
     document: Mapped[Document] = relationship()

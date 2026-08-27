@@ -24,11 +24,18 @@ class Verdict(BaseModel):
 LANGUAGES = {"de": "German", "en": "English"}
 
 
-def verify(pages: list[tuple[int, str]], claim: str, language: str = "en") -> Verdict | None:
+def verify(pages: list[tuple[int, str]], claim: str, language: str = "en",
+           precedents: list[dict] | None = None) -> Verdict | None:
     llm = chat("verify")
     if llm is None:
         return None
     body = "\n".join(f'<page n="{n}">\n{t}\n</page>' for n, t in pages)
+    history = ""
+    if precedents:
+        history = "\n\nDecisions of the legal team on earlier findings of the same kind - calibrate to what this team " \
+                  "considers acceptable:\n" + "\n".join(
+            f"- {p['decision'].upper()}: \"{p['note']}\"" + (f" (evidence was: \"{p['quote'][:200]}\")" if p['quote'] else "")
+            for p in precedents)
     messages = [
         SystemMessage(content=(
             "You are the independent verifier of a legal review tool. You receive the full text of one contract and "
@@ -42,6 +49,6 @@ def verify(pages: list[tuple[int, str]], claim: str, language: str = "en") -> Ve
             "confidence: sensitive legal documents, mistakes are costly. Write the reasoning in "
             + LANGUAGES.get(language, "English") + ", for a lawyer, in two or three sentences. " + DOC_GUARD
         )),
-        HumanMessage(content=f"Claim: {claim}\n\n<document>\n{body}\n</document>"),
+        HumanMessage(content=f"Claim: {claim}{history}\n\n<document>\n{body}\n</document>"),
     ]
     return llm.with_structured_output(Verdict).invoke(messages)

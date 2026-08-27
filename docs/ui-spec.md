@@ -91,3 +91,41 @@ re-implement it:
 ### Models — Modelle / Models (Technik)
 * Status alert: "KI-Gegenprüfung aktiv – alle Stufen laufen." (success) or "Keine KI verbunden – Regelprüfung, Namensregister, Texterkennung und Suche laufen; Funde werden als „nicht gegengeprüft“ gekennzeichnet. Handschrift kann nicht gelesen werden." (warning). Intro: "Der Denkaufwand folgt der Aufgabe: Routinearbeit läuft auf einem schnellen Modell, das große Modell ist für Handschrift und für die Gegenprüfung reserviert."
 * Table: Aufgabe (`ROUTING_TASKS`) · Modell (`modelTier(id)` word; the raw id in `<Tech>` monospace) · Denkaufwand (`THINKING` chips) · Zweck (German/English text keyed by task, written in the page dictionary; the API's English `purpose` only in `<Tech>`). Last row: embeddings (`config.embedding.model`, dim in `<Tech>`).
+
+## Adaptive review ("Prüflast") — added later
+
+Backend (`api/app/policy.py`): every finding carries `class_key` (the question asked) and `policy` (why a person did or
+did not have to look): `{kind: 'required', reason: 'not_verified' | 'learning', review_rate}`,
+`{kind: 'spot_check', review_rate}`, `{kind: 'auto', review_rate}`, or
+`{kind: 'carried_over', decision: 'approved' | 'rejected', note, decided_at, finding_id}`. New `review_status`
+value **`auto_approved`** (system decision, logged as actor `system`, overturnable with "Entscheidung ändern"; may be
+filed like an approved one). Audit summaries carry `review: {required, spot_check, auto_approved, carried_over}` and
+`precedents` (number of team decisions with notes that were handed to the verifier).
+`GET /api/policy` → `{classes: [{class_key, kind, params, decisions, approved, rejected, since_rejection, agreement,
+review_rate, automation_active, findings: {status: n}}], rules: {min_decisions, min_agreement, tiers: [[since, rate]]}}`.
+
+Words: review status auto_approved = „Automatisch freigegeben“ / "Auto-approved"; policy kinds: required →
+„Prüfung erforderlich“, spot_check → „Stichprobe“ / "Spot check", auto → „Automatisch freigegeben (Regel)“,
+carried_over → „Bereits entschieden am {date}“ / "Already decided on {date}". Review rate → „Prüfquote“; the whole
+feature → „Prüflast“ / "Review load"; „Ihre Entscheidungen senken die Prüflast.“
+
+* **Approvals › Offen**: a finding with `policy.kind === 'spot_check'` shows a small chip „Stichprobe“ with tooltip
+  „Diese Art von Fund wird nur noch stichprobenartig vorgelegt – Ihre Entscheidung hält die Regel scharf.“ Findings
+  with `policy.kind === 'required' && reason === 'not_verified'` show nothing new.
+* **Approvals › Entschieden**: auto-approved findings appear with `ReviewChip` (status auto_approved, grey-green,
+  icon AutoMode) and „System · {date}“ instead of the reviewer; „Entscheidung ändern“ works on them. Carried-over
+  findings show „Bereits entschieden am {date}“ in `<Small>`.
+* **Approvals › new tab „Prüflast“** (`/api/policy`): one sentence on top — „Ihre Entscheidungen senken die
+  Prüflast: Funde, die Sie wiederholt bestätigt haben, legen wir Ihnen nur noch stichprobenartig vor. Eine Ablehnung
+  setzt die Prüfung für diese Art von Fund sofort wieder auf 100 %.“ Then a table per class: Frage (kind + param in
+  plain words), Entscheidungen (n, „davon x abgelehnt“), Übereinstimmung (%), Prüfquote (100 % / 20 % / 10 % as a
+  chip: 100 % = „Volle Prüfung“, else „Stichprobe {rate}“), Automatisch freigegeben (count of findings with
+  status auto_approved), and a `LinearProgress` „{since_rejection} von {next threshold} Entscheidungen bis zur
+  nächsten Stufe“. Empty state: „Noch keine Entscheidungen – die Prüfquote liegt bei 100 %.“ `<Tech>`: the raw rules
+  (`min_decisions`, `min_agreement`, tiers) and `class_key`.
+* **Checks detail**: summary line gets „… {auto_approved} automatisch freigegeben, {spot_check} Stichprobe,
+  {carried_over} bereits entschieden“ when `summary.review` has non-zero counts; findings table `ReviewChip` handles
+  `auto_approved`; expanded row shows the policy reason in `<Small>` („Stichprobe“ / „Automatisch freigegeben – Prüfquote
+  20 %“ / „Bereits entschieden am …: ‚note‘“). `HowFound` already shows the policy step in the raw chain.
+* **Home › „Wartet auf Ihre Freigabe“**: second line „{n} Funde wurden automatisch freigegeben“ when > 0 (count from
+  `api.findings()` with status auto_approved).

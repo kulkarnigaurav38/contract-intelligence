@@ -35,7 +35,20 @@ export const REVIEW_STATUS: Record<string, L> = {
   pending: { de: 'Entscheidung offen', en: 'Decision pending' },
   approved: { de: 'Freigegeben', en: 'Approved' },
   rejected: { de: 'Abgelehnt', en: 'Rejected' },
+  auto_approved: { de: 'Automatisch freigegeben', en: 'Auto-approved' },
   filed: { de: 'Abgelegt', en: 'Filed' },
+}
+
+/** Why a person did or did not have to look (api/app/policy.py). */
+export const POLICY: Record<string, L> = {
+  required: { de: 'Prüfung erforderlich', en: 'Review required' },
+  spot_check: { de: 'Stichprobe', en: 'Spot check' },
+  auto: { de: 'Automatisch freigegeben (Regel)', en: 'Auto-approved (rule)' },
+  carried_over: { de: 'Bereits entschieden am {date}', en: 'Already decided on {date}' },
+}
+export const POLICY_HELP: Record<string, L> = {
+  spot_check: { de: 'Diese Art von Fund wird nur noch stichprobenartig vorgelegt – Ihre Entscheidung hält die Regel scharf.', en: 'This kind of finding is only sampled now – your decision keeps the rule honest.' },
+  auto: { de: 'Von der KI bestätigt und nach Ihren bisherigen Entscheidungen automatisch freigegeben. Sie können die Entscheidung jederzeit ändern.', en: 'AI-confirmed and auto-approved based on your earlier decisions. You can change the decision at any time.' },
 }
 
 export const DOC_STATUS: Record<string, L> = {
@@ -252,6 +265,11 @@ export const COMMON = {
   rejected_toast: { de: 'Abgelehnt. Der Eintrag steht im Protokoll.', en: 'Rejected. The entry is in the activity log.' },
   filed_toast: { de: 'Abgelegt unter {ref}. Ein erneutes Ablegen erzeugt keine Kopie.', en: 'Filed under {ref}. Filing again creates no copy.' },
   file_now: { de: 'Jetzt ablegen', en: 'File now' },
+  review_load: { de: 'Prüflast', en: 'Review load' },
+  review_rate: { de: 'Prüfquote', en: 'Review rate' },
+  full_review: { de: 'Volle Prüfung', en: 'Full review' },
+  sample_rate: { de: 'Stichprobe {rate}', en: 'Spot check {rate}' },
+  system: { de: 'System', en: 'System' },
   error: { de: 'Das hat leider nicht funktioniert. Bitte versuchen Sie es erneut.', en: 'That did not work. Please try again.' },
   error_detail: { de: 'Fehlermeldung', en: 'Error message' },
 }

@@ -66,6 +66,35 @@ export type Finding = {
   storage_ref: string
   audit_kind: string
   audit_params: Record<string, string>
+  class_key: string
+  policy: Policy
+}
+
+/** Why a person did or did not have to look at a finding (see api/app/policy.py). */
+export type Policy =
+  | { kind: 'required'; reason: 'not_verified' | 'learning'; review_rate: number }
+  | { kind: 'spot_check'; review_rate: number }
+  | { kind: 'auto'; review_rate: number }
+  | { kind: 'carried_over'; decision: 'approved' | 'rejected'; note: string; decided_at: string | null; finding_id: number }
+  | Record<string, never>
+
+export type PolicyClass = {
+  class_key: string
+  kind: string
+  params: Record<string, string>
+  decisions: number
+  approved: number
+  rejected: number
+  since_rejection: number
+  agreement: number | null
+  review_rate: number
+  automation_active: boolean
+  findings: Record<string, number>
+}
+
+export type PolicyReport = {
+  classes: PolicyClass[]
+  rules: { min_decisions: number; min_agreement: number; tiers: [number, number][] }
 }
 
 export type Audit = {
@@ -161,6 +190,7 @@ export const api = {
     request<Finding>(`/api/findings/${id}/review`, json({ decision, note, actor: 'legal.reviewer' })),
   push: (id: number) => request<Finding>(`/api/findings/${id}/push-to-storage`, { method: 'POST' }),
   auditLog: () => request<LogEntry[]>('/api/audit-log'),
+  policy: () => request<PolicyReport>('/api/policy'),
   chat: (question: string, language: string) => request<ChatResult>('/api/chat', json({ question, language })),
   runEval: () => request<Record<string, unknown>>('/api/eval/run', { method: 'POST' }),
 }

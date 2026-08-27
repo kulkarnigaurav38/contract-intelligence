@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import chat, evaluation
+from app import chat, evaluation, policy
 from app.audits.graph import coverage_matrix, run_audit
 from app.config import settings
 from app.db import SessionLocal, get_session
@@ -119,7 +119,8 @@ def _finding_dict(f: Finding) -> dict:
             "title": f.document.title, "verdict": f.verdict, "confidence": f.confidence,
             "method_chain": f.method_chain, "evidence": f.evidence, "reasoning": f.reasoning,
             "review_status": f.review_status, "review_note": f.review_note, "reviewed_at": f.reviewed_at,
-            "storage_ref": f.storage_ref, "audit_kind": f.audit.kind, "audit_params": f.audit.params}
+            "storage_ref": f.storage_ref, "audit_kind": f.audit.kind, "audit_params": f.audit.params,
+            "class_key": f.class_key, "policy": f.policy}
 
 
 @router.post("/audits")
@@ -186,7 +187,7 @@ def push_to_storage(finding_id: int, actor: str = "legal.reviewer", session: Ses
     f = session.get(Finding, finding_id)
     if not f:
         raise HTTPException(404)
-    if f.review_status != "approved":
+    if f.review_status not in ("approved", "auto_approved"):
         raise HTTPException(409, "only approved findings can be pushed")
     payload = {"filename": f.document.filename, "sha256": f.document.sha256, "finding_id": f.id,
                "audit": {"kind": f.audit.kind, "params": f.audit.params}, "reviewer": actor,
@@ -199,6 +200,21 @@ def push_to_storage(finding_id: int, actor: str = "legal.reviewer", session: Ses
     log(session, actor, "finding.pushed_to_storage", "finding", f.id, {"external_id": f.storage_ref, "idempotency_key": key})
     session.commit()
     return _finding_dict(f)
+
+
+@router.get("/policy")
+def review_policy(session: Session = Depends(get_session)) -> dict:
+    """Per finding class: how the team's decisions have changed the review rate."""
+    keys = sorted({k for k in session.scalars(select(Finding.class_key).distinct()) if k})
+    classes = []
+    for k in keys:
+        stats = policy.class_stats(session, k)
+        sample = session.scalar(select(Finding).where(Finding.class_key == k).limit(1))
+        counts = dict(session.execute(select(Finding.review_status, func.count()).where(Finding.class_key == k)
+                                      .group_by(Finding.review_status)).all())
+        classes.append({**stats, "kind": sample.audit.kind, "params": sample.audit.params, "findings": counts})
+    return {"classes": classes, "rules": {"min_decisions": policy.MIN_DECISIONS, "min_agreement": policy.MIN_AGREEMENT,
+                                         "tiers": policy.TIERS}}
 
 
 @router.get("/audit-log")

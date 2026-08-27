@@ -135,7 +135,11 @@ def test_review_and_push_is_idempotent(client):
 def test_chat_offline_returns_cited_passages(client):
     res = client.post("/api/chat", json={"question": "Which court has jurisdiction in the Nordlicht agreement?"}).json()
     assert res["mode"] == "offline" and res["citations"]
-    assert any("Baden-Baden" in p["text"] for p in res["passages"])
+    assert [d["counterparty"] for d in res["scope"]] == ["Nordlicht Möbelhaus GmbH"]  # the question names a contract
+    assert all(p["filename"].startswith("C01_") for p in res["passages"])
+    assert any(p["clause_type"] == "dispute_resolution" and "Frankfurt" in p["text"] for p in res["passages"])  # DIS arbitration, not a court
+    broad = client.post("/api/chat", json={"question": "Which contracts mention arbitration?"}).json()
+    assert broad["scope"] == [] and len({p["filename"] for p in broad["passages"]}) > 1
 
 
 def test_eval_scores_layers(client):

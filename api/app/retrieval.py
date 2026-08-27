@@ -23,20 +23,25 @@ def _tsquery(query: str) -> str:
     return " | ".join(dict.fromkeys(tokens)) or "___"
 
 
-def hybrid_search(session: Session, query: str, k: int = 8) -> list[tuple[Clause, float]]:
-    sql = text("""
+def hybrid_search(session: Session, query: str, k: int = 8, document_ids: list[int] | None = None) -> list[tuple[Clause, float]]:
+    """Top-k clauses by RRF over vector + full-text rank; optionally restricted to the given documents."""
+    scope = "WHERE document_id = ANY(:ids)" if document_ids else ""
+    sql = text(f"""
         WITH v AS (
             SELECT id, row_number() OVER (ORDER BY embedding <=> CAST(:q AS vector)) AS r
-            FROM clauses ORDER BY embedding <=> CAST(:q AS vector) LIMIT 25),
+            FROM clauses {scope} ORDER BY embedding <=> CAST(:q AS vector) LIMIT 25),
         f AS (
             SELECT id, row_number() OVER (ORDER BY ts_rank(tsv, q.q) DESC) AS r
             FROM clauses, (SELECT to_tsquery('english', :t) || to_tsquery('german', :t) AS q) q
-            WHERE tsv @@ q.q LIMIT 25)
+            WHERE tsv @@ q.q {"AND document_id = ANY(:ids)" if document_ids else ""} LIMIT 25)
         SELECT COALESCE(v.id, f.id) AS id,
                COALESCE(1.0 / (:rrf + v.r), 0) + COALESCE(1.0 / (:rrf + f.r), 0) AS score
         FROM v FULL OUTER JOIN f ON v.id = f.id ORDER BY score DESC LIMIT :k
     """)
-    rows = session.execute(sql, {"q": _vec(embed_query(query)), "t": _tsquery(query), "rrf": RRF_K, "k": k}).all()
+    params = {"q": _vec(embed_query(query)), "t": _tsquery(query), "rrf": RRF_K, "k": k}
+    if document_ids:
+        params["ids"] = document_ids
+    rows = session.execute(sql, params).all()
     clauses = {c.id: c for c in session.query(Clause).filter(Clause.id.in_([r.id for r in rows]))}
     return [(clauses[r.id], float(r.score)) for r in rows if r.id in clauses]
 

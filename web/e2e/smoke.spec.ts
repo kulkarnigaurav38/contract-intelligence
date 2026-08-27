@@ -135,7 +135,8 @@ test('Ask: example chip returns Belege (cited answer with AI, passages only with
     await expect(page.getByText('Nur Fundstellen (ohne KI)')).toBeVisible()
     await expect(page.getByText('Ohne KI-Verbindung zeigen wir die passendsten Stellen statt einer Antwort.')).toBeVisible()
   }
-  await expect(page.getByText(/Baden-Baden/).first()).toBeVisible()
+  await expect(page.getByText(/Eingegrenzt auf: .*Nordlicht/)).toBeVisible() // the question names a contract
+  await expect(page.getByText(/Frankfurt/).first()).toBeVisible() // C01 goes to DIS arbitration, not a court
   await expect(page.getByRole('button', { name: 'Vertrag öffnen' }).first()).toBeVisible()
   await expect(page.getByText(/Weitere gefundene Stellen \(\d+\)/)).toBeVisible()
   await expect(page.getByText(/Jede Aussage stützt sich auf eine zitierte Stelle/)).toBeVisible()

@@ -43,6 +43,7 @@ const T = {
   searching_plain: { de: 'Wir suchen in Ihren Verträgen …', en: 'We are searching your contracts …' },
   answer: { de: 'Antwort', en: 'Answer' },
   your_question: { de: 'Ihre Frage', en: 'Your question' },
+  scoped: { de: 'Eingegrenzt auf: {x}', en: 'Limited to: {x}' },
   badge_ai: { de: 'Antwort mit Belegen (KI)', en: 'Answer with evidence (AI)' },
   badge_offline: { de: 'Nur Fundstellen (ohne KI)', en: 'Passages only (no AI)' },
   offline_note: {
@@ -201,6 +202,7 @@ function AnswerCard({ question, data }: { question: string; data: ChatResult }) 
         <Small>
           {t('your_question')}: {quoted(question, lang)}
         </Small>
+        {data.scope?.length > 0 && <Small>{t('scoped', { x: data.scope.map((d) => `${d.title} (${d.counterparty})`).join(', ') })}</Small>}
 
         {offline ? (
           <Typography variant="body1">{t('offline_note')}</Typography>

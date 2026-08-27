@@ -12,6 +12,19 @@ from app.ingest.embed import embed_documents, embed_query
 
 pytestmark = pytest.mark.skipif(not settings.llm_enabled, reason="GEMINI_API_KEY not set")
 
+
+@pytest.fixture(scope="module")
+def db_client():
+    """API client on the current database (expects the sample set already ingested in LLM mode)."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    with TestClient(app) as c:
+        if len(c.get("/api/documents").json()) < 14:
+            pytest.skip("sample set not ingested")
+        yield c
+
 DATA = Path(__file__).resolve().parents[2] / "data"
 GT = {c["id"]: c for c in json.loads((DATA / "ground_truth.json").read_text())["contracts"]}
 
@@ -83,3 +96,11 @@ def test_embeddings_have_the_configured_dimension_and_rank_paraphrases():
     assert len(q) == settings.embedding_dim == len(docs[0])
     dot = lambda a, b: sum(x * y for x, y in zip(a, b))
     assert dot(q, docs[0]) > dot(q, docs[1])
+
+
+def test_chat_cites_only_the_contract_the_question_names(db_client):
+    res = db_client.post("/api/chat", json={"question": "Welcher Gerichtsstand gilt im Vertrag mit Nordlicht Möbelhaus?",
+                                            "language": "de"}).json()
+    assert res["mode"] == "llm" and res["citations"]
+    assert all(c["filename"].startswith("C01_") for c in res["citations"])
+    assert "Frankfurt" in res["answer"] and "Baden-Baden" not in res["answer"]  # Nordlicht: DIS arbitration, no court

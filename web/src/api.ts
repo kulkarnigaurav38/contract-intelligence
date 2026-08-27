@@ -103,6 +103,7 @@ export type ChatResult = {
   mode: string
   citations: (Passage & { quote: string })[]
   passages: Passage[]
+  scope: { document_id: number; title: string; counterparty: string }[] // contracts the question names
 }
 
 export type Passage = {

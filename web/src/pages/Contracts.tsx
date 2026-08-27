@@ -26,6 +26,8 @@ import UploadFileIcon from '@mui/icons-material/UploadFile'
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks'
 import CloudSyncIcon from '@mui/icons-material/CloudSync'
 import GppMaybeIcon from '@mui/icons-material/GppMaybe'
+import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined'
+import ReplayIcon from '@mui/icons-material/Replay'
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import { api, type Doc, type DocDetail } from '../api'
 import { useLabel, useT } from '../i18n'
@@ -63,6 +65,9 @@ const T = {
   },
   samples_short: { de: 'Beispielverträge laden', en: 'Load sample contracts' },
   sync: { de: 'Neue Verträge abholen', en: 'Fetch new contracts' },
+  degraded: { de: 'Beim Einlesen musste das System ohne KI-Modell auskommen (Anbieter nicht erreichbar): {list}. Ein erneutes Lesen holt das nach.', en: 'While reading, the system had to work without the AI model (provider unavailable): {list}. Reading again catches up.' },
+  retry: { de: 'Erneut lesen', en: 'Read again' },
+  retry_toast: { de: 'Wir lesen „{name}“ erneut.', en: 'Reading “{name}” again.' },
   sync_toast: { de: 'Wir holen neue Verträge aus der Quelle ab ({src}).', en: 'Fetching new contracts from the source ({src}).' },
   drop_title: { de: 'Dateien hier ablegen', en: 'Drop files here' },
   drop_text: { de: 'PDF, JPG oder PNG – gern auch mehrere auf einmal.', en: 'PDF, JPG or PNG – several at once is fine.' },
@@ -237,6 +242,15 @@ export default function Contracts() {
       toast(c('error', { msg: String(e) }))
     }
     setBusyAction(false)
+  }
+  const retryDoc = async (d: Doc) => {
+    try {
+      await api.retryDocument(d.id)
+      toast(t('retry_toast', { name: d.title || d.filename }))
+      setTimeout(refresh, 1500)
+    } catch (e) {
+      toast(c('error', { msg: String(e) }))
+    }
   }
   const loadSamples = async () => {
     setBusyAction(true)
@@ -454,11 +468,23 @@ export default function Contracts() {
                       label={docStatus(doc.status)}
                       color={doc.status === 'failed' ? 'error' : doc.status === 'processing' ? 'primary' : 'default'}
                     />
+                    {doc.warnings?.length > 0 && (
+                      <Tooltip title={t('degraded', { list: doc.warnings.join('; ') })}>
+                        <ReportProblemOutlinedIcon color="warning" fontSize="small" sx={{ verticalAlign: 'middle', ml: 0.75 }} />
+                      </Tooltip>
+                    )}
                     {doc.status === 'failed' && doc.error && (
                       <Box sx={{ mt: 0.5 }} onClick={(e) => e.stopPropagation()}>
                         <Details label={t('show_error')}>
                           <Small sx={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>{doc.error}</Small>
                         </Details>
+                      </Box>
+                    )}
+                    {(doc.status === 'failed' || doc.warnings?.length > 0) && (
+                      <Box sx={{ mt: 0.5 }} onClick={(e) => e.stopPropagation()}>
+                        <Button size="small" variant="text" startIcon={<ReplayIcon />} onClick={() => retryDoc(doc)} disabled={busyAction} sx={{ px: 0.5 }}>
+                          {t('retry')}
+                        </Button>
                       </Box>
                     )}
                   </TableCell>

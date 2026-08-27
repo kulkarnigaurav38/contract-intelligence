@@ -13,6 +13,7 @@ export type Doc = {
   ingest_summary: PageSummary[]
   injection_suspected: boolean
   injection_note: string
+  warnings: string[] // stages that had to fall back (e.g. provider outage)
   sha256: string
   clauses: number
   entities: number
@@ -188,6 +189,7 @@ export const api = {
   guidelineAudits: (contract_type: string, language: string) =>
     request<{ audits: number[] }>(`/api/audits/guideline?contract_type=${encodeURIComponent(contract_type)}&language=${language}`, { method: 'POST' }),
   sync: () => request<{ source: string; queued: boolean }>('/api/documents/sync', { method: 'POST' }),
+  retryDocument: (id: number) => request<{ queued: number }>(`/api/documents/${id}/retry`, { method: 'POST' }),
   audits: () => request<Audit[]>('/api/audits'),
   audit: (id: number) => request<Audit & { findings: Finding[] }>(`/api/audits/${id}`),
   createAudit: (kind: string, params: Record<string, string>, language: string) =>

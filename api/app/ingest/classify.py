@@ -9,7 +9,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from app.ingest.segment import Segment
-from app.llm import DOC_GUARD, chat
+from app.llm import DOC_GUARD, ModelUnavailable, chat, with_retry
 
 TAXONOMY = [
     "term_termination", "fees_payment", "liability_cap", "confidentiality", "data_protection", "governing_law",
@@ -90,7 +90,10 @@ def llm_labels(segments: list[Segment]) -> dict[int, tuple[str, float]]:
         )),
         HumanMessage(content=f"<document>\n{listing}\n</document>"),
     ]
-    result = llm.with_structured_output(ClauseLabels).invoke(messages)
+    try:
+        result = with_retry(lambda: llm.with_structured_output(ClauseLabels).invoke(messages), "classify")
+    except ModelUnavailable:
+        return {}  # rules carry the labels; the pipeline records the degradation
     return {l.index: (l.clause_type if l.clause_type in LABELS else "other", l.confidence) for l in result.labels}
 
 

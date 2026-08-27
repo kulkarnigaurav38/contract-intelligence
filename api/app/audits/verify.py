@@ -10,7 +10,7 @@ from typing import Literal
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
-from app.llm import DOC_GUARD, chat
+from app.llm import DOC_GUARD, ModelUnavailable, chat, with_retry
 
 
 class Verdict(BaseModel):
@@ -51,4 +51,7 @@ def verify(pages: list[tuple[int, str]], claim: str, language: str = "en",
         )),
         HumanMessage(content=f"Claim: {claim}{history}\n\n<document>\n{body}\n</document>"),
     ]
-    return llm.with_structured_output(Verdict).invoke(messages)
+    try:
+        return with_retry(lambda: llm.with_structured_output(Verdict).invoke(messages), "verify")
+    except ModelUnavailable:
+        return None  # the finding is stored as 'not cross-checked' and a person decides

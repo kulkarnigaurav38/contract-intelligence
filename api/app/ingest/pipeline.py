@@ -7,6 +7,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.ingest import classify, embed, entities, loader, ocr, screen, segment
 from app.models import AuditLog, Clause, Document, Entity, Page
 
@@ -90,8 +91,15 @@ def _process(session: Session, doc: Document, path: Path) -> None:
     if meta and meta.language in ("de", "en"):
         doc.language = meta.language
 
+    warnings = [f"page {s['page']}: {s['note']}" for s in summary if "provider error" in s["note"]]
+    if settings.llm_enabled and meta is None:
+        warnings.append("party/title extraction: model unavailable, heuristics used")
+
     segments = segment.segment(page_texts)
     labels = classify.classify(segments)
+    if settings.llm_enabled and segments and all(l["method"] == "rules" for l in labels):
+        warnings.append("clause labels: model unavailable, rules only")
+    doc.warnings = warnings
     vectors = embed.embed_documents([f"{s.heading}\n{s.text}" if s.heading else s.text for s in segments])
     for seg, label, vec in zip(segments, labels, vectors):
         session.add(Clause(document_id=doc.id, page_no=seg.page_no, ordinal=seg.ordinal, heading=seg.heading[:255],

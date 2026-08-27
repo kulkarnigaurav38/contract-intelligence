@@ -5,7 +5,7 @@ import re
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel
 
-from app.llm import DOC_GUARD, chat
+from app.llm import DOC_GUARD, ModelUnavailable, chat, with_retry
 
 PATTERNS = re.compile(
     r"(ignore (all |any )?(previous|prior|above) instructions|system note|ai reviewer|ai assistant|"
@@ -35,5 +35,8 @@ def screen(text: str) -> tuple[bool, str]:
         )),
         HumanMessage(content=f"<document>\n{text[:20000]}\n</document>"),
     ]
-    result = llm.with_structured_output(Screen).invoke(messages)
+    try:
+        result = with_retry(lambda: llm.with_structured_output(Screen).invoke(messages), "screen")
+    except ModelUnavailable:
+        return False, ""  # the pattern screen already ran
     return result.suspicious, ("llm screen: " + result.quote) if result.suspicious else ""

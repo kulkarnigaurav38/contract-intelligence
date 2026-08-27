@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.llm import DOC_GUARD, chat
+from app.llm import DOC_GUARD, ModelUnavailable, chat, with_retry
 from app.models import Document, Entity
 from app.retrieval import hybrid_search
 
@@ -86,7 +86,13 @@ def build(session: Session):
             )),
             HumanMessage(content=f"Question: {state['question']}\n\n<document>\n{body}\n</document>"),
         ]
-        result = llm.with_structured_output(Answer).invoke(messages)
+        try:
+            result = with_retry(lambda: llm.with_structured_output(Answer).invoke(messages), "answer")
+        except ModelUnavailable:
+            listing = "\n\n".join(f"[{p['index']}] {p['title']} p.{p['page']} ({p['clause_type']}): {p['text'][:300]}"
+                                  for p in passages)
+            return {"answer": "Model unavailable: most relevant passages:\n\n" + listing,
+                    "citations": [{**p, "quote": p["text"][:160]} for p in passages[:3]], "mode": "offline"}
         by_index = {p["index"]: p for p in passages}
         citations = [{**by_index[c.passage], "quote": c.quote} for c in result.citations if c.passage in by_index]
         return {"answer": result.answer, "citations": citations, "mode": "llm"}

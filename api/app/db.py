@@ -23,6 +23,7 @@ def init_db() -> None:
     with engine.begin() as conn:  # additive columns for databases created before they existed
         conn.execute(text("ALTER TABLE findings ADD COLUMN IF NOT EXISTS class_key VARCHAR(64) NOT NULL DEFAULT ''"))
         conn.execute(text("ALTER TABLE findings ADD COLUMN IF NOT EXISTS policy JSON NOT NULL DEFAULT '{}'"))
+        conn.execute(text("ALTER TABLE documents ADD COLUMN IF NOT EXISTS warnings JSON NOT NULL DEFAULT '[]'"))
 
 
 def get_session() -> Iterator[Session]:

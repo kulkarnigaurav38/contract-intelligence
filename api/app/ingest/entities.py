@@ -14,7 +14,7 @@ from difflib import SequenceMatcher
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
-from app.llm import DOC_GUARD, chat
+from app.llm import DOC_GUARD, ModelUnavailable, chat, with_retry
 
 # longest names first so "Arvato Systems GmbH" is claimed before the bare brand "Arvato"
 REGISTRY: list[tuple[str, str, bool]] = [  # (name, kind, case_sensitive)
@@ -130,4 +130,7 @@ def llm_meta(text: str) -> ContractMeta | None:
         )),
         HumanMessage(content=f"<document>\n{text[:12000]}\n</document>"),
     ]
-    return llm.with_structured_output(ContractMeta).invoke(messages)
+    try:
+        return with_retry(lambda: llm.with_structured_output(ContractMeta).invoke(messages), "extract")
+    except ModelUnavailable:
+        return None  # heuristics for title/type/language take over

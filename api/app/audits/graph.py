@@ -166,9 +166,10 @@ def build(session: Session):
             session.commit()  # never hold a transaction (and its locks) across a model call
             verdict = verify(pages, claim["claim"], state["params"].get("language", "en"), history)
             if verdict is None:
+                why = "verifier: unavailable offline" if not settings.llm_enabled else "verifier: provider unavailable, retried 5x"
                 if claim["direction"] == "missing":
                     _store(session, state["audit_id"], claim, "unverified", claim["confidence"],
-                           claim["method_chain"] + ["verifier: unavailable offline"], "")
+                           claim["method_chain"] + [why], "")
                 continue
             chain = claim["method_chain"] + [f"verifier {settings.model_pro}: {verdict.verdict} ({verdict.confidence:.0%})"]
             evidence = claim["evidence"]

@@ -8,10 +8,20 @@ switch, no other code knows which. Everything degrades to the deterministic
 core when no provider is configured.
 """
 
+import logging
+import re
+import time
+from collections.abc import Callable
+from typing import TypeVar
+
 from langchain_core.language_models import BaseChatModel
 from langchain_core.embeddings import Embeddings
 
 from app.config import settings
+
+log = logging.getLogger("contracts.llm")
+T = TypeVar("T")
+TRANSIENT = re.compile(r"\b(503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overloaded|high demand|timed? ?out|rate limit)\b", re.I)
 
 # task -> (model tier, thinking level, purpose)
 TASKS: dict[str, tuple[str, str, str]] = {
@@ -75,3 +85,27 @@ def routing_table() -> list[dict]:
         {"task": task, "model": model_id(tier), "thinking": level, "purpose": purpose}
         for task, (tier, level, purpose) in TASKS.items()
     ]
+
+
+class ModelUnavailable(RuntimeError):
+    """The provider kept failing with a transient error; the caller degrades to its deterministic fallback."""
+
+
+def with_retry(fn: Callable[[], T], task: str, attempts: int = 5, base_delay: float = 2.0) -> T:
+    """Call fn; on transient provider errors (503/429/timeouts) back off exponentially, then give up loudly.
+
+    Non-transient errors (bad request, schema mismatch) are raised immediately - they are bugs, not weather."""
+    delay = base_delay
+    for attempt in range(1, attempts + 1):
+        try:
+            return fn()
+        except Exception as exc:  # noqa: BLE001 - provider SDKs raise many types
+            if not TRANSIENT.search(str(exc)):
+                raise
+            if attempt == attempts:
+                log.warning("%s: provider unavailable after %d attempts: %s", task, attempts, str(exc)[:160])
+                raise ModelUnavailable(f"{task}: {str(exc)[:120]}") from exc
+            log.info("%s: transient provider error, retry %d/%d in %.0fs", task, attempt, attempts, delay)
+            time.sleep(delay)
+            delay = min(delay * 2, 30)
+    raise AssertionError("unreachable")

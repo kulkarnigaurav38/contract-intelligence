@@ -44,7 +44,7 @@ def _doc_summary(d: Document, clause_count: int, entity_count: int) -> dict:
     return {"id": d.id, "filename": d.filename, "title": d.title, "contract_type": d.contract_type,
             "language": d.language, "input_type": d.input_type, "pages": d.pages, "status": d.status,
             "error": d.error, "ingest_summary": d.ingest_summary, "injection_suspected": d.injection_suspected,
-            "injection_note": d.injection_note, "sha256": d.sha256, "created_at": d.created_at,
+            "injection_note": d.injection_note, "warnings": d.warnings, "sha256": d.sha256, "created_at": d.created_at,
             "clauses": clause_count, "entities": entity_count}
 
 
@@ -123,6 +123,24 @@ def required_clauses(contract_type: str) -> list[str]:
 def guidelines() -> dict:
     g = _guidelines()
     return {k: v for k, v in g.items() if not k.startswith("_")}
+
+
+@router.post("/documents/{doc_id}/retry")
+def retry_document(doc_id: int, background: BackgroundTasks, actor: str = "legal.reviewer",
+                   session: Session = Depends(get_session)) -> dict:
+    """Read a failed (or degraded) document again, e.g. after a provider outage."""
+    d = session.get(Document, doc_id)
+    if not d:
+        raise HTTPException(404)
+    path = next((p for folder in (settings.data_dir / "contracts", settings.data_dir / "contracts_batch2", UPLOADS,
+                                  settings.data_dir / "inbox", settings.document_source_path)
+                 for p in [folder / d.filename] if p.exists()), None)
+    if path is None:
+        raise HTTPException(409, "source file no longer available")
+    session.delete(d)
+    session.commit()
+    background.add_task(_ingest_many, [path], actor)
+    return {"queued": 1, "filename": d.filename}
 
 
 @router.get("/coverage")

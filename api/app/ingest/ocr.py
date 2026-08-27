@@ -17,7 +17,7 @@ from PIL import Image
 from pydantic import BaseModel, Field
 
 from app.config import settings
-from app.llm import DOC_GUARD, chat
+from app.llm import DOC_GUARD, ModelUnavailable, chat, with_retry
 
 ESCALATE_BELOW = 0.80  # try the vision model below this
 UNREADABLE_BELOW = 0.50  # without a vision model, text below this is not trusted at all
@@ -136,6 +136,7 @@ def ocr_page(image: bytes) -> OcrResult:
         if uncovered and confidence >= ESCALATE_BELOW:  # text is fine where it exists, but regions are missing
             confidence = round(ESCALATE_BELOW - 0.01, 3)
         note = (f"page regions {uncovered} produced no text" if uncovered else f"low OCR confidence ({confidence:.0%})")
-        return OcrResult(text, method, confidence, note=note + "; vision OCR unavailable offline")
+        why = "vision OCR unavailable offline" if not settings.llm_enabled else "vision model unavailable (provider error)"
+        return OcrResult(text, method, confidence, note=f"{note}; {why}")
     return OcrResult(transcription.text, "vision_llm", round(transcription.legibility, 3),
                      note=f"escalated from {method} ({confidence:.0%})")

@@ -10,7 +10,7 @@ import math
 import re
 
 from app.config import settings
-from app.llm import embeddings
+from app.llm import embeddings, with_retry
 
 TOKEN_RE = re.compile(r"[a-zäöüß0-9]{3,}")
 
@@ -28,11 +28,11 @@ def embed_documents(texts: list[str]) -> list[list[float]]:
     model = embeddings("RETRIEVAL_DOCUMENT")
     if model is None:
         return [_hashed(t) for t in texts]
-    return model.embed_documents(texts)
+    return with_retry(lambda: model.embed_documents(texts), "embed", attempts=6)
 
 
 def embed_query(text: str) -> list[float]:
     model = embeddings("RETRIEVAL_QUERY")
     if model is None:
         return _hashed(text)
-    return model.embed_query(text)
+    return with_retry(lambda: model.embed_query(text), "embed", attempts=6)

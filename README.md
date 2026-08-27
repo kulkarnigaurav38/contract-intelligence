@@ -18,6 +18,7 @@ acts without a person.*
 | "These documents are sensitive." | Nothing changes state without **human approval**; pushes to the contract storage are **idempotent**; every action lands in an **append-only audit log** keyed by document SHA-256. |
 | "Is it safe against manipulated documents?" | Contract text is **untrusted input**: hidden instructions are screened at ingest and every model prompt is told to treat document text as data. Fixture C13 carries a hidden injection. |
 | "What about scans and handwriting?" | Per-page routing: text layer → direct; no text layer → Tesseract with a confidence gate; low confidence → **vision model**; OCR noise → **fuzzy entity matching** with the match ratio recorded. |
+| "Will the lawyers review everything forever?" | No — **the review load falls as the team's decisions prove the system right**: every finding class starts at 100% review; after 8 consecutive agreeing decisions only a deterministic 20% (later 10%) spot check is queued and the rest is auto-approved (AI-confirmed findings only, logged as `system`, overturnable), with at least one spot check per run; one rejection resets the class. Decisions carry over, so nobody reviews the same contract twice, and reviewer notes become **precedents in the verifier prompt**. See `api/app/policy.py` and the *Prüflast* tab. |
 | "Which model, and why?" | **Routing by task**: cheap low-thinking Flash for labelling, high-thinking Pro only for handwriting and verification, Flash-Lite for screening. Offline, the deterministic core still runs end to end. |
 
 ## The front-end is for lawyers, not engineers
@@ -73,7 +74,7 @@ cp .env.example .env            # add GEMINI_API_KEY for the full pipeline; leav
 docker compose up --build       # web on http://localhost:5173, api on http://localhost:8000/docs
 ```
 
-Then *Verträge → Beispielverträge laden*, ask one of the three questions on *Start*, decide under *Freigabe*, and see the numbers under *Technik → Qualitätsmessung*. Switch to EN in the app bar at any time.
+Then *Verträge → Beispielverträge laden*, ask one of the three questions on *Start*, decide under *Freigabe*, and see the numbers under *Technik → Qualitätsmessung*. To see the review load fall: decide the first batch, load the second batch (`POST /api/documents/ingest-samples?batch=2` — the four "Neuzugänge"), run the same check again and open *Freigabe → Prüflast*. Switch to EN in the app bar at any time.
 
 Local development:
 
@@ -86,8 +87,8 @@ cd web && npm install && npm run dev               # http://localhost:5173 (prox
 ## Tests
 
 ```bash
-cd api && uv run pytest            # 24 offline unit tests + 8 end-to-end against pgvector + 9 live Gemini stage tests (skip without key)
-cd web && npx playwright test      # 9 browser smoke tests against the running stack (BASE_URL overrides :5173)
+cd api && uv run pytest            # 28 offline unit tests + 9 end-to-end against pgvector + 10 live Gemini tests incl. the learning loop (skip without key)
+cd web && npx playwright test      # 10 browser smoke tests against the running stack (BASE_URL overrides :5173)
 ```
 
 Regenerate the corpus with `cd api && uv run python ../data/generate.py`.

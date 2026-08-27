@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M10VX4AAC1AV0F3GZ6P78W73",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "api/Dockerfile",
+    "api/app/audits/graph.py",
+    "api/app/audits/verify.py",
+    "api/app/evaluation.py",
+    "api/app/ingest/ocr.py",
+    "api/app/ingest/pipeline.py",
+    "api/tests/test_ingest_units.py",
+    "web/e2e/smoke.spec.ts",
+    "web/src/components/ui.tsx",
+    "web/src/pages/Approvals.tsx",
+    "web/src/pages/Checks.tsx",
+    "web/src/pages/Home.tsx",
+    "web/src/vocab.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1843,
+    "cache_creation_tokens": 547039,
+    "cache_read_tokens": 9994482,
+    "output_tokens": 38325,
+    "api_call_count": 20
+  }
+}

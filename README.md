@@ -86,7 +86,7 @@ cd web && npm install && npm run dev               # http://localhost:5173 (prox
 ## Tests
 
 ```bash
-cd api && uv run pytest            # 22 offline unit tests + 8 end-to-end against pgvector (skips without db)
+cd api && uv run pytest            # 24 offline unit tests + 8 end-to-end against pgvector + 9 live Gemini stage tests (skip without key)
 cd web && npx playwright test      # 9 browser smoke tests against the running stack (BASE_URL overrides :5173)
 ```
 

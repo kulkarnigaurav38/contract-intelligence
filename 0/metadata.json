@@ -1,0 +1,117 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M176QK5EGB89ZFSXRFH1WZZR",
+  "session_id": "046eadd3-6aa8-4b09-adc8-e3efac5fd391",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-29T16:48:07.477232Z",
+  "branch": "master",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "api/app/report.py"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-fable-5",
+  "turn_id": "9ed7bc565e38",
+  "checkpoint_transcript_start": 2817,
+  "transcript_lines_at_start": 2817,
+  "compact_transcript_start": 401,
+  "token_usage": {
+    "input_tokens": 17430,
+    "cache_creation_tokens": 189979,
+    "cache_read_tokens": 2981739,
+    "output_tokens": 46725,
+    "api_call_count": 14
+  },
+  "skill_events_version": 1,
+  "skill_events": [
+    {
+      "id": "claude-skill-toolu_01Gy5Kep1pFb3US7M8KxpRu7",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "artifact-design"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "9ed7bc565e38",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 2404,
+        "end": 2405,
+        "entry_ids": [
+          "d78bb2c2-39c3-4310-900c-e0a378ab34bc"
+        ],
+        "tool_use_id": "toolu_01Gy5Kep1pFb3US7M8KxpRu7"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_01Gy5Kep1pFb3US7M8KxpRu7"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: artifact-design",
+        "default_collapsed": true
+      }
+    }
+  ],
+  "session_metrics": {
+    "turn_count": 18
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-29T16:48:06.858835Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 5555,
+    "total_committed": 0,
+    "total_lines_changed": 11110,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 817,
+      "user_lines_removed": 5555,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "api/app/db.py": 1,
+        "api/app/main.py": 17,
+        "api/app/models.py": 1,
+        "api/app/report.py": 113,
+        "api/app/routers.py": 44,
+        "web/src/App.tsx": 28,
+        "web/src/api.ts": 40,
+        "web/src/components/ui.tsx": 39,
+        "web/src/i18n.tsx": 5,
+        "web/src/pages/Contract.tsx": 285,
+        "web/src/pages/Home.tsx": 145,
+        "web/src/pages/HowItWorks.tsx": 93,
+        "web/src/vocab.ts": 6
+      },
+      "user_removed_per_file": {
+        "api/app/main.py": 1,
+        "api/app/routers.py": 22,
+        "web/src/App.tsx": 119,
+        "web/src/api.ts": 162,
+        "web/src/components/tech.tsx": 42,
+        "web/src/components/ui.tsx": 275,
+        "web/src/i18n.tsx": 12,
+        "web/src/pages/Approvals.tsx": 813,
+        "web/src/pages/Ask.tsx": 390,
+        "web/src/pages/Checks.tsx": 633,
+        "web/src/pages/Clauses.tsx": 308,
+        "web/src/pages/Contracts.tsx": 773,
+        "web/src/pages/Home.tsx": 288,
+        "web/src/pages/Models.tsx": 212,
+        "web/src/pages/Pipeline.tsx": 618,
+        "web/src/pages/Quality.tsx": 646,
+        "web/src/vocab.ts": 241
+      }
+    }
+  ]
+}

@@ -24,7 +24,7 @@ T = TypeVar("T")
 TRANSIENT = re.compile(r"\b(50[0234]|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overloaded|high demand|timed? ?out|rate limit|"
                        r"disconnected|connection (reset|error|aborted)|reset by peer|ServiceUnavailable|InternalServerError|DeadlineExceeded|"
                        r"Broken pipe|ReadError|WriteError|ConnectError|RemoteProtocolError)\b", re.I)
-QUOTA = re.compile(r"spending cap|exceeded your current quota|RESOURCE_EXHAUSTED", re.I)
+QUOTA = re.compile(r"spending cap|exceeded your current quota", re.I)  # a spent budget, not a per-minute limit
 QUOTA_COOLDOWN = 600.0  # seconds: a spent budget does not recover within a retry loop; fail fast, degrade honestly
 _quota_until = 0.0
 

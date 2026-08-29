@@ -3,6 +3,7 @@
 Skipped automatically when the database is unreachable.
 """
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from sqlalchemy import text
 from app import routers
 from app.config import settings
 from app.db import engine
+from app.ingest.classify import TAXONOMY
 
 DATA = Path(__file__).resolve().parents[2] / "data"
 GT = {c["id"]: c for c in json.loads((DATA / "ground_truth.json").read_text())["contracts"]}
@@ -206,3 +208,27 @@ def test_local_source_sync_ingests_only_new_files(client):
     client.post("/api/documents/sync")  # nothing new -> nothing added
     assert len(_wait_ready(client, before + 4)) == before + 4
     assert any(e["action"] == "ingest" and "N01" in e["details"]["filename"] for e in client.get("/api/audit-log").json())
+
+
+def test_upload_many_checks_each_contract_and_delete_removes_it(client):
+    paths = {cid: DATA / "contracts" / GT[cid]["file"] for cid in ("C01", "C03")}
+    shas = {hashlib.sha256(p.read_bytes()).hexdigest(): cid for cid, p in paths.items()}
+    for d in client.get("/api/documents").json():  # the fixtures are already known (sha256): drop them so the upload is a real ingest
+        if d["sha256"] in shas:
+            assert client.delete(f"/api/documents/{d['id']}").json() == {"deleted": d["id"]}
+    res = client.post("/api/documents/upload", params={"language": "de"},
+                      files=[("files", (p.name, p.read_bytes(), "application/pdf")) for p in paths.values()]).json()
+    assert res["queued"] == 2 and [n.split("_", 1)[1] for n in res["filenames"]] == [p.name for p in paths.values()]
+    docs = {shas[d["sha256"]]: d for d in _wait_ready(client, 1) if d["sha256"] in shas}
+    assert len(docs) == 2 and all(d["status"] == "ready" and d["report_status"] == "ready" for d in docs.values())
+    for d in docs.values():
+        rep = client.get(f"/api/documents/{d['id']}").json()["report"]
+        assert rep["status"] == "ready" and rep["language"] == "de" and rep["cross_checked"] is False
+        assert [c["clause_type"] for c in rep["clauses"]] == TAXONOMY
+        assert {'missing', 'partial', 'old_names', 'old_name_pages', 'unreadable', 'open', 'accepted', 'dismissed', 'auto'} <= set(rep["summary"])
+    c01, c03 = docs["C01"]["report_summary"], docs["C03"]["report_summary"]
+    assert c01["missing"] == 1 and c01["old_names"] >= 1  # anti-corruption clause missing, old brand name still used
+    assert (c03["missing"], c03["old_names"], c03["open"], c03["unreadable"]) == (0, 0, 0, False)  # "Alles in Ordnung"
+    for d in docs.values():
+        assert client.delete(f"/api/documents/{d['id']}").json() == {"deleted": d["id"]}
+        assert client.get(f"/api/documents/{d['id']}").status_code == 404

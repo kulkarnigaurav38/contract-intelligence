@@ -97,8 +97,9 @@ def find_text(page: pymupdf.Page, needle: str, words: list[tuple[str, Box]] | No
     if not needle:
         return None
     if has_text_layer(page):
+        hits = exact_hits(page, needle)
         for probe in (needle, needle[:80], needle[:40]):
-            hits = page.search_for(probe)
+            hits = hits or page.search_for(probe)
             if hits:
                 return _norm(hits[0], page)
         return None
@@ -109,9 +110,26 @@ def find_text(page: pymupdf.Page, needle: str, words: list[tuple[str, Box]] | No
     return box
 
 
+def _alnum(s: str) -> str:
+    return re.sub(r"[^\w]", "", s)
+
+
+def exact_hits(page: pymupdf.Page, needle: str) -> list[pymupdf.Rect]:
+    """search_for is case-insensitive and matches inside words ('AFS' in 'AFSX'); keep only whole-word,
+    case-sensitive hits, decided by the words the hit rectangle covers."""
+    words = page.get_text("words")
+    want = _alnum(needle)
+    out = []
+    for hit in page.search_for(needle):
+        covered = [w for w in words if pymupdf.Rect(w[:4]).intersects(hit)]
+        if _alnum("".join(w[4] for w in sorted(covered, key=lambda w: (w[5], w[6], w[7])))) == want:
+            out.append(hit)
+    return out
+
+
 def all_occurrences(page: pymupdf.Page, needle: str) -> list[pymupdf.Rect]:
-    """Every hit of a name on a digital page, in page coordinates (for replacing it)."""
-    return list(page.search_for(needle)) if has_text_layer(page) else []
+    """Every whole-word hit of a name on a digital page, in page coordinates (for replacing it)."""
+    return exact_hits(page, needle) if has_text_layer(page) else []
 
 
 def insert_line(page: pymupdf.Page, after_text: str, words: list[tuple[str, Box]] | None = None) -> Box | None:

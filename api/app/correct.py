@@ -12,7 +12,7 @@ from app.files import has_text_layer, open_pdf, source_path
 from app.locate import all_occurrences
 from app.models import Document
 
-TITLES = {"de": "Nachtrag – eingefügte Klauseln", "en": "Addendum – inserted clauses"}
+TITLES = {"de": "Nachtrag - eingefuegte Klauseln", "en": "Addendum - inserted clauses"}  # base-14 fonts: ASCII only
 INTRO = {"de": "Die folgenden Klauseln wurden bei der Prüfung als fehlend erkannt und ergänzt. Die Stelle im Vertrag, "
                "an der sie gehören, ist dort mit einer Notiz markiert.",
          "en": "The following clauses were found missing during review and added. The place in the contract where "
@@ -56,15 +56,16 @@ def _write_addendum(pdf: pymupdf.Document, blocks: list[tuple[str, str]], lang: 
     rest = page.insert_textbox(intro, INTRO.get(lang, INTRO["en"]), fontname="helv", fontsize=9, lineheight=1.35)
     y = intro.y0 + (intro.height - max(rest, 0)) + 28
     for heading, text in blocks:
-        for attempt in range(2):
+        block = f"{heading}\n\n{text}" if heading else text
+        for attempt, size in enumerate((10, 10, 8, 6)):  # same page, fresh page, then smaller type - never dropped
             rect = pymupdf.Rect(margin, y, page.rect.width - margin, page.rect.height - margin)
-            block = f"{heading}\n\n{text}" if heading else text
-            left = page.insert_textbox(rect, block, fontname="helv", fontsize=10, lineheight=1.35)
+            left = page.insert_textbox(rect, block, fontname="helv", fontsize=size, lineheight=1.35)
             if left >= 0:
                 y = rect.y1 - left + 18
                 break
-            page = pdf.new_page()  # did not fit: continue on a fresh page
-            y = 72
+            if attempt == 0:
+                page = pdf.new_page()  # did not fit: continue on a fresh page
+                y = 72
 
 
 def corrected_pdf(doc: Document, report: dict) -> bytes | None:

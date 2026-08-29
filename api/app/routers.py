@@ -254,6 +254,16 @@ def retry_document(doc_id: int, background: BackgroundTasks, actor: str = "legal
     return {"queued": 1, "filename": d.filename}
 
 
+def _guidelines() -> dict:
+    return json.loads((settings.data_dir / "guidelines.json").read_text())
+
+
+@router.get("/guidelines")
+def guidelines() -> dict:
+    g = _guidelines()
+    return {k: v for k, v in g.items() if not k.startswith("_")}
+
+
 @router.get("/coverage")
 def coverage(session: Session = Depends(get_session)) -> dict:
     matrix = coverage_matrix(session)

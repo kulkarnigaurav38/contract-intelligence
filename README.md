@@ -33,9 +33,16 @@ against the corporate guideline, and lets a strong model verify every finding ag
 German by default, English one click away (DE | EN in the top bar; the choice is also sent to the models, so the
 verifier's reasons and the drafted clauses come back in that language). Three pages, nothing else:
 
-* **Verträge prüfen** (`/`) — the drop zone (PDF, JPG, PNG; one or many), the link *Beispielverträge laden*, and the
-  list of contracts with one result line each: *Wird gelesen …* → *Wird geprüft …* → *„2 Klauseln fehlen · alter
-  Firmenname auf Seite 3“* or *Alles in Ordnung*.
+* **Verträge prüfen** (`/`) — the drop zone (PDF, JPG, PNG; one or many), the link *Beispielverträge laden* (next to
+  it *Neue Dateien aus SharePoint holen* when `DOCUMENT_SOURCE=sharepoint`), and the list of contracts with one
+  result line each: *Wird gelesen …* → *Wird geprüft …* → *„2 Klauseln fehlen · alter Firmenname auf Seite 3“* or
+  *Alles in Ordnung*. A filter row over the list asks the problem statement's question across all contracts in one
+  click: *Alle | Alter Firmenname | Klausel fehlt* [one of the 12 clause types] *| Regelung fehlt* [any wording →
+  *Suchen*]. *Klausel fehlt* reads each contract's result (a row the guideline does not require is marked *„laut
+  Richtlinie nicht erforderlich“*); *Regelung fehlt* runs the free-text passage audit (`POST /api/audits`, hybrid
+  retrieval plus the verifier) and keeps only the contracts without that provision — *„Regelung nicht gefunden“*,
+  *„nur teilweise vorhanden“* or *„nicht gefunden (ohne KI-Gegenprüfung)“* — under the line *„n von m Verträgen ohne
+  diese Regelung“*.
 * **Contract page** (`/contracts/:id`) — the contract itself, every page rendered, with the findings marked on it:
   an old company name as a box around the words, a missing clause as a dashed line where it belongs („Hier fehlt:
   Haftungsbegrenzung“), a partly present clause as a box around the passage. Clicking a marker opens the finding:
@@ -43,7 +50,10 @@ verifier's reasons and the drafted clauses come back in that language). Three pa
   editable on digital PDFs) and the decision, **Übernehmen** or **Nicht zutreffend** (with an optional note). A
   sidebar lists the findings in page order and the clauses present, and holds *Korrigierte Fassung herunterladen*,
   *In der Vertragsablage ablegen*, *Erneut prüfen* and *Löschen*.
-* **So funktioniert es** (`/how-it-works`) — the four steps in plain words and the models used.
+* **So funktioniert es** (`/how-it-works`) — generated from `GET /api/pipeline`: the 14 stages in three phases (Lesen ·
+  Prüfen · Entscheiden) as numbered cards, one plain sentence each plus the tools and model used and what the stage
+  produces, and a worked example computed from a real contract (pages by method, clauses and names found, findings
+  placed, suggestions, decisions, corrected copy). It cannot drift from the code because it renders the API's list.
 
 No percentages, method traces or model settings in the way. The page contract is in `docs/ui-spec.md`.
 
@@ -60,18 +70,23 @@ flowchart LR
   S --> E[Entities: registry + fuzzy + Flash]
   S --> M[Embed → pgvector + tsvector]
   C & E & M --> DB[(PostgreSQL / pgvector)]
-  DB --> R[Report: guideline rules → full-contract verifier]
-  R --> P[Place on the page: text layer · OCR word boxes · vision]
-  R --> D[Draft the missing clause: Flash]
-  P & D --> UI[Viewer: markers · decisions · corrected copy]
+  DB --> R[Report graph, LangGraph: rules → cross_check, the full-contract verifier]
+  R --> P[place: text layer · OCR word boxes · vision]
+  P --> D[draft: the new name · a clause by Flash]
+  D --> POL[policy: carry-over · spot check · summarize]
+  POL --> UI[Viewer: markers · decisions · corrected copy]
   UI -->|Übernehmen / Nicht zutreffend| DEC[(decisions: carry-over · precedents · review rate)]
   DEC --> R
   UI -->|corrected copy| ST[Contract storage REST API]
 ```
 
 * `api/app/ingest/` — loader, OCR, segmentation, classification, entities, embeddings, injection screen, pipeline
-* `api/app/report.py` — the automatic per-contract result (rules first, then the verifier, then the findings placed on
-  the page with suggestions and decision state); `api/app/audits/verify.py` — the full-contract verifier
+* `api/app/report.py` — the automatic per-contract result as a LangGraph `StateGraph` with the nodes `rules →
+  cross_check → place → draft → policy → summarize` (rules first, then the verifier, then the findings placed on the
+  page with suggestions and decision state; a re-check re-enters at `place`); `api/app/audits/verify.py` — the
+  full-contract verifier
+* `api/app/pipeline.py` — the single description of all 14 stages (read · check · decide) with tools, model task and
+  what each produces, served by `GET /api/pipeline` and rendered by *So funktioniert es*
 * `api/app/locate.py` — where a passage sits on a page (text layer / Tesseract word boxes / vision); `api/app/draft.py` —
   the drafted clause; `api/app/files.py` — the page images for the viewer
 * `api/app/learning.py` — what the team's decisions do (carry-over, precedents, falling review rate under the rules in
@@ -85,17 +100,18 @@ flowchart LR
 
 Per contract the API offers `GET /api/documents/{id}` (the result), `GET …/pages/{n}.png`, `GET …/file` (the
 original), `POST …/items/{key}/decide`, `GET …/corrected.pdf`, `POST …/file-to-storage`, `POST …/report` (check
-again) and `DELETE …`.
+again) and `DELETE …`; `GET /api/pipeline` returns the stage list the *So funktioniert es* page renders.
 
 ### Also in the API
 
-The earlier, broader workflow still exists behind `http://localhost:8000/docs` and is covered by the tests, but is
-**API-only, not part of the legal-team UI**: cross-contract audits (`POST /api/audits`, `POST /api/audits/guideline`,
-`GET /api/coverage`, `api/app/audits/graph.py`) including free-text passage checks, with their own review queue
-(`POST /api/findings/{id}/review`, `…/push-to-storage`) and policy view (`GET /api/policy`); cited question answering
-over the corpus (`POST /api/chat`, `api/app/retrieval.py`, `chat.py`); the ground-truth evaluation
-(`POST /api/eval/run`, `api/app/evaluation.py`); and the SharePoint / local-folder sync (`POST /api/documents/sync`,
-`api/app/sources.py`). The review rules in `api/app/policy.py` are the same ones the viewer's decisions follow.
+The earlier, broader workflow still exists behind `http://localhost:8000/docs` and is covered by the tests. The start
+page uses two pieces of it — the *Regelung fehlt* filter runs the free-text passage audit (`POST /api/audits`, kind
+`missing_passage`) and the SharePoint link calls the sync (`POST /api/documents/sync`, `api/app/sources.py`). The rest
+is **API-only, not part of the legal-team UI**: the other cross-contract audits (`POST /api/audits/guideline`,
+`GET /api/coverage`, `api/app/audits/graph.py`) with their own review queue (`POST /api/findings/{id}/review`,
+`…/push-to-storage`) and policy view (`GET /api/policy`); cited question answering over the corpus (`POST /api/chat`,
+`api/app/retrieval.py`, `chat.py`); and the ground-truth evaluation (`POST /api/eval/run`, `api/app/evaluation.py`).
+The review rules in `api/app/policy.py` are the same ones the viewer's decisions follow.
 
 ## Sample corpus (generated, ground truth known)
 
@@ -128,9 +144,9 @@ cd web && npm install && npm run dev               # http://localhost:5173 (prox
 ## Tests
 
 ```bash
-cd api && uv run pytest tests/test_ingest_units.py tests/test_policy_units.py tests/test_providers_units.py tests/test_resilience_units.py tests/test_report_units.py tests/test_learning_units.py tests/test_correct_units.py -q   # 56 offline unit tests
+cd api && uv run pytest tests/test_ingest_units.py tests/test_policy_units.py tests/test_providers_units.py tests/test_resilience_units.py tests/test_report_units.py tests/test_learning_units.py tests/test_correct_units.py -q   # 56 offline unit tests in 7 files, incl. the report graph
 cd api && uv run pytest            # the above plus test_report_units.py, test_learning_units.py and test_correct_units.py (placed findings, decisions, corrected copy), 12 end-to-end tests against pgvector (test_end_to_end_db.py drops and recreates the schema of DATABASE_URL) and 10 live Gemini tests (skipped without a key)
-cd web && npx playwright test      # 7 browser tests in web/e2e/smoke.spec.ts against the running stack (BASE_URL overrides :5173)
+cd web && npx playwright test      # the browser tests in web/e2e/smoke.spec.ts against the running stack (BASE_URL overrides :5173)
 ```
 
 Regenerate the corpus with `cd api && uv run python ../data/generate.py`.

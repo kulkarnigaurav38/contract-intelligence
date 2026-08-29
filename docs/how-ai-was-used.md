@@ -85,6 +85,31 @@ KI-Gegenprüfung · wird beim nächsten Neustart nachgeholt“, a finding withou
 the next start of the API repeats those checks automatically. The system degrades honestly rather than
 optimistically: no reasons are invented, and the user is told what is missing and when it will be repeated.
 
+## 2026-08-29, later that day — the problem statement, re-read
+
+With the product cut down and the findings on the page, the author asked for two things: re-check the build
+against the problem statement, and keep the technical pipeline explainable to the people who will assess it. The
+gap review that followed found two things the earlier docs had quietly filed under "API-only": the cross-contract
+question — *which contracts do not contain X?* — could only be asked through `POST /api/audits`, not from the UI;
+and LangGraph, named in the statement, ran only the audit and chat graphs, not the automatic check every contract
+goes through.
+
+What Claude Code built under that direction: a filter row over the contract list — *Alle · Alter Firmenname ·
+Klausel fehlt · Regelung fehlt* — so the statement's question is one click on the start page (the free-text mode
+runs the existing passage audit and marks the contracts without the provision); the automatic check in
+`api/app/report.py` as a LangGraph `StateGraph` with the nodes `rules → cross_check → place → draft → policy →
+summarize` (a re-check re-enters at `place`), covered by the existing report unit tests; and one description of
+all 14 stages in `api/app/pipeline.py`, served by `GET /api/pipeline` and rendered by *So funktioniert es* —
+three phases, numbered cards with tools and model, a worked example computed from a real contract — so the
+explainer cannot drift from the code, the risk the earlier hand-written page carried (its accuracy had to be
+established by an adversarial review). The author chose which gaps mattered and accepted the shape; the AI
+proposed the stage list and its wording, which was checked against the code.
+
+The session was interrupted once by the machine rather than the model: macOS withdrew the terminal's permission
+for the Downloads folder the repository lives in, and every file access failed with "Operation not permitted"
+until a `tccutil reset` restored it. Noted because it cost real time, and because "the tool cannot see the files"
+looks, at first, exactly like a broken build.
+
 ## Known limits of the AI-built parts
 
 - The Azure Foundry, Document Intelligence and SharePoint/Graph paths were written from the documented

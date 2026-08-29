@@ -16,7 +16,7 @@ const T = {
   s3: { de: 'Prüfen', en: 'Check' },
   s3t: { de: 'Die Richtlinie sagt, welche Klauseln eine Vertragsart braucht. Fehlt eine, liest das Modell den ganzen Vertrag noch einmal und bestätigt oder verwirft den Fund – mit Seite, Zitat und Begründung. Alte Firmennamen stammen aus einem Register (arvato Financial Solutions, Arvato Payment Solutions GmbH, AFS); „vormals“-Verweise zählen nicht.', en: 'The guideline says which clauses a contract type needs. If one is missing, the model reads the whole contract again and confirms or dismisses the finding – with page, quote and reason. Old company names come from a register (arvato Financial Solutions, Arvato Payment Solutions GmbH, AFS); “formerly” references do not count.' },
   s4: { de: 'Ergebnis', en: 'Result' },
-  s4t: { de: 'Pro Vertrag: fehlende Klauseln, alte Firmennamen mit Seite und Zitat, vorhandene Klauseln mit Seite. Jeder Fund lässt sich im Text des Vertrags nachlesen.', en: 'Per contract: missing clauses, old company names with page and quote, present clauses with page. Every finding can be checked in the contract text.' },
+  s4t: { de: 'Jeder Fund wird direkt auf der Seite markiert – der alte Name als Kasten, die fehlende Klausel an der Stelle, an die sie gehört – mit Vorschlag (neuer Name, Klauselentwurf). Sie entscheiden je Fund: Übernehmen oder Nicht zutreffend. Übernommene Vorschläge ergeben eine korrigierte Kopie; das Original bleibt unverändert. Ihre Entscheidungen merkt sich das System: derselbe Vertrag wird nicht zweimal gefragt, und Fundarten, denen Sie durchweg zustimmen, werden nur noch stichprobenartig vorgelegt.', en: 'Every finding is marked right on the page – the old name as a box, the missing clause where it belongs – with a suggestion (new name, drafted clause). You decide per finding: accept or not applicable. Accepted suggestions produce a corrected copy; the original stays untouched. The system remembers your decisions: the same contract is never asked twice, and kinds of findings you consistently agree with are only spot-checked.' },
   models: { de: 'Eingesetzte Modelle', en: 'Models used' },
   offline: { de: 'Ohne Modellschlüssel läuft nur die Regelprüfung; Ergebnisse sind dann als „ohne KI-Gegenprüfung“ gekennzeichnet.', en: 'Without a model key only the rule check runs; results are then marked “without AI cross-check”.' },
   data: { de: 'Verträge, Text und Ergebnisse liegen in einer eigenen Datenbank; an das Modell gehen nur die Seiten des jeweils geprüften Vertrags. Text im Dokument, der sich an Prüfsysteme richtet, wird erkannt und ignoriert.', en: 'Contracts, text and results live in a dedicated database; only the pages of the contract being checked are sent to the model. Text inside a document that addresses review systems is detected and ignored.' },
@@ -28,6 +28,8 @@ const PURPOSE: Record<string, { de: string; en: string }> = {
   verify: { de: 'Gegenprüfung im Volltext', en: 'Full-text cross-check' },
   ocr_vision: { de: 'Handschrift und schwierige Scans lesen', en: 'Read handwriting and difficult scans' },
   screen: { de: 'Verdächtigen Text erkennen', en: 'Detect suspicious text' },
+  draft: { de: 'Fehlende Klausel entwerfen', en: 'Draft the missing clause' },
+  locate: { de: 'Fundstelle auf gescannten Seiten finden', en: 'Locate a passage on scanned pages' },
   embed: { de: 'Ähnliche Klauseln finden', en: 'Find similar clauses' },
 }
 

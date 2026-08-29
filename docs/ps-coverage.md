@@ -8,13 +8,13 @@ evidence (tests, metrics, files). Status legend — ✅ implemented and verified
 
 | # | Requirement (from the case study) | Implementation | Evidence | Status |
 | --- | --- | --- | --- | --- |
-| A1 | Legal colleagues *organise and review contracts, compare them, ensure compliance with corporate guidelines* | Clause-coverage matrix across all contracts; per-type "missing clause" checks; **corporate guideline** (`data/guidelines.json`: required clause types per contract type) overlaid on the matrix (red = required and missing) and runnable as one-click guideline audits | `GET /api/coverage` (`required` per row), `POST /api/audits/guideline`; e2e `test_guidelines_overlay_and_guideline_audits`; Klauseln page | ✅ |
+| A1 | Legal colleagues *organise and review contracts, compare them, ensure compliance with corporate guidelines* | Every contract is decomposed into typed clauses at ingest and checked automatically against the **corporate guideline** (`data/guidelines.json`: required clause types per contract type); each required clause that is missing is cross-checked by the verifier against the full contract | `api/app/report.py`, `GET /api/documents/{id}` (`report.clauses[*].required`, `status`); unit tests `tests/test_report_units.py`; contract page: markers on the pages, sidebar *Fundstellen* / *Vorhandene Klauseln*. The cross-contract matrix and one-click guideline audits remain API-only: `GET /api/coverage`, `POST /api/audits/guideline`, e2e `test_guidelines_overlay_and_guideline_audits` | ✅ |
 | A2 | *Most documents reside on SharePoint, PDF* | `SharePointSource` via Microsoft Graph (client-credentials, `/drives/{id}/root:/{folder}:/delta`, persisted delta link) behind `DOCUMENT_SOURCE=sharepoint`; local folder source for the demo; `POST /api/documents/sync` pulls what is new | `api/app/sources.py`; e2e `test_local_source_sync_ingests_only_new_files`; Terraform wires `SHAREPOINT_DRIVE_ID` + Entra secret | ◐ Graph path written from the documented API, not run against a tenant |
 | A3 | *Some are scans of really old, handwritten contracts that exist only as JPEG* | Per-page routing; Tesseract with confidence, text-volume and ink-coverage gates; escalation to the Gemini Pro vision model; explicit `unreadable` verdict when nothing can read a page | `loader.py`, `ocr.py`; unit tests (gate, coverage, sparse page); live test `test_vision_ocr_reads_the_handwritten_contract`; fixtures C08 (handwritten JPEG), C09 (photographed typed page), C14 (low-quality scan), C10 (scanned signature page) | ✅ |
-| A4 | *Contract storage solution with a RESTful API — solely to store an additional copy in a legally compliant manner* | Approved findings are pushed with an **Idempotency-Key**; the storage returns an external id kept on the finding; every push is logged | mock storage router; e2e `test_review_and_push_is_idempotent` | ✅ (mocked API) |
-| A5 | *Compare contracts and identify contracts that do not contain a certain text passage* | Two forms: **clause type** (deterministic lookup in the matrix) and **free-text passage** (closest clause per contract by vector similarity, two thresholds, verifier reads the whole contract; verdict may be *partial* when a narrower provision exists) | `audits/graph.py`; e2e `test_missing_clause_audit_scoped_by_contract_type`, `test_missing_passage_audit`; live audits: liability cap 2/2, anti-corruption passage: 2 confirmed + 3 partial with reasons | ✅ |
-| A6 | *… or contracts in which a company name needs to be updated* | Name registry with roles (old Riverty name / current / unrelated company), "vormals/formerly" = historical, OCR-tolerant fuzzy match on scanned pages, verifier decides active vs historical | `entities.py`; unit tests (formerly, Arvato Systems, fuzzy); live rename audit 9/9 incl. the scanned signature page (C10) and a mis-OCR'd name (C14) | ✅ |
-| A7 | *So far semi-manual: open, search, verify* → AI should help | Findings carry evidence quote + page, "Vertrag öffnen" jumps to the page; the human verifies once, the system remembers | UI Prüfungen/Freigabe; `policy.py` carry-over | ✅ |
+| A4 | *Contract storage solution with a RESTful API — solely to store an additional copy in a legally compliant manner* | The corrected copy (`api/app/correct.py`: accepted suggestions applied, original untouched) is pushed to the storage's REST API with an **Idempotency-Key** `copy-<sha256 of the copy>`, so filing the same copy twice stores it once; the storage's external id is kept in `report.storage`; every filing is logged. The finding-level push of the API audits works the same way | `POST /api/documents/{id}/file-to-storage` (`api/app/routers.py`), mock storage router; unit tests `tests/test_correct_units.py`; e2e `test_review_and_push_is_idempotent` (audit path) | ✅ (mocked API) |
+| A5 | *Compare contracts and identify contracts that do not contain a certain text passage* | **Clause type**, automatic for every contract: deterministic lookup in the clause coverage, then the verifier reads the whole contract for each required clause that is missing; the verdict may be *partial* (page, quote, reason) when a narrower provision exists. On the contract page a missing clause is a dashed insertion line where the clause belongs, with a clause drafted in the contract's language (`api/app/draft.py`); a partial one is a box at the passage with a drafted amendment. **Free-text passage** (closest clause per contract by vector similarity, two thresholds, same verifier): API-only audit | `api/app/report.py`; `audits/graph.py` (`POST /api/audits`, API-only); e2e `test_missing_clause_audit_scoped_by_contract_type`, `test_missing_passage_audit`; live audits: liability cap 2/2, anti-corruption passage: 2 confirmed + 3 partial with reasons | ✅ |
+| A6 | *… or contracts in which a company name needs to be updated* | Name registry with roles (old Riverty name / current / unrelated company), "vormals/formerly" = historical, OCR-tolerant fuzzy match on scanned pages, verifier decides active vs historical; every contract's report lists each old-name mention with page and quote and boxes it on the page (`api/app/locate.py`: text layer, Tesseract word boxes or the vision model); accepting it puts „Riverty GmbH“ into the corrected copy | `entities.py`, `api/app/report.py` (`report.old_names`, `historical_names`); contract page: red marker *Alter Firmenname*; unit tests (formerly, Arvato Systems, fuzzy, `test_verifier_decides_old_name_mentions`); live rename audit 9/9 incl. the scanned signature page (C10) and a mis-OCR'd name (C14) | ✅ |
+| A7 | *So far semi-manual: open, search, verify* → AI should help | Nothing to start: the check runs on upload. Every finding is a marker on the rendered page — a box around the old name or the partial passage, a dashed line where the missing clause belongs — with quote, the verifier's reason and a suggestion, so the lawyer verifies and decides on the page itself (Übernehmen / Nicht zutreffend with a note). Decisions are carried over per file, notes become precedents for the verifier, and the review rate of a class of finding falls once the team has agreed often enough (`learning.py`, rules in `policy.py`); the accepted suggestions become the corrected copy | contract page (`web/src/pages/Contract.tsx`), result line on the start page (`report_summary`); `api/app/report.py`, `learning.py`, `correct.py`; unit tests `tests/test_report_units.py`, `tests/test_learning_units.py`, `tests/test_correct_units.py`; browser tests `web/e2e/smoke.spec.ts` | ✅ |
 
 ## B. Technology principles ("best-of-breed vs what Microsoft provides")
 
@@ -36,13 +36,17 @@ Unit tests `tests/test_providers_units.py` prove the switch: the same routing ta
 
 | Deliverable | Where | Status |
 | --- | --- | --- |
-| Basic pipeline that analyses documents and makes them accessible | `api/app/ingest/*`, `retrieval.py`, `chat.py`; interactive explainer at *Technik → Pipeline* | ✅ |
-| Basic front-end demonstrating how the solution can be used | `web/` — German-first legal-team UI, 11 Playwright tests | ✅ |
-| Anything necessary for the end-to-end workflow | review queue, contract-storage push, audit log, adaptive review policy, evaluation page | ✅ |
+| Basic pipeline that analyses documents and makes them accessible | `api/app/ingest/*`; the per-contract result in `api/app/report.py`; explained in plain words on *So funktioniert es*; `retrieval.py`, `chat.py` (API-only) | ✅ |
+| Basic front-end demonstrating how the solution can be used | `web/` — German-first legal-team UI: drop zone → automatic result → the contract with its findings marked on the pages, decisions, corrected copy (three pages; browser tests in `web/e2e/smoke.spec.ts`) | ✅ |
+| Anything necessary for the end-to-end workflow | automatic report after ingest (and at startup: unfinished, degraded and old-format results are rebuilt or upgraded, `api/app/main.py`), decisions with carry-over and adaptive review, corrected copy and filing to the contract storage, re-check, retry, delete, audit log; cross-contract audits with their review queue, chat and evaluation remain API-only | ✅ |
 | Presentation: solution, technical solution, infrastructure, adoption concept, other | `docs/presentation.html` (15 slides; adoption concept on slide 13) | ✅ |
 | "AI usage encouraged as long as we understand what is happening" | `docs/how-ai-was-used.md` | ✅ |
 
 ## D. Correctness — measured, not asserted
+
+The numbers below were measured through the audit and evaluation endpoints (`POST /api/eval/run`, API-only); the
+automatic per-contract report uses the same rule layer and the same full-contract verifier (`report.py` calls
+`audits/verify.py`), so they hold for it unchanged.
 
 ### D1. Synthetic corpus with known answer key (`data/ground_truth.json`)
 14 + 4 generated contracts covering every input type (digital EN/DE, clean and low-quality scans, handwritten JPEG,
@@ -61,9 +65,16 @@ exact because the generator wrote the documents. Latest LLM-mode run (Gemini 3.x
 Offline mode (no key): recall stays 1.0 on readable documents; the low-quality scan is reported *unreadable*
 instead of scored (by design).
 
+The automatic per-contract report (`api/app/report.py`) was compared with the same answer key: 18 of 18
+expectations (clause missing per guideline, rename needed) matched.
+
 ### D2. Test suites
-`cd api && uv run pytest` → 39 unit · 11 end-to-end on PostgreSQL/pgvector · 10 live Gemini (incl. the full
-learning loop). `cd web && npx playwright test` → 11 browser tests.
+`cd api && uv run pytest tests/test_ingest_units.py tests/test_policy_units.py tests/test_providers_units.py tests/test_resilience_units.py -q`
+→ 39 offline unit tests; `tests/test_report_units.py`, `tests/test_learning_units.py` and `tests/test_correct_units.py`
+cover the placed findings, the decisions and the corrected copy. `cd api && uv run pytest` additionally runs the 12
+end-to-end tests on PostgreSQL/pgvector (`tests/test_end_to_end_db.py`, drops and recreates the schema) and the 10
+live Gemini tests (incl. the full learning loop; skipped without a key). `cd web && npx playwright test` → the browser
+tests in `web/e2e/smoke.spec.ts`.
 
 ### D3. Real-world data
 See section E — the synthetic corpus proves the mechanics; real contracts prove the claims.
@@ -123,6 +134,17 @@ on a current image), run missing-clause checks scoped to the CUAD documents (`pa
 - SharePoint/Graph, Azure Foundry and Document Intelligence paths are written and unit-tested for wiring, but were
   not exercised against a live Microsoft tenant.
 - No authentication in the prototype (reviewer is the fixed `legal.reviewer`); production uses Entra ID (Terraform).
-- Pairwise "diff two contracts" is not a separate screen; comparison happens through the matrix and the checks.
+- Pairwise "diff two contracts" is not a separate screen; comparison happens through the per-contract reports (same
+  guideline, same twelve clause types) and the API audits.
 - The verifier is a model: on genuinely borderline provisions it answers *partial* and hands the judgement to a
   lawyer rather than flip-flopping — but it remains a model.
+- The drafted clause is a starting point for the lawyer, never a final text; it is labelled as a suggestion, is
+  editable on digital PDFs, and nothing reaches the corrected copy without an explicit decision.
+- Markers on handwritten pages depend on the vision model (and on scans on Tesseract's word boxes); where neither is
+  sure the finding is shown as a page-level banner rather than a guessed box.
+- A missing clause cannot be flowed into an existing PDF: the corrected copy puts it on an addendum page and marks
+  the insertion point with a note; on scans the copy carries highlights and notes only.
+- When the model quota is exhausted the check completes as *„Nur Regelprüfung – ohne KI-Gegenprüfung · wird beim
+  nächsten Neustart nachgeholt“* — no reasons, no drafts — until the next start of the API repeats it (or *Erneut
+  prüfen* is clicked).
+- Cross-contract audits, their review queue, cited question answering and the evaluation remain API-only.

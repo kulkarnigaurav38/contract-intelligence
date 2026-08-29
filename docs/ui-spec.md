@@ -1,132 +1,115 @@
 # UI spec — Contract Intelligence for a German-speaking legal team
 
 Audience: lawyers and paralegals, mostly German-speaking, not engineers. German is the default; English is one
-click away. The tool must feel simple and pleasant. All technical substance is kept, but one layer down: small
-print, a collapsed "Details" disclosure, or the global switch **Technische Details anzeigen** (off by default).
+click away (DE | EN in the top bar). The tool works like a file converter: drop contracts in, get the result — and
+the result is shown on the contract itself, the way a PDF editor shows its edits, because a lawyer trusts what they
+can see on the page. Nothing has to be started or configured; the only clicks are the decisions on the findings.
+Three pages, a top bar, nothing else.
 
-This document is the contract for every page. The foundation it relies on already exists — reuse it, do not
-re-implement it:
+## Foundation (reuse, do not re-implement)
 
 | File | Provides |
 | --- | --- |
-| `web/src/i18n.tsx` | `SettingsProvider`, `useSettings()` → `{ lang, setLang, tech, setTech }`, `useT(DICT)` → `t('key', {vars})`, `useLabel(MAP)` → `(value) => string` |
-| `web/src/vocab.ts` | Every DE/EN word for backend enums (`AUDIT_KINDS`, `AUDIT_QUESTIONS`, `VERDICTS`, `VERDICT_HELP`, `REVIEW_STATUS`, `DOC_STATUS`, `AUDIT_STATUS`, `CLAUSE_TYPES`, `CLAUSE_SHORT`, `CONTRACT_TYPES`, `CONTRACT_TYPE_KEYS`, `INPUT_TYPES`, `LANGUAGES`, `PAGE_METHODS`, `LEGIBILITY`, `RELIABILITY`, `CLAUSE_METHODS`, `ENTITY_KINDS`, `ENTITY_METHODS`, `LOG_ACTIONS`, `ROUTING_TASKS`, `THINKING`, `modelTier()`) and `COMMON` UI strings |
-| `web/src/components/tech.tsx` | `<Tech>` (renders children only when the switch is on), `<Small>` (grey 11.5px print), `<Details label?>` (collapsed disclosure) |
-| `web/src/components/ui.tsx` | `usePolling`, `useToast`/`ToastProvider`, `legibility(doc)`, `reliability(v)`, `useFindingSentence()`, `VerdictChip`, `ReviewChip`, `AuditKindChip`, `LegibilityChip`, `Reliability`, `Quote`, `EvidenceList`, `HowFound`, `DecisionDialog`, `EmptyState` |
-| `web/src/App.tsx` | Shell: app bar (AI status chip, DE|EN toggle), nav with Freigabe badge, collapsed "Technik" group, the switch. Routes below. |
-| `web/src/api.ts` | The fixed backend contract. `createAudit(kind, params, language)` and `chat(question, language)` take the UI language. |
+| `web/src/i18n.tsx` | `SettingsProvider`, `useSettings()` → `{ lang, setLang }`, `useT(DICT)` → `t('key', {vars})`, `useLabel(MAP)` → `(value) => string` |
+| `web/src/vocab.ts` | `CLAUSE_TYPES` (the 12 clause types), `CONTRACT_TYPES`, `COMMON` (nav labels, AI status, „Seite {n}“ / „Seiten {n}“, the generic error sentence) |
+| `web/src/components/ui.tsx` | `usePolling`, `useToast`/`ToastProvider`, `ErrorAlert`, `EmptyState` |
+| `web/src/App.tsx` | Shell: top bar with title, nav (Verträge · So funktioniert es), AI status chip („KI-Gegenprüfung aktiv“ / „Ohne KI-Gegenprüfung“), DE \| EN toggle. Content container `md`, widened to `lg` on `/contracts/:id` (pages plus sidebar). No drawer, no settings, no technical-details switch. |
+| `web/src/api.ts` | The backend contract: `documents`, `document(id)`, `upload(files, lang)`, `ingestSamples(lang)`, `recheck(id, lang)`, `retryDocument(id)`, `deleteDocument(id)`, `decide(id, key, { decision, note?, edited_text? })`, `fileToStorage(id)`, `config` — and the types `Report`, `Item`, `ItemReview`, `ReportPage`, `Decision` (the report is built by `api/app/report.py`) |
 
-## Conventions (every page)
+## Routes
 
-* **Page-local dictionary**: each page defines `const T = { key: { de, en } }` at the top and uses `const t = useT(T)`. Every visible string goes through `t()` or a vocab map. No hardcoded German or English in JSX. Both languages complete.
-* **Register**: German in Sie-Form, calm, precise, first-person plural for progress ("Wir lesen gerade 3 von 14 Verträgen …"). No exclamation marks, no emojis, no jokes in verdicts. Buttons carry verbs (Prüfen, Freigeben, Ablehnen, Ablegen). "Bestätigt/bestätigen" belongs to the machine verdict — never use it for a human action.
-* **Words**: Fund (finding), Vertrag, Klausel, Regelung (passage), Prüfung (check), Freigabe (approval), Beleg (evidence), Vertragsablage (contract storage), Protokoll (activity log), Namensregister, Klausel-Übersicht, Verlässlichkeit (confidence), Lesbarkeit (legibility), Prüfsumme (checksum), KI-Gegenprüfung (verifier). English equivalents are in `vocab.ts`.
-* **Technical layer**: percentages, method traces, model IDs, OCR methods, SHA-256, raw enum keys, retrieval scores, thresholds → only inside `<Tech>` (switch on) or `<Details>`; when shown, use `<Small>`. Verdicts are words (`VerdictChip`), confidence is a word with a dot (`Reliability`), provenance is `HowFound` (plain line by default, raw steps with the switch).
-* **Sentences before numbers**: every result page opens with one human sentence, then tiles/tables.
-* **Empty states** use `EmptyState` with a next step. **Progress** is honest: determinate where counts exist (documents ready / total), indeterminate for a running check ("… dauert meist unter einer Minute").
-* **MUI 9**: system props (`alignItems`, `flexWrap`, `display`, `fontWeight`, …) are NOT accepted on `Stack`/`Typography` — put them in `sx`. `Box` is fine. Use `Stack`, `Box` with CSS grid, `Paper`, `Table`, `Chip`, `Tabs`, `Dialog`, `ToggleButtonGroup`, `LinearProgress`, `Alert`, `Tooltip`, `Snackbar` via `useToast`. Icons from `@mui/icons-material/<Name>`.
-* **TypeScript strict**, `noUnusedLocals`, `noUnusedParameters`, `verbatimModuleSyntax` (use `import { type X }`). Default-export the page component. Keep each page self-contained in its file (helpers inline).
-* **Deep link to a contract**: navigate to `/contracts?open=<document_id>&page=<n>`; the Contracts page opens that contract's dialog on the Seitentext tab at that page.
-* **Titles**: `doc.title || doc.filename`. The backend already replaces garbled OCR titles with the filename stem.
-* **Contract-set counts for sentences**: "in scope" = documents with `status === 'ready'` and, if a contract type filter is set, matching `contract_type`.
-* Actor is hard-coded `legal.reviewer` (no auth yet) — copy says "unter dem Kürzel legal.reviewer", never "mit Ihrem Namen".
-
-## Routes and pages
-
-| Route | File | DE / EN nav |
+| Route | File | Nav (DE / EN) |
 | --- | --- | --- |
-| `/` | `pages/Home.tsx` | Start / Home |
-| `/contracts` | `pages/Contracts.tsx` | Verträge / Contracts |
-| `/clauses` | `pages/Clauses.tsx` | Klauseln / Clauses |
-| `/checks`, `/checks/:id` | `pages/Checks.tsx` | Prüfungen / Checks |
-| `/approvals` | `pages/Approvals.tsx` | Freigabe / Approvals |
-| `/ask` | `pages/Ask.tsx` | Fragen / Ask |
-| `/tech/pipeline` | `pages/Pipeline.tsx` | Pipeline / Pipeline (Technik group): interactive explainer of the three lanes, click-for-details, trace a contract, play |
-| `/tech/quality` | `pages/Quality.tsx` | Qualitätsmessung / Quality measurement (Technik group) |
-| `/tech/models` | `pages/Models.tsx` | Modelle / Models (Technik group) |
+| `/` | `pages/Home.tsx` | Verträge / Contracts |
+| `/contracts/:id` | `pages/Contract.tsx` | — (opened from the list) |
+| `/how-it-works` | `pages/HowItWorks.tsx` | So funktioniert es / How it works |
 
-### Home — "Was möchten Sie wissen?" / "What would you like to know?"
-* Greeting by time of day (Guten Morgen / Guten Tag / Guten Abend; Good morning / afternoon / evening) and the headline.
-* Three question cards, one per audit kind (`AUDIT_QUESTIONS`), each with exactly the one input it needs and a **Prüfen** button: (1) clause select (`CLAUSE_TYPES`, the 12 taxonomy keys from `api.config().taxonomy`; show "(n fehlen)" counts from `api.coverage()` next to each name; remember the last choice in localStorage); (2) passage text field (grows on focus; helper "Der Wortlaut muss nicht exakt stimmen – sinngemäß reicht."); (3) old-name card with the registry hint "arvato Financial Solutions, Arvato Payment Solutions GmbH, AFS → Riverty GmbH" and an optional "Anderer Name" field behind a small link. Optional Vertragsart select applies to all three. Prüfen → `api.createAudit(kind, params, lang)` → `navigate('/checks/' + id)`.
-* Strip below: left "Wartet auf Ihre Freigabe" with the pending count (`api.findings('pending')`) and button "Zur Freigabe" (or "Nichts wartet auf Sie." with a check icon); right "Ihr Vertragsbestand": "14 Verträge · 13 gut lesbar · 1 nicht lesbar" (from `legibility`), a `LinearProgress` with "Wir lesen gerade 3 von 14 Verträgen …" while any document is queued/processing (poll every 2 s while so), and a button "Verträge hinzufügen" → `/contracts`.
-* "Letzte Prüfungen": the three most recent audits as sentences (kind · scope · counts from `summary.findings` keyed by verdict) with `AUDIT_STATUS` chip, each linking to `/checks/:id`.
-* Empty state (no documents): question cards disabled with hint "Zuerst Verträge hinzufügen"; centred card "Noch keine Verträge. Laden Sie PDFs oder Fotos hoch – oder starten Sie mit den 14 Beispielverträgen." with buttons "Verträge hochladen" (→ `/contracts`) and "Beispielverträge laden" (`api.ingestSamples()` then poll).
-* `<Tech>`: footer line "KI-Gegenprüfung: verbunden (model id)" / "nicht verbunden".
+Anything else redirects to `/`.
 
-### Contracts — Verträge / Contracts
-* Toolbar: primary "Verträge hochladen (PDF, JPG, PNG)" (hidden multi-file input) and secondary "Beispielverträge laden (14 Verträge, darunter Scans und eine Handschrift)". A drop zone appears while dragging files over the page.
-* While any document is queued/processing: banner with determinate `LinearProgress` "Wir lesen gerade x von y Verträgen …"; on completion toast "Alle 14 Verträge sind bereit." with action "Jetzt prüfen" → `/`.
-* Table: Vertrag (title, filename in `<Small>`) · Vertragsart (`CONTRACT_TYPES`) · Sprache (`LANGUAGES`) · Form (`INPUT_TYPES`, tooltip for mixed_pdf "z. B. digitaler Vertrag mit eingescannter Unterschriftenseite") · Lesbarkeit (`LegibilityChip`, tooltip "Nicht lesbar = wird in Prüfungen als ungeprüft ausgewiesen") · a shield icon with tooltip `COMMON.suspicious` when `injection_suspected` · Status (`DOC_STATUS`; failed → raw error under `<Details>`). Within `<Tech>` add the per-page extraction chips (`PAGE_METHODS` + %), clause/entity counts.
-* Row click → dialog "Vertrag ansehen": title, contract type, language, pages, `<Small>` "Prüfsumme 6b52e1ca" with tooltip `checksum_hint` (full hash inside `<Tech>`). Injection alert in plain words (`COMMON.suspicious_help`); the matched text under `<Details>`. Tabs: **Klauseln** (Nr, Überschrift, Art via `CLAUSE_TYPES`, Seite; click a row to expand the clause text; `<Tech>`: `Reliability` % and `CLAUSE_METHODS` + rule/llm labels), **Genannte Unternehmen** (Name, Rolle via `ENTITY_KINDS` — old name red, current green, others grey — badge "nur historischer Verweis" when `historical`, Seite, Kontext in `<Small>`; `<Tech>`: `ENTITY_METHODS` + match %), **Seitentext** (per page "Seite n" header + a legibility word; `<Tech>`: page method chip + %; text in a pre-wrap box). Reads `?open=<id>&page=<n>` from the URL to open directly on Seitentext scrolled to that page.
-* Empty state as on Home.
+## Wording rules (every page)
 
-### Clauses — Klausel-Übersicht / Clause overview
-* Subtitle "Welcher Vertrag enthält welche Klausel?" and one sentence: "Die Übersicht entsteht beim Einlesen jedes Vertrags. Ein Strich heißt: Wir haben keine solche Klausel gefunden."
-* Filter: Vertragsart select (`CONTRACT_TYPE_KEYS` + all). Switch "Nur Lücken zeigen" (show only rows with at least one gap).
-* Matrix: sticky first column (title; `<Small>` type · language), 12 columns headed by `CLAUSE_SHORT` (full name in tooltip) with "fehlt in n" under each header and a small button/menu "Diese Klausel prüfen" → `api.createAudit('missing_clause', {clause_type, contract_type?}, lang)` → navigate to `/checks/:id`. Cells: green check (`confidence ≥ 0.8`), amber ring/"?" (0.5–0.8, tooltip "vorhanden, unsicher"), grey dash (not found — neutral, NOT red: an NDA legitimately lacks most clauses). Tooltip: "Haftungsbegrenzung · „Limitation of Liability“ · Seite 2"; `<Tech>` adds "% via method" and opacity shading. Cell click → deep link to the contract (Seitentext at that page). Legend row under the table.
-* Empty state: "Die Übersicht füllt sich, sobald Verträge gelesen sind."
+* **German first, both languages complete.** Each page defines `const T = { key: { de, en } }` and uses `const t = useT(T)`; enum values go through `useLabel(CLAUSE_TYPES | CONTRACT_TYPES)`. No hardcoded copy in JSX.
+* **Plain language, Sie-Form, calm.** One sentence says what a thing is. No exclamation marks, no marketing, no jargon („Audit“, „Pipeline“, „Verifier“, „Precision“ do not appear). Buttons carry verbs: Verträge auswählen, Übernehmen, Nicht zutreffend, Bestätigen, Abbrechen, Entscheidung zurücknehmen, Korrigierte Fassung herunterladen, In der Vertragsablage ablegen, Erneut prüfen, Erneut versuchen, Löschen.
+* **Every finding is shown on the page.** An old company name and a partly present clause are a box around the words, with the quoted passage; a missing clause has no quote by definition — it is a dashed line where the clause belongs („Hier fehlt: Haftungsbegrenzung“). A cross-checked finding also shows the model's reason under „Begründung“. When no place on the page can be found, the finding sits in a banner across the top of that page („Auf dieser Seite: · fehlt: …“) — never a wrong box.
+* **A suggestion is a suggestion.** The drafted clause is headed „Vorschlag für die fehlende Klausel“ (partly present: „Vorschlag zur Ergänzung“), the new name „Ersetzen durch“. Nothing is applied until a person clicks Übernehmen, and the contract itself is never changed — the corrected copy is a separate file.
+* **No technical layer.** No percentages, confidence scores, review rates, method traces, checksums, coordinates or raw enum keys anywhere. The only technical facts a user sees: the model list on *So funktioniert es* and the raw error text under a failed state (small, monospace).
+* **Honest about what was done.** Every ready result ends with „Regelprüfung mit KI-Gegenprüfung im Volltext“ or „Nur Regelprüfung – ohne KI-Gegenprüfung“ plus the time; when the cross-check could not run (`report.degraded`) the line adds „· wird beim nächsten Neustart nachgeholt“. A finding without a drafted suggestion says „Kein Vorschlag verfügbar – die KI war beim Prüfen nicht erreichbar. „Erneut prüfen“ holt ihn nach.“ The top-bar chip says the same for the whole system.
+* **Titles**: `doc.title || doc.filename`.
+* **MUI 9**: no system props on `Stack`/`Typography` — use `sx`. TypeScript strict, `verbatimModuleSyntax` (`import { type X }`); default-export the page component; helpers inline.
 
-### Checks — Prüfungen / Checks (`/checks` and `/checks/:id`)
-* Left column, card "Neue Prüfung": `ToggleButtonGroup` with the three questions (`AUDIT_QUESTIONS`, icons), then only the one field the question needs (clause select with "(n fehlen)" from coverage / passage textarea with the helper / optional old-name field with the registry helper "Leer lassen = alle bekannten alten Namen: …"), optional Vertragsart select, primary button **Prüfung starten**. Location state or `?kind=&clause_type=` may preselect. Below: "Bisherige Prüfungen" list as sentences ("Fehlende Klausel: Haftungsbegrenzung · Händlerverträge", "Alter Firmenname · alle Vertragsarten") with date and `AUDIT_STATUS` chip; selecting navigates to `/checks/:id`. "Erneut prüfen" on a past check refills the form.
-* Right column (selected check): running → indeterminate bar "Wir lesen n Verträge … das dauert meist unter einer Minute." (poll 1.5 s). Done → **one summary sentence** built per kind from `summary` (`scope`, `present`, `historical_only`, `unreadable`) and `summary.findings` (counts by verdict: confirmed, unverified, dismissed, unreadable), e.g. "14 Verträge geprüft: 8 nennen noch den alten Firmennamen, 4 sind unauffällig, 1 nennt den alten Namen nur als historischen Verweis, 1 konnte nicht gelesen werden und gilt nicht als geprüft." Then four tiles: auffällig (confirmed + unverified) · unauffällig (present + historical_only + dismissed) · unklar (uncertain) · nicht lesbar; and a chip `verified_yes`/`verified_no` (`<Tech>` adds the verifier model). Failed → "Die Prüfung ist fehlgeschlagen." with the error under `<Details>`. All clear → "Kein Vertrag im Prüfumfang ist auffällig." (+ the unreadable sentence if any).
-* Results table: Vertrag · Ergebnis (`VerdictChip` + the sentence from `useFindingSentence`) · Beleg (first quote truncated, "Seite n") · Entscheidung (`ReviewChip`). Dismissed rows are shown (they explain what the AI cleared) but sorted last. Row expand: `EvidenceList`, "Vertrag öffnen" deep link, `Reliability` (`unreadable` when verdict is unreadable), reasoning block labelled `COMMON.reasoning` only when `reasoning` is non-empty, `HowFound`, and — for pending findings — buttons Freigeben / Ablehnen via `DecisionDialog` (refresh after). Unreadable rows say "Seiten konnten nicht zuverlässig gelesen werden. Dieser Vertrag wurde nicht geprüft. Bitte prüfen Sie das Original." with the OCR numbers only under `HowFound`/`<Tech>`.
-* A link "Zur Freigabe (n offen)" above the table when pending findings exist.
+## States
 
-### Approvals — Freigabe / Approvals
-* Header "n Funde warten auf Ihre Entscheidung." and one line "Nichts verlässt das System ohne Ihre Entscheidung. Jede Entscheidung wird unter dem Kürzel legal.reviewer mit Zeitpunkt und Dokument-Prüfsumme protokolliert."
-* Tabs: **Offen (n)** · **Entschieden (n)** · **Protokoll**.
-* Offen: progress line "Fund 1 von 8" with determinate bar; one card per pending finding (from `api.findings('pending')`, verdict ≠ dismissed): title + `CONTRACT_TYPES`, `AuditKindChip`, `VerdictChip`, the sentence (`useFindingSentence`), `EvidenceList` with "Vertrag öffnen", `Reliability`, reasoning block when present, `HowFound`, collapsed "Protokoll zu diesem Fund" (client-side filter of `api.auditLog()` by `target_type === 'finding' && target_id === id`). Buttons **Freigeben** (contained, success) / **Ablehnen** (outlined) → `DecisionDialog`. After approval, toast with action "Jetzt ablegen" (→ `api.push`). Empty: `EmptyState` "Alles erledigt. Nichts wartet auf Ihre Freigabe." with link "Neue Prüfung starten".
-* Entschieden: table Vertrag · Fund · Entscheidung (`ReviewChip` + "legal.reviewer · date time") · Anmerkung · Vertragsablage: button "In der Vertragsablage ablegen" (tooltip `file_hint`) for approved without `storage_ref`, else the `ReviewChip` filed state. Toast `filed_toast` after a push. A small "Entscheidung ändern" opens the dialog again (the backend accepts a second decision).
-* Protokoll: entries as sentences via `LOG_ACTIONS` (`actor` "system" → "System"; target resolved to the contract/finding), grouped by day (Heute / Gestern / date), filter chips (Verträge · Prüfungen · Entscheidungen · Ablage). `<Tech>`: raw action key, target_type #id, monospace JSON details, full sha256. Intro "Einträge können nachträglich nicht geändert oder gelöscht werden."
+The backend exposes `status` (document: `processing | ready | failed`) and `report.status` (`pending | running | ready | failed`). The UI maps them to one line on the start page and one block on the contract page:
 
-### Ask — Fragen / Ask
-* Headline "Fragen Sie Ihre Verträge" / "Ask your contracts". One large field, placeholder "Zum Beispiel: Welche Kündigungsfrist gilt im Inkassovertrag mit Rheinland Energie?", button **Fragen**, Enter sends. Example chips in the UI language (DE: "Welcher Gerichtsstand gilt im Vertrag mit Nordlicht Möbelhaus?", "Welche Kündigungsfrist gilt im Inkassovertrag mit Rheinland Energie?", "Welche Haftungsgrenze gilt im Händlervertrag mit Lumen Retail?"; EN: the equivalents). Last five questions remembered in localStorage. Loading: "Wir suchen in n Verträgen …".
-* `api.chat(question, lang)`. Answer card "Antwort" with badge "Antwort mit Belegen (KI)" / "Nur Fundstellen (ohne KI)". **Offline mode**: do NOT render `result.answer` (it is an English backend preamble); show "Ohne KI-Verbindung zeigen wir die passendsten Stellen statt einer Antwort." and the citations as quote cards. Citations: contract title · "Seite n" · quote · "Vertrag öffnen". Collapsed "Weitere gefundene Stellen (n)" with the remaining passages (title, `CLAUSE_TYPES`, page, quote). Footer line: "Jede Aussage stützt sich auf eine zitierte Stelle. Ohne Beleg keine Aussage – bitte prüfen Sie die Fundstelle im Vertrag." `<Tech>`: scores, [index], model mode string.
+| Backend | Start page line | Contract page |
+| --- | --- | --- |
+| document `processing` | „Wird gelesen …“ (spinner) | „Der Vertrag wird gelesen …“ + indeterminate bar; only **Löschen** |
+| document `ready`, report `pending`/`running` | „Wird geprüft …“ (spinner) | „Der Vertrag wird geprüft …“ + indeterminate bar; only **Löschen** |
+| document `failed` | „Fehlgeschlagen – öffnen und erneut versuchen“ (warning) | „Der Vertrag konnte nicht gelesen werden.“ + raw error + **Erneut versuchen** (`POST /api/documents/{id}/retry`) |
+| report `failed` | same line | „Die Prüfung ist fehlgeschlagen.“ + raw error + **Erneut versuchen** (`POST /api/documents/{id}/report`) |
+| report `ready`, findings | „2 Klauseln fehlen · alter Firmenname auf Seite 3“ (red, bold); „teilweise nicht lesbar“ appended when a page could not be read | the same line under the title, then the viewer: pages with markers, sidebar |
+| report `ready`, no findings | „Alles in Ordnung“ (green) | „Alles in Ordnung“ under the title; green banner „Alle für diese Vertragsart erforderlichen Klauseln sind vorhanden, und es wird kein alter Firmenname mehr genannt.“ above the pages (no markers); sidebar „Keine Fundstellen.“ |
 
-### Quality — Qualitätsmessung / Quality measurement (Technik)
-* Intro: "Das Beispielpaket hat eine Musterlösung: Für jeden Vertrag ist bekannt, welche Klauseln er enthält und wo noch ein alter Name steht. Hier sehen Sie, wie gut jede Stufe trifft." Button **Messung starten** (`api.runEval()`), empty state "Noch keine Messung. Starten Sie eine – sie dauert etwa eine halbe Minute."
-* Result shape (from the backend): `{ documents, unreadable: string[], llm_enabled, coverage_matrix: {metrics:{tp,fp,fn,precision,recall,f1}, errors:[{key,error}]}, rename_registry: {same}, extraction: {[input_type]: {pages, methods:{[m]:n}, confidence}}, audits: [{audit_id, kind, params, verified, metrics, errors}], injection: [{id, expected, flagged}] }`. Error keys look like `C07:data_protection`, `error` is `false_positive`/`false_negative`.
-* Two cards (Klausel-Übersicht, Namensregister), each with two sentences: "Von den gemeldeten fehlenden Klauseln waren 85 % richtig (7 Fehlalarme)." and "Von den tatsächlich fehlenden Klauseln wurden 100 % gefunden (0 übersehen)." Metrics labelled "Treffergenauigkeit (Precision)" / "Vollständigkeit (Recall)"; F1 and TP/FP/FN only in `<Tech>`. Errors as "C07 · Datenschutz · Fehlalarm" (raw key in `<Tech>`).
-* Table "Abgeschlossene Prüfungen" (plain titles, Gegengeprüft ja/nein, the two percentages). Collapsed sections "Lesbarkeit nach Quelle" (`INPUT_TYPES`, pages, average as word + %; `<Tech>`: method counts) and "Erkennung verdächtiger Texte" (id · erwartet/erkannt · richtig/falsch). Line "C14 wurde als nicht lesbar an Sie weitergegeben und zählt nicht als geprüft." when `unreadable` is non-empty.
+Polling: every 3 s while any contract on the page is processing or its report is pending/running; otherwise none. A decision returns the updated report in its response; the contract page uses it directly, no reload.
 
-### Models — Modelle / Models (Technik)
-* Status alert: "KI-Gegenprüfung aktiv – alle Stufen laufen." (success) or "Keine KI verbunden – Regelprüfung, Namensregister, Texterkennung und Suche laufen; Funde werden als „nicht gegengeprüft“ gekennzeichnet. Handschrift kann nicht gelesen werden." (warning). Intro: "Der Denkaufwand folgt der Aufgabe: Routinearbeit läuft auf einem schnellen Modell, das große Modell ist für Handschrift und für die Gegenprüfung reserviert."
-* Table: Aufgabe (`ROUTING_TASKS`) · Modell (`modelTier(id)` word; the raw id in `<Tech>` monospace) · Denkaufwand (`THINKING` chips) · Zweck (German/English text keyed by task, written in the page dictionary; the API's English `purpose` only in `<Tech>`). Last row: embeddings (`config.embedding.model`, dim in `<Tech>`).
+## Start page — „Verträge prüfen“ (`/`)
 
-## Adaptive review ("Prüflast") — added later
+* Headline „Verträge prüfen“ and one sentence: „Legen Sie einen oder mehrere Verträge ab. Jeder Vertrag wird gelesen und automatisch geprüft: Welche Standardklauseln fehlen? Steht noch ein alter Firmenname darin?“
+* Drop zone (dashed): button **Verträge auswählen** (hidden multi-file input, `.pdf,.jpg,.jpeg,.png`), „oder hierher ziehen“, „PDF, JPG oder PNG – auch Scans und handschriftliche Verträge“. Small line „Keine Verträge zur Hand? Beispielverträge laden“ (`POST /api/documents/ingest-samples?language=<lang>`). Upload → `POST /api/documents/upload?language=<lang>` (multipart field `files`), toast „3 Verträge werden gelesen …“, list refreshes. Every contract is read and checked automatically (`api/app/report.py` builds the result right after ingest; at startup `api/app/main.py` finishes what is unfinished, repeats checks whose cross-check could not run, and upgrades old-format results).
+* „Ihre Verträge“: newest first, one row per contract: icon (spinner / green check / red / warning) · title with „Vertragsart · n Seiten“ · the result line from the table above. Row click → `/contracts/:id`.
+* Empty: „Noch keine Verträge. Ihr erster Vertrag erscheint hier.“ Errors: `ErrorAlert` with the generic sentence from `COMMON`.
 
-Backend (`api/app/policy.py`): every finding carries `class_key` (the question asked) and `policy` (why a person did or
-did not have to look): `{kind: 'required', reason: 'not_verified' | 'learning', review_rate}`,
-`{kind: 'spot_check', review_rate}`, `{kind: 'auto', review_rate}`, or
-`{kind: 'carried_over', decision: 'approved' | 'rejected', note, decided_at, finding_id}`. New `review_status`
-value **`auto_approved`** (system decision, logged as actor `system`, overturnable with "Entscheidung ändern"; may be
-filed like an approved one). Audit summaries carry `review: {required, spot_check, auto_approved, carried_over}` and
-`precedents` (number of team decisions with notes that were handed to the verifier).
-`GET /api/policy` → `{classes: [{class_key, kind, params, decisions, approved, rejected, since_rejection, agreement,
-review_rate, automation_active, findings: {status: n}}], rules: {min_decisions, min_agreement, tiers: [[since, rate]]}}`.
+## Contract page (`/contracts/:id`) — the viewer
 
-Words: review status auto_approved = „Automatisch freigegeben“ / "Auto-approved"; policy kinds: required →
-„Prüfung erforderlich“, spot_check → „Stichprobe“ / "Spot check", auto → „Automatisch freigegeben (Regel)“,
-carried_over → „Bereits entschieden am {date}“ / "Already decided on {date}". Review rate → „Prüfquote“; the whole
-feature → „Prüflast“ / "Review load"; „Ihre Entscheidungen senken die Prüflast.“
+Back link „Alle Verträge“, title, „Vertragsart · n Seiten · Dateiname“, the result line (same wording as on the start page). Warning banner when `injection_suspected` („Dieses Dokument enthält Text, der sich an automatische Prüfsysteme richtet …“). Once the report is ready, two columns from `md` up (pages left, 300 px sidebar right, sticky); on narrow screens the sidebar comes first.
 
-* **Approvals › Offen**: a finding with `policy.kind === 'spot_check'` shows a small chip „Stichprobe“ with tooltip
-  „Diese Art von Fund wird nur noch stichprobenartig vorgelegt – Ihre Entscheidung hält die Regel scharf.“ Findings
-  with `policy.kind === 'required' && reason === 'not_verified'` show nothing new.
-* **Approvals › Entschieden**: auto-approved findings appear with `ReviewChip` (status auto_approved, grey-green,
-  icon AutoMode) and „System · {date}“ instead of the reviewer; „Entscheidung ändern“ works on them. Carried-over
-  findings show „Bereits entschieden am {date}“ in `<Small>`.
-* **Approvals › new tab „Prüflast“** (`/api/policy`): one sentence on top — „Ihre Entscheidungen senken die
-  Prüflast: Funde, die Sie wiederholt bestätigt haben, legen wir Ihnen nur noch stichprobenartig vor. Eine Ablehnung
-  setzt die Prüfung für diese Art von Fund sofort wieder auf 100 %.“ Then a table per class: Frage (kind + param in
-  plain words), Entscheidungen (n, „davon x abgelehnt“), Übereinstimmung (%), Prüfquote (100 % / 20 % / 10 % as a
-  chip: 100 % = „Volle Prüfung“, else „Stichprobe {rate}“), Automatisch freigegeben (count of findings with
-  status auto_approved), and a `LinearProgress` „{since_rejection} von {next threshold} Entscheidungen bis zur
-  nächsten Stufe“. Empty state: „Noch keine Entscheidungen – die Prüfquote liegt bei 100 %.“ `<Tech>`: the raw rules
-  (`min_decisions`, `min_agreement`, tiers) and `class_key`.
-* **Checks detail**: summary line gets „… {auto_approved} automatisch freigegeben, {spot_check} Stichprobe,
-  {carried_over} bereits entschieden“ when `summary.review` has non-zero counts; findings table `ReviewChip` handles
-  `auto_approved`; expanded row shows the policy reason in `<Small>` („Stichprobe“ / „Automatisch freigegeben – Prüfquote
-  20 %“ / „Bereits entschieden am …: ‚note‘“). `HowFound` already shows the policy step in the raw chain.
-* **Home › „Wartet auf Ihre Freigabe“**: second line „{n} Funde wurden automatisch freigegeben“ when > 0 (count from
-  `api.findings()` with status auto_approved).
+### The pages
+
+Every page of the contract, in order, headed „Seite n“: `<img src="/api/documents/{id}/pages/{n}.png">` (PyMuPDF at 110 dpi, cached on the server under `data/cache/<sha256>/`; `report.pages[n-1].width/height` gives the aspect ratio so the layout does not jump; images load lazily). A JPG/PNG is one page. Each finding (`report.items[]`) is one marker, positioned over the image with `item.anchor.bbox` (normalised 0..1 of the page):
+
+| `item.kind` | `anchor.kind` | Marker | Colour |
+| --- | --- | --- | --- |
+| `old_name` | `highlight` | box around the words, tag with the finding's number | red (`error`) |
+| `partial_clause` | `highlight` | box around the passage, numbered tag | orange (`warning`) |
+| `missing_clause` | `insert` | dashed line where the clause belongs — below the last clause, or above the signatures — with the tag „Hier fehlt: {Klausel}“ | blue (`primary`) |
+| any, `bbox === null` | — | banner across the top of the page: „Auf dieser Seite: · fehlt: {…} · nur teilweise: {…} · alter Firmenname: {…}“, one clickable chip per finding | dark; chips in the finding's colour |
+
+Decided findings are grey and translucent, dismissed ones struck through. Hover shows a tooltip: label, the first 120 characters of the suggestion (or the edited text), the state. Click (or Enter) opens the popover at the marker; the selected marker gets a ring.
+
+Where the box comes from (`api/app/locate.py`): digital page → the PDF text layer, exact; scanned page → Tesseract word boxes, matched fuzzily against OCR noise; handwriting or anything Tesseract cannot read → the vision model (task `locate`); nothing reliable → `null` and the banner. A box is never guessed.
+
+### The sidebar
+
+1. **Fundstellen**: the findings numbered in page order (page, then top edge; page-level ones first), each „n. Label · Seite p“, plus „· Übernommen“ / „· Nicht zutreffend“ / „· Automatisch übernommen“ once decided (struck through when dismissed). Icon by kind and state (plus-circle / warning / error; green check when accepted, grey when dismissed). Click → scroll the marker into view, then open its popover. Below: „n warten auf Ihre Entscheidung“ / „1 wartet auf Ihre Entscheidung“ / „Nichts wartet auf Sie“, and the small line for names that appear only as „vormals …“ references. Without findings: „Keine Fundstellen.“
+2. Collapsed **Vorhandene Klauseln**: „Klausel – Seite n“ with a green check; „Keine der Standardklauseln wurde erkannt.“ when empty; small line „Für diese Vertragsart nicht erforderlich und ebenfalls nicht enthalten: …“.
+3. Buttons: **Korrigierte Fassung herunterladen** — on a scan **Kommentierte Fassung herunterladen**, preceded by the caption „Gescanntes Dokument: Markierungen und Kommentare, keine Textänderung“ — opens `GET /api/documents/{id}/corrected.pdf` in a new tab; **In der Vertragsablage ablegen** → `POST /api/documents/{id}/file-to-storage`, toast „Abgelegt unter {id}“, afterwards the caption „Abgelegt unter {id} · time“ from `report.storage`. Both are disabled with the tooltip „Erst möglich, wenn mindestens ein Vorschlag übernommen wurde.“ until at least one finding is accepted (the API answers 409 otherwise). Then **Erneut prüfen** (`POST /api/documents/{id}/report?language=<lang>`, toast „Die Prüfung läuft erneut.“; decisions already taken survive the re-check) and **Löschen** (confirm „Diesen Vertrag aus der Prüfung entfernen?“, then `DELETE /api/documents/{id}`, back to `/`).
+4. Caption: cross-checked or not, „· wird beim nächsten Neustart nachgeholt“ when degraded, and the time.
+
+### The popover — one finding
+
+440 px wide, anchored below the marker. Top to bottom:
+
+* Kind and page („Alter Firmenname · Seite 3“, „Fehlende Klausel · Seite 4“, „Klausel nur teilweise vorhanden · Seite 2“), then the title: the clause name, or „Alter Firmenname: {name}“.
+* The quote in italics (`item.quote`; none for a missing clause).
+* „Begründung: …“ when the cross-check gave a reason (`item.reason`).
+* `item.suggestion_title` — „Ersetzen durch“ / „Vorschlag für die fehlende Klausel“ / „Vorschlag zur Ergänzung“ — and the suggestion: „Riverty GmbH“ (or „Riverty“ for a short form such as AFS), or the clause drafted in the contract's language and numbering style (heading and text, `api/app/draft.py`). On a digital PDF whose page has a text layer (`item.editable`) and while the finding is open, the suggestion is a multi-line text field: what the lawyer types is what goes into the corrected copy. On a scan it is read-only with the caption „Gescanntes Dokument – bitte im Original ändern“. No suggestion → the „Kein Vorschlag verfügbar …“ sentence.
+* The decision, by `item.review.status`:
+
+| `review.status` | Popover | Sidebar / marker |
+| --- | --- | --- |
+| `open` | **Übernehmen** (→ `decision: 'accepted'`, with `edited_text` from the field when editable) and **Nicht zutreffend** (→ note field „Warum? (optional, hilft der KI beim nächsten Mal)“ with **Bestätigen** / **Abbrechen** → `decision: 'dismissed'`, `note`) | tooltip „Wartet auf Ihre Entscheidung“; full colour |
+| `accepted` | chip „Übernommen“, „Anmerkung: …“ if any, **Entscheidung zurücknehmen** (→ `decision: 'reopen'`) | „· Übernommen“, green check; marker grey |
+| `dismissed` | chip „Nicht zutreffend“, the note, **Entscheidung zurücknehmen** | „· Nicht zutreffend“, struck through; marker grey, struck through |
+| `auto` | chip „Automatisch übernommen – Stichprobe nicht nötig“, **Entscheidung zurücknehmen** | „· Automatisch übernommen“; marker grey |
+
+`review.carried_over` adds the line „aus früherer Prüfung übernommen“. Every decision → `POST /api/documents/{id}/items/{key}/decide`, toast „Übernommen“ / „Als nicht zutreffend markiert“ / „Entscheidung zurückgenommen“; accept and dismiss close the popover, undo keeps it open. `item.policy` (`required | spot_check | auto | carried_over`, `review_rate`) is never shown — the user sees only the state.
+
+What a decision does on the server (`api/app/learning.py`): it is stored per file and finding (table `decisions`: sha256, item_key, class_key, decision `accepted | dismissed | reopened`, note, edited_text, quote, actor); the same file checked again gets it back (`carried_over`); a note becomes a precedent the verifier sees for that class of finding; and a class the team has accepted 8 times in a row with ≥ 95 % agreement (rules in `api/app/policy.py`) is accepted automatically except for a deterministic spot-check sample — 20 %, 10 % after 24 — with at least one spot check per contract. Automatic decisions look like any other and can be undone; automation applies only to cross-checked findings, and one dismissal returns the class to full review.
+
+### The corrected copy (`api/app/correct.py`)
+
+`GET /api/documents/{id}/corrected.pdf` → `<Dateiname>_korrigiert.pdf`, built on request from the accepted and automatic findings; the original file is never modified. Digital page: the old name is replaced in place (redaction with the replacement text, the box widened into free space on the line); a missing or partly present clause goes on an addendum page („Nachtrag – eingefügte Klauseln“) with a note at the marker. Scanned page: the spot is highlighted with a note — the team changes the paper original. JPG/PNG: converted to a one-page PDF first. **In der Vertragsablage ablegen** pushes that file to the contract-storage REST API (`Idempotency-Key: copy-<sha256 of the copy>` — filing the same copy twice stores it once) and records `report.storage` (external id, checksum, time).
+
+## So funktioniert es (`/how-it-works`)
+
+„Vier Schritte, vollautomatisch nach dem Ablegen. Der Vertrag selbst wird nie verändert.“ Four numbered cards — Lesen · Zerlegen und einordnen · Prüfen · Ergebnis — one paragraph each in plain words (what is read directly, when the model reads a page as an image, what „nicht lesbar“ means, the twelve clause types, the guideline, the full-contract cross-check, the name register and why „vormals“ does not count). Card **Eingesetzte Modelle**: task → model id from `GET /api/config` (`routing`), or the offline sentence when no key is set; one paragraph on where the data lives and that instructions inside documents are ignored.

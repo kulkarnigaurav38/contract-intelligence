@@ -100,24 +100,24 @@
   <div class="body">
     <h2>Absence is a structural question. Answer it from data first, let a model verify, keep a person in charge.</h2>
     <div class="cols">
-      <div><h3 style="margin:0 0 6px">1 · Decompose at ingest</h3><p>Every contract becomes typed clauses (12 standard types), resolved party names with roles, and vectors. "Which contracts lack X" is then a lookup in a matrix, not an inference.</p></div>
+      <div><h3 style="margin:0 0 6px">1 · Decompose at ingest</h3><p>Every contract becomes typed clauses (12 standard types), resolved party names with roles, and vectors. "Which clauses are missing" is then a lookup against the corporate guideline (required clause types per contract type), not an inference.</p></div>
       <div><h3 style="margin:0 0 6px">2 · Verify against the whole contract</h3><p>An independent model reads the full text — not retrieved chunks — for every claim, quotes the decisive passage with its page, and may answer <em>partial</em>.</p></div>
-      <div><h3 style="margin:0 0 6px">3 · A person decides — less and less often</h3><p>Verdicts name their author (<span class="verdict v-red">KI-bestätigt</span>), approval is human, and the review rate of a finding class falls as the team's decisions prove the system right.</p></div>
+      <div><h3 style="margin:0 0 6px">3 · A person decides — less and less often</h3><p>Every finding says whether the model cross-checked it, the decision is taken on the page by a person, and the review load of a finding class falls as the team's decisions prove the system right.</p></div>
     </div>
   </div>
   <div class="foot"><span>README · docs/ps-coverage.md</span><span></span></div>
 </section>
 
 <section class="slide" id="s4">
-  <div class="eyebrow"><span>How it works</span><span class="n">04 / 15</span></div>
+  <div class="eyebrow"><span>Technical solution</span><span class="n">04 / 15</span></div>
   <div class="body">
-    <h2>Three paths through one system.</h2>
-    <div class="lane"><span class="name">Reading</span><div class="steps"><span class="step store">Document (PDF/JPEG)</span><span class="arrow">→</span><span class="step">Per-page routing</span><span class="arrow">→</span><span class="step">Text layer | Tesseract → gate</span><span class="arrow">→</span><span class="step model">Vision model</span><span class="arrow">→</span><span class="step model">Injection screen</span><span class="arrow">→</span><span class="step">Clauses</span><span class="arrow">→</span><span class="step model">Clause types</span><span class="arrow">→</span><span class="step model">Name registry</span><span class="arrow">→</span><span class="step model">Embeddings</span><span class="arrow">→</span><span class="step store">PostgreSQL + pgvector</span></div></div>
-    <div class="lane"><span class="name">Checking</span><div class="steps"><span class="step human">Question</span><span class="arrow">→</span><span class="step">Scope</span><span class="arrow">→</span><span class="step">Rule check</span><span class="arrow">→</span><span class="step model">AI cross-check (full text + precedents)</span><span class="arrow">→</span><span class="step">Review policy</span><span class="arrow">→</span><span class="step human">Approval</span><span class="arrow">→</span><span class="step store">Contract storage · audit log</span></div></div>
-    <div class="lane"><span class="name">Asking</span><div class="steps"><span class="step human">Question</span><span class="arrow">→</span><span class="step">Scope to named contract</span><span class="arrow">→</span><span class="step">Hybrid search (vector + full text, RRF)</span><span class="arrow">→</span><span class="step model">Cited answer</span></div></div>
-    <p class="mono" style="color:var(--muted)">teal = rule/algorithm · purple = model · green = person · grey = storage. Live, clickable version: Technik → Pipeline in the app.</p>
+    <h2>One automatic path per contract — a person only where a decision is needed.</h2>
+    <div class="lane"><span class="name">Reading</span><div class="steps"><span class="step store">Document (PDF/JPG/PNG)</span><span class="arrow">→</span><span class="step">Per-page routing</span><span class="arrow">→</span><span class="step">Text layer | Tesseract → gates</span><span class="arrow">→</span><span class="step model">Vision model</span><span class="arrow">→</span><span class="step model">Injection screen</span><span class="arrow">→</span><span class="step">Clauses</span><span class="arrow">→</span><span class="step model">Clause types</span><span class="arrow">→</span><span class="step model">Name registry</span><span class="arrow">→</span><span class="step model">Embeddings</span><span class="arrow">→</span><span class="step store">PostgreSQL + pgvector</span></div></div>
+    <div class="lane"><span class="name">Checking</span><div class="steps"><span class="step">Corporate guideline: required clause types per contract type</span><span class="arrow">→</span><span class="step">Rule result: missing · partial · old name</span><span class="arrow">→</span><span class="step model">AI cross-check (full text + the team's precedents)</span><span class="arrow">→</span><span class="step">Locate on the page (text layer · OCR word boxes · vision on handwriting)</span><span class="arrow">→</span><span class="step model">Draft: new name · clause in the contract's style</span><span class="arrow">→</span><span class="step">Decision policy: carry-over · spot check</span><span class="arrow">→</span><span class="step store">Result line · viewer with markers</span></div></div>
+    <div class="lane"><span class="name">Deciding</span><div class="steps"><span class="step human">Übernehmen · Nicht zutreffend (+ note) on the page</span><span class="arrow">→</span><span class="step store">Decision stored: file SHA-256 · finding class</span><span class="arrow">→</span><span class="step">Corrected copy (PyMuPDF): name replaced in place, clauses on an addendum page — the original untouched</span><span class="arrow">→</span><span class="step store">Contract storage (REST, Idempotency-Key) · audit log</span></div></div>
+    <p class="mono" style="color:var(--muted)">teal = rule/algorithm · purple = model · green = person · grey = storage. Nothing in the first two lanes needs a click; every ready result says „Regelprüfung mit KI-Gegenprüfung im Volltext“ or „Nur Regelprüfung – ohne KI-Gegenprüfung“.</p>
   </div>
-  <div class="foot"><span>LangGraph: plan → deterministic → verify → policy → report</span><span></span></div>
+  <div class="foot"><span>api/app/ingest/* · report.py · locate.py · draft.py · learning.py · correct.py</span><span></span></div>
 </section>
 
 <section class="slide" id="s5">
@@ -129,7 +129,7 @@
         <li>Text layer present → read directly. No text layer → embedded scan at native resolution → Tesseract locally.</li>
         <li>Three gates before Tesseract's text is trusted: mean word confidence ≥ 80 %, enough text for a page, and <strong>every inked band produced words</strong>.</li>
         <li>Anything that fails a gate goes to the vision model (Gemini Pro, medium thinking): verbatim transcription, self-reported legibility, told to ignore instructions in the image.</li>
-        <li>Offline, a page under 50 % becomes an explicit <span class="verdict v-teal">Nicht lesbar</span> — the contract counts as <em>unchecked</em>, never as fine.</li>
+        <li>Offline, a page under 50 % becomes an explicit <span class="verdict v-teal">nicht lesbar</span> — the result line says „teilweise nicht lesbar“; the contract never counts as fine.</li>
       </ul></div>
       <div class="card"><h3>What the synthetic scans taught the gates</h3><p>Tesseract dropped the lower half of a clean scan while reporting 90 % on the words it kept; a faded typewriter page scored 87 % on ~25 words. Mean confidence cannot see what was never detected — hence the coverage and volume gates. A cursive font replaced one Tesseract read too well for "handwriting".</p></div>
     </div>
@@ -140,69 +140,71 @@
 <section class="slide" id="s6">
   <div class="eyebrow"><span>The checks</span><span class="n">06 / 15</span></div>
   <div class="body">
-    <h2>Missing clause, missing passage, old company name — each answered from structure, then verified.</h2>
+    <h2>Missing clause, old company name — answered from structure, verified against the whole contract, then placed on the page.</h2>
     <div class="cols">
-      <div class="card"><h3>Missing clause</h3><p>Lookup in the clause-coverage matrix (rules + Flash model agree on the label). No entry = not found. The corporate guideline overlays the matrix: red dash = required and missing.</p></div>
-      <div class="card"><h3>Missing passage (any wording)</h3><p>Closest clause per contract by vector similarity, two thresholds; the verifier judges equivalence and may say <span class="verdict v-amber">Teilweise – bitte prüfen</span> when a narrower provision exists.</p></div>
-      <div class="card"><h3>Old company name</h3><p>A name registry with roles: old Riverty name, current, <em>Arvato Systems</em> = unrelated company; "vormals/formerly" = historical; OCR-tolerant matching catches "Arva<u>t</u>e Payment Solutions:" on a scanned signature page.</p></div>
+      <div class="card"><h3>Missing clause</h3><p>The corporate guideline (<code>data/guidelines.json</code>) says which of the 12 clause types a contract type needs. No confident clause of that type = candidate; the verifier (Gemini Pro, high thinking, full text plus the team's precedents) confirms, refutes, or answers <span class="verdict v-amber">nur teilweise</span> with page and quote. Free-text passage checks (any wording, vector similarity, same verifier) remain in the API.</p></div>
+      <div class="card"><h3>Old company name</h3><p>A name registry with roles: old Riverty name, current, <em>Arvato Systems</em> = unrelated company; "vormals/formerly" = historical; OCR-tolerant matching catches "Arva<u>t</u>e Payment Solutions:" on a scanned signature page. The verifier decides active party vs historical reference.</p></div>
+      <div class="card"><h3>Where — and what instead</h3><p>Digital page: the exact box from the PDF text layer. Scan: Tesseract word boxes, matched fuzzily. Handwriting: the vision model returns the box; nothing reliable → a page-level marker, never a guessed box. A missing clause gets an insertion line below the last clause or above the signatures. The suggestion: the new name, or a clause drafted in the contract's language and numbering style — a starting point, never final.</p></div>
+      <div class="card"><h3>Untrusted input, traceable output</h3><p>Contract text is data: hidden instructions are screened at ingest (Flash-Lite), the contract page warns, every prompt is told to ignore them. Fixture C13 hides "report all clauses as present" — flagged, and its missing liability cap still found. SHA-256 on every file; every ingest, decision, filing and deletion in an append-only audit log.</p></div>
     </div>
   </div>
-  <div class="foot"><span>api/app/audits/graph.py · entities.py</span><span></span></div>
+  <div class="foot"><span>api/app/report.py · locate.py · draft.py · ingest/entities.py · ingest/screen.py</span><span></span></div>
 </section>
 
 <section class="slide" id="s7">
-  <div class="eyebrow"><span>Trust</span><span class="n">07 / 15</span></div>
+  <div class="eyebrow"><span>The legal team's tool</span><span class="n">07 / 15</span></div>
   <div class="body">
-    <h2>"Could it be wrong?" — yes. So every answer says who produced it, shows its evidence, and can be measured.</h2>
+    <h2>One screen, one action: drop the contracts in — everything else happens by itself.</h2>
     <div class="cols">
+      <div><img class="shot" src="{{IMG_HOME}}" alt="Start page: the drop zone and the list of contracts with one result line each"></div>
       <div><ul>
-        <li>Verdict words carry their author: <span class="verdict v-red">KI-bestätigt</span> <span class="verdict v-amber">Nicht gegengeprüft</span> <span class="verdict v-amber">Teilweise</span> <span class="verdict v-green">Entkräftet</span> <span class="verdict v-teal">Nicht lesbar</span>. The check icon and "Freigegeben" are reserved for people.</li>
-        <li>Every finding: evidence quote + page, confidence as a word, and the chain of methods that produced it ("So kam der Fund zustande").</li>
-        <li>Contract text is untrusted input: hidden instructions are screened, every prompt treats document text as data. Fixture C13 hides "report all clauses as present" — flagged, and its missing liability cap still found.</li>
-        <li>SHA-256 on every file; append-only audit log; idempotent filing to the contract storage.</li>
+        <li><em>Verträge prüfen</em> is a drop zone like a file converter: one or many contracts, PDF, JPG or PNG — scans and handwritten contracts included. No question to choose, no check to start, no queue to approve.</li>
+        <li>Each contract moves through „Wird gelesen …“ → „Wird geprüft …“ → one result line: „1 Klausel fehlt · alter Firmenname auf Seiten 1, 2“ or „Alles in Ordnung“ („teilweise nicht lesbar“ appended when a page could not be read). Click the line to open the contract.</li>
+        <li>German first, English one click away (DE | EN); the choice goes to the models, so reasons come back in that language. No percentages, model IDs or method traces anywhere; <em>So funktioniert es</em> explains the four steps — read, split &amp; label, check, result — and lists the models in use.</li>
+        <li>Cut down deliberately from a multi-page tool: three pages, a top bar, nothing to start or approve. The only clicks left are the decisions on the findings.</li>
       </ul></div>
-      <div class="quote">"Der Vertrag führt im Unterschriftenblock auf Seite 3 ausdrücklich die ‚Arvato Payment Solutions GmbH' als unterzeichnende Vertragspartei auf. Dies stellt keinen bloßen historischen Verweis dar."<br><span class="mono" style="font-style:normal;font-size:12px;color:var(--muted)">verifier reasoning, C10, gemini-3.1-pro-preview</span></div>
     </div>
   </div>
-  <div class="foot"><span>api/app/audits/verify.py · screen.py</span><span></span></div>
+  <div class="foot"><span>web/src/pages/Home.tsx · docs/ui-spec.md</span><span></span></div>
 </section>
 
 <section class="slide" id="s8">
-  <div class="eyebrow"><span>The legal team's tool</span><span class="n">08 / 15</span></div>
+  <div class="eyebrow"><span>The contract page</span><span class="n">08 / 15</span></div>
   <div class="body">
-    <h2>German first. Questions, not features. Technical detail one layer down.</h2>
+    <h2>The finding is shown on the page itself — until they see it in the PDF, they will not trust it.</h2>
     <div class="cols">
-      <div><img class="shot" src="{{IMG_HOME}}" alt="Start page: Was möchten Sie wissen? with three question cards"></div>
+      <div><img class="shot" src="{{IMG_CONTRACT}}" alt="Contract page: rendered PDF pages with red highlight boxes around the old company name, a dashed insertion line for a missing clause, and the numbered findings sidebar"></div>
       <div><ul>
-        <li>The start page is one sentence and one action: pick one of the three questions, fill in its single input, <em>Prüfung starten</em>. Every field explains itself in one line; nothing else competes for attention.</li>
-        <li>A check opens with one sentence — "18 Verträge geprüft: 12 nennen noch den alten Firmennamen, 5 sind unauffällig, 1 nennt den alten Namen nur als historischen Verweis." — then tiles, then the table.</li>
-        <li>Percentages, method traces, model IDs and checksums live behind <em>Technische Details anzeigen</em> (off by default) and the small <em>Technik</em> group.</li>
-        <li>Design came from a three-lens panel (a lawyer who hates software, a flow designer, a UX writer for trust) judged by a lawyer persona and an engineer persona.</li>
+        <li>Every page rendered and scrollable, markers on the page: an old company name is boxed exactly where it stands (text layer; OCR word positions on scans; the vision model on handwriting, else a page banner). A missing clause is a dashed line where it belongs — „Hier fehlt: Haftungsbegrenzung“. A partial clause is highlighted at the passage.</li>
+        <li>Hover shows the suggestion; click opens it: the quote, the model's <em>Begründung</em> in German, the suggestion — the new name, or a drafted clause, editable on digital PDFs — and two buttons: <strong>Übernehmen</strong> · <strong>Nicht zutreffend</strong>, with an optional note.</li>
+        <li>Sidebar: numbered findings (click scrolls to the marker), what still waits for a decision, present clauses collapsed. Then <em>Korrigierte Fassung herunterladen</em> · <em>In der Vertragsablage ablegen</em> · <em>Erneut prüfen</em> · <em>Löschen</em>.</li>
+        <li>Could it be wrong? Yes — so every result says whether the model cross-checked it, and nothing is applied without a person's <em>Übernehmen</em>. Scans and photos: markers and comments only — the team has the paper original; the download is an annotated copy.</li>
       </ul></div>
     </div>
+    <div class="quote">"Der Vertrag führt im Unterschriftenblock auf Seite 3 ausdrücklich die ‚Arvato Payment Solutions GmbH' als unterzeichnende Vertragspartei auf. Dies stellt keinen bloßen historischen Verweis dar."<br><span class="mono" style="font-style:normal;font-size:12px;color:var(--muted)">the Begründung in one popover — verifier reasoning, C10, gemini-3.1-pro-preview</span></div>
   </div>
-  <div class="foot"><span>docs/ui-spec.md · web/src/vocab.ts</span><span></span></div>
+  <div class="foot"><span>web/src/pages/Contract.tsx · api/app/locate.py · api/app/audits/verify.py</span><span></span></div>
 </section>
 
 <section class="slide" id="s9">
   <div class="eyebrow"><span>Human in the loop — shrinking</span><span class="n">09 / 15</span></div>
   <div class="body">
-    <h2>The review load falls as the team's decisions prove the system right — and one rejection resets it.</h2>
+    <h2>Decisions are taken on the page, stored, carried over — and the review load falls as they prove the system right.</h2>
+    <div class="steps"><span class="step human">Übernehmen · Nicht zutreffend (+ note)</span><span class="arrow">→</span><span class="step store">stored per file (SHA-256) and per finding class: rename · missing:&lt;Vertragsart&gt;:&lt;Klausel&gt;</span><span class="arrow">→</span><span class="step">same file again: decisions carried over („aus früherer Prüfung übernommen“)</span><span class="arrow">→</span><span class="step model">notes become precedents in the verifier prompt</span><span class="arrow">→</span><span class="step">trusted class: spot checks only</span></div>
     <div class="cols">
       <div><ul>
-        <li>Every finding class starts at 100 % review. After 8 consecutive agreeing decisions (≥ 95 % agreement) only a deterministic 20 % spot check is queued, later 10 %; the rest is auto-approved — AI-confirmed findings only, logged as <code>system</code>, overturnable, at least one spot check per run.</li>
-        <li>Decisions carry over: nobody reviews the same contract twice; decided findings are not even re-verified.</li>
-        <li>Reviewer notes become precedents in the verifier prompt — the model calibrates to <em>this</em> team's judgement.</li>
+        <li>Every class starts at 100 % review. After 8 consecutive agreeing decisions at ≥ 95 % agreement, only a deterministic 20 % sample (10 % after 24) still waits for a person; the rest shows „Automatisch übernommen“ — on the page like any other decision, overturnable, at least one spot check per contract, cross-checked findings only. One „Nicht zutreffend“ resets the class to full review.</li>
+        <li>Same file again (identical SHA-256) → the earlier decisions come back; nobody reviews the same contract twice. <em>Erneut prüfen</em> keeps the decisions already taken.</li>
+        <li>A note („Warum? – hilft der KI beim nächsten Mal“) becomes a precedent in the verifier prompt: the model calibrates to <em>this</em> team's judgement, not a generic one.</li>
       </ul></div>
       <div class="cols" style="grid-template-columns:repeat(3,1fr)">
-        <div class="stat"><b>9</b><span>decisions on batch 1</span></div>
-        <div class="stat"><b>1</b><span>decision on batch 2 (4 new contracts)</span></div>
-        <div class="stat"><b>20 %</b><span>review rate after batch 1</span></div>
+        <div class="stat"><b>8</b><span>agreeing decisions in a row before anything is automated</span></div>
+        <div class="stat"><b>20 → 10 %</b><span>spot-check rate once a class is trusted</span></div>
+        <div class="stat"><b>1</b><span>dismissal resets the class to full review</span></div>
       </div>
     </div>
-    <img class="shot" src="{{IMG_LOAD}}" alt="Prüflast tab showing decisions, agreement and review rate per question" style="max-width:900px">
   </div>
-  <div class="foot"><span>api/app/policy.py · Freigabe → Prüflast</span><span></span></div>
+  <div class="foot"><span>api/app/policy.py (the rules) · api/app/learning.py (applied per contract)</span><span></span></div>
 </section>
 
 <section class="slide" id="s10">
@@ -220,7 +222,7 @@
       </table></div>
       <div class="tablewrap">{{REAL_TABLE}}</div>
     </div>
-    <p class="mono" style="color:var(--muted)">Tests: 39 unit · 11 end-to-end on pgvector · 10 live Gemini incl. the learning loop · 11 browser. Everything on the Qualitätsmessung page is computed, not asserted.</p>
+    <p class="mono" style="color:var(--muted)">Tests: 47 unit · 12 end-to-end on pgvector · 10 live Gemini incl. the learning loop · 6 browser. Every number is computed against an answer key (<code>POST /api/eval/run</code>), not asserted; the automatic per-contract result uses the same rule layer and the same verifier.</p>
   </div>
   <div class="foot"><span>docs/ps-coverage.md § D–E · data/real/cuad_ground_truth.json</span><span></span></div>
 </section>
@@ -231,11 +233,11 @@
     <h2>Every listed technology is used — and every external dependency has a Microsoft twin behind one switch.</h2>
     <div class="tablewrap"><table>
       <tr><th>Concern</th><th>Best-of-breed (default)</th><th>Microsoft path</th><th>Why the default</th></tr>
-      <tr><td>Models</td><td>Gemini 3.x (Pro high-thinking for handwriting + verification; Flash for labelling; Flash-Lite for screening)</td><td>Azure AI Foundry — GPT-5 family deployments, same routing table (<code>LLM_PROVIDER=foundry</code>)</td><td>1M context makes "read the whole contract" the normal case; vision on the same model; the statement names Gemini. Flip to Foundry if all inference must stay in the EU today — 3.x Pro is global-only.</td></tr>
+      <tr><td>Models</td><td>Gemini 3.x (Pro high-thinking for verification, medium for handwriting; Flash for labelling, extraction, drafting and locating; Flash-Lite for screening)</td><td>Azure AI Foundry — GPT-5 family deployments, same routing table (<code>LLM_PROVIDER=foundry</code>)</td><td>1M context makes "read the whole contract" the normal case; vision on the same model; the statement names Gemini. Flip to Foundry if all inference must stay in the EU today — 3.x Pro is global-only.</td></tr>
       <tr><td>OCR</td><td>Tesseract locally + vision escalation</td><td>Azure AI Document Intelligence Read (<code>OCR_PROVIDER</code>)</td><td>Local, free, data stays put; Document Intelligence is the pragmatic default in a tenant ($1.50 / 1,000 pages, handwriting in German).</td></tr>
       <tr><td>Index</td><td>PostgreSQL + pgvector + full text</td><td>Azure Database for PostgreSQL (same code) or Azure AI Search</td><td>One system for pages, vectors, findings and the audit log; Postgres is itself Azure-managed.</td></tr>
       <tr><td>Documents</td><td>local folder (demo)</td><td>SharePoint via Microsoft Graph delta sync (<code>DOCUMENT_SOURCE</code>)</td><td>Same interface; nightly delta only touches what changed.</td></tr>
-      <tr><td>Everything else</td><td colspan="3">FastAPI · LangGraph + LangChain · React + TypeScript (MUI) · Docker · Terraform — as prescribed</td></tr>
+      <tr><td>Everything else</td><td colspan="3">FastAPI · LangGraph + LangChain · PyMuPDF · React + TypeScript (MUI) · Docker · Terraform — as prescribed</td></tr>
     </table></div>
   </div>
   <div class="foot"><span>docs/tech-choices.md (sourced, Aug 2026)</span><span></span></div>
@@ -253,7 +255,7 @@
         <li><strong>Document Intelligence</strong> and, optionally, <strong>Azure OpenAI deployments</strong> per routing tier — all in Terraform, validated, not applied.</li>
         <li>Region: Germany West Central; Gemini via Vertex AI <code>eu</code> multi-region for Flash tiers, or Foundry Data Zone EU for everything.</li>
       </ul></div>
-      <div class="card"><h3>Cost shape</h3><p>Volume work (labelling, extraction, screening) runs on cheap tiers; the expensive call — the verifier — runs once per non-certain claim and never again for decided findings. Postgres from ~$15–155/month; Document Intelligence $1.50 per 1,000 pages; model spend scales with contracts <em>checked</em>, not stored.</p></div>
+      <div class="card"><h3>Cost shape</h3><p>Volume work (labelling, extraction, screening) runs on cheap tiers; the expensive call — the verifier — runs once per open claim on the contract being checked, and decided findings are carried over instead of being reviewed again. Postgres from ~$15–155/month; Document Intelligence $1.50 per 1,000 pages; model spend scales with contracts <em>checked</em>, not stored.</p></div>
     </div>
   </div>
   <div class="foot"><span>infra/terraform</span><span></span></div>
@@ -262,15 +264,15 @@
 <section class="slide" id="s13">
   <div class="eyebrow"><span>Adoption</span><span class="n">13 / 15</span></div>
   <div class="body">
-    <h2>Start in the team's own words, earn trust in shadow mode, let the review load fall on evidence.</h2>
+    <h2>One screen, one action. Start in shadow mode, let the corrected copy replace the manual pass, let the review load fall on evidence.</h2>
     <div class="cols">
-      <div class="card"><h3>Weeks 1–4 · Shadow mode</h3><p>Ingest the SharePoint library; the team keeps its manual process; the tool runs the same checks in parallel. Every finding is reviewed; disagreements become precedents and rules (guideline file, name registry).</p></div>
-      <div class="card"><h3>Weeks 5–8 · Assisted</h3><p>The team works from the queue; the manual pass stops for finding classes at 100 % agreement. One "Vertragsanwalt-Champion" owns the guideline and the registry; Qualitätsmessung is reviewed monthly.</p></div>
-      <div class="card"><h3>From week 9 · Automated with spot checks</h3><p>Trusted classes drop to 20 % → 10 % review; a rejection resets a class; auto-approvals stay visible and reversible. Filing to the contract storage remains a human batch action.</p></div>
-      <div class="card"><h3>What makes it stick</h3><p>German-first UI in their vocabulary; no training beyond a 30-minute walkthrough (the start page <em>is</em> the manual); "Erneut prüfen" after every new batch; verifier reasoning in German; the Protokoll for every decision (EU AI Act human oversight, GDPR Art. 28 with the model provider).</p></div>
+      <div class="card"><h3>Weeks 1–4 · Shadow mode</h3><p>Drop the SharePoint library in (or let the nightly sync do it); the team keeps its manual process and compares. Every finding is decided on the page; every „Nicht zutreffend“ with a note becomes a precedent, and rules follow (guideline file, name registry).</p></div>
+      <div class="card"><h3>Weeks 5–8 · Assisted</h3><p>The result line replaces the manual first pass: „Alles in Ordnung“ needs no one; findings are decided on the page; the corrected copy — old name replaced in place, new clauses on an addendum page, the original never modified — goes to the contract storage with one click. A Vertragsanwalt-Champion owns the guideline and the registry.</p></div>
+      <div class="card"><h3>From week 9 · Automated with spot checks</h3><p>Trusted classes drop to 20 % → 10 % review; „Automatisch übernommen“ stays visible and reversible; one „Nicht zutreffend“ resets the class. Filing to the contract storage remains a person's click.</p></div>
+      <div class="card"><h3>What the lawyer never has to do</h3><p>Choose a check, start a run, watch a queue, read a percentage, edit the PDF by hand, or type the clause: the box is on the page, the clause is drafted, the copy is filed with an Idempotency-Key. A 30-minute walkthrough — the start page <em>is</em> the manual; reasons in German; every decision in the Protokoll (EU AI Act human oversight, GDPR Art. 28 with the model provider).</p></div>
     </div>
   </div>
-  <div class="foot"><span>Measured: review minutes per contract, agreement rate per class, findings per batch</span><span></span></div>
+  <div class="foot"><span>Measured: minutes per contract, agreement rate per finding class, findings per batch</span><span></span></div>
 </section>
 
 <section class="slide" id="s14">
@@ -280,14 +282,14 @@
     <div class="cols">
       <div><ul>
         <li>SharePoint/Graph, Azure Foundry and Document Intelligence paths are wired and unit-tested, not run against a live tenant.</li>
-        <li>The verifier is a model: on borderline provisions it answers <em>partial</em> and hands over — it does not become infallible.</li>
-        <li>Gemini was throttled for stretches during testing (503s); the pipeline now retries with back-off and degrades per stage rather than failing a document — but throughput depends on the provider.</li>
-        <li>No authentication in the prototype; Entra ID in the Terraform.</li>
+        <li>The verifier is a model: on borderline provisions it answers <em>partial</em> and hands over — it does not become infallible. A drafted clause is a starting point for the lawyer, never final.</li>
+        <li>Gemini was throttled for stretches during testing (503s): calls retry with back-off; a cross-check that still cannot run leaves the result marked „ohne KI-Gegenprüfung“ and is repeated automatically at the next start — but throughput depends on the provider.</li>
+        <li>On handwriting the marker depends on the vision model's box; where none is found the finding sits in a page banner. No authentication in the prototype; Entra ID in the Terraform.</li>
       </ul></div>
       <div><ul>
         <li>Connect the real library; run shadow mode on one contract type (Händlerverträge).</li>
         <li>Extend the taxonomy with the team (guideline file is theirs to edit).</li>
-        <li>Pairwise contract diff; amendment drafting from approved rename findings.</li>
+        <li>Pairwise contract diff; the corrected copy as a signable amendment (today: in-place replacement plus an addendum page).</li>
         <li>Evaluation on the team's own historical decisions as the answer key.</li>
       </ul></div>
     </div>
@@ -302,10 +304,10 @@
     <div class="cols">
       <div><ul>
         <li>Claude Code as pair programmer for code, tests, fixtures and docs; multi-agent workflows for the UI design panel, page implementation with review loops, adversarial accuracy reviews and the dataset research with URL verification.</li>
-        <li>Framing, the Gemini/MUI choices, the rebrand scenario, the German-first brief, "defensible", the shrinking HITL and the demand for real data were mine; the AI proposed, I accepted, redirected or rejected.</li>
-        <li>Verified rather than trusted: 71 automated tests, metrics against answer keys, an adversarial review that corrected the AI's own explanatory text.</li>
+        <li>Framing, the Gemini/MUI choices, the rebrand scenario, the German-first brief, "defensible", the shrinking HITL, the demand for real data — and the cut from a multi-page tool to a file converter with the findings on the page — were mine; the AI proposed, I accepted, redirected or rejected.</li>
+        <li>Verified rather than trusted: 75 automated tests, metrics against answer keys, an adversarial review that corrected the AI's own explanatory text.</li>
       </ul></div>
-      <div class="card"><h3>Try it</h3><p><code>docker compose up --build</code> → Verträge → Beispielverträge laden → ask a question on Start → Freigabe → Prüflast. <code>GEMINI_API_KEY</code> optional: without it the deterministic core still runs end to end.</p><p style="margin-top:10px">docs/how-ai-was-used.md · docs/ps-coverage.md · docs/tech-choices.md</p></div>
+      <div class="card"><h3>Try it</h3><p><code>docker compose up --build</code> → drop a contract or <em>Beispielverträge laden</em> → click the result line → decide on the page → <em>Korrigierte Fassung herunterladen</em>. <code>GEMINI_API_KEY</code> optional: without it the rule check still runs end to end (no handwriting, no drafts).</p><p style="margin-top:10px">docs/how-ai-was-used.md · docs/ps-coverage.md · docs/tech-choices.md</p></div>
     </div>
   </div>
   <div class="foot"><span>Thank you — Gaurav Kulkarni</span><span></span></div>

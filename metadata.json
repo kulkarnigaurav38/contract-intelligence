@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M179JZRG7F4WAD56YFR2E10X",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "README.md",
+    "docs/how-ai-was-used.md",
+    "docs/presentation.template.html",
+    "docs/ps-coverage.md",
+    "docs/tech-choices.md",
+    "docs/ui-spec.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 106512,
+    "cache_creation_tokens": 4835569,
+    "cache_read_tokens": 146036780,
+    "output_tokens": 735245,
+    "api_call_count": 308,
+    "subagent_tokens": {
+      "input_tokens": 10659,
+      "cache_creation_tokens": 135297,
+      "cache_read_tokens": 1690013,
+      "output_tokens": 65718,
+      "api_call_count": 21
+    }
+  }
+}

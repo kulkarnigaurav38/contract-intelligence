@@ -26,9 +26,8 @@ const PURPOSE: Record<string, { de: string; en: string }> = {
   classify: { de: 'Klauseln einordnen', en: 'Label clauses' },
   extract: { de: 'Vertragsdaten erkennen', en: 'Recognise contract data' },
   verify: { de: 'Gegenprüfung im Volltext', en: 'Full-text cross-check' },
-  vision_ocr: { de: 'Handschrift und schwierige Scans lesen', en: 'Read handwriting and difficult scans' },
+  ocr_vision: { de: 'Handschrift und schwierige Scans lesen', en: 'Read handwriting and difficult scans' },
   screen: { de: 'Verdächtigen Text erkennen', en: 'Detect suspicious text' },
-  answer: { de: 'Fragen beantworten', en: 'Answer questions' },
   embed: { de: 'Ähnliche Klauseln finden', en: 'Find similar clauses' },
 }
 

@@ -10,22 +10,69 @@ export type ReportClause = {
   reason?: string
 }
 
-export type ReportName = { name: string; page: number; quote: string; fuzzy: boolean }
+export type ReportSummary = {
+  missing: number
+  partial: number
+  old_names: number
+  old_name_pages: number[]
+  unreadable: boolean
+  open: number
+  accepted: number
+  dismissed: number
+  auto: number
+}
 
-export type ReportSummary = { missing: number; partial: number; old_names: number; old_name_pages: number[]; unreadable: boolean }
+/** Pixel size of the rendered page PNG (for the aspect ratio) and whether the page has real text. */
+export type ReportPage = { page: number; width: number; height: number; text_layer: boolean }
 
-/** The per-contract result, built automatically after reading (api/app/report.py). */
+export type ItemReview = {
+  status: 'open' | 'accepted' | 'dismissed' | 'auto'
+  note: string
+  edited_text: string
+  carried_over: boolean // the same file was checked before and the earlier decision was reused
+  decided_at: string | null
+  actor: string
+}
+
+export type BBox = [number, number, number, number] // normalized 0..1 of the page image: x0, y0, x1, y1
+
+/** One finding = one marker on a page. */
+export type Item = {
+  key: string // 'clause:liability_cap' | 'name:2:arvato-financial-solutions'
+  kind: 'missing_clause' | 'partial_clause' | 'old_name'
+  clause_type?: string
+  name?: string
+  page: number // 1-based
+  anchor: { kind: 'highlight' | 'insert'; bbox: BBox | null } // null = page-level (no precise position, e.g. handwriting)
+  quote: string
+  reason: string // AI cross-check reasoning (may be '')
+  suggestion_title: string
+  suggestion: string
+  verified: boolean
+  editable: boolean // page has a text layer and the doc is a digital pdf → edited_text can be applied
+  class_key: string
+  review: ItemReview
+  policy: { kind: 'required' | 'spot_check' | 'auto' | 'carried_over'; review_rate: number }
+}
+
+export type Decision = 'accepted' | 'dismissed' | 'reopen'
+
+/** The per-contract result, built automatically after reading (api/app/report.py). Only `status` is there before the check ran. */
 export type Report = {
   status: 'pending' | 'running' | 'ready' | 'failed'
   error?: string
   generated_at?: string
+  language?: string
   cross_checked?: boolean
+  degraded?: boolean // the AI cross-check could not run (quota, outage) and is repeated at the next restart
+  editable?: boolean // digital PDF: suggestions can be applied into a corrected copy
+  pages?: ReportPage[]
+  items?: Item[]
   clauses?: ReportClause[]
-  old_names?: ReportName[]
-  old_names_verified?: boolean
-  old_names_reason?: string
   historical_names?: string[]
+  old_names_reason?: string
   summary?: ReportSummary
+  storage?: { external_id: string; sha256: string; at: string } | null
 }
 
 export type Doc = {
@@ -82,4 +129,7 @@ export const api = {
   recheck: (id: number, language: string) => request<{ queued: number }>(`/api/documents/${id}/report?language=${language}`, { method: 'POST' }),
   retryDocument: (id: number) => request<{ queued: number }>(`/api/documents/${id}/retry`, { method: 'POST' }),
   deleteDocument: (id: number) => request<{ deleted: number }>(`/api/documents/${id}`, { method: 'DELETE' }),
+  decide: (id: number, key: string, body: { decision: Decision; note?: string; edited_text?: string }) =>
+    request<Report>(`/api/documents/${id}/items/${encodeURIComponent(key)}/decide`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+  fileToStorage: (id: number) => request<{ external_id: string; duplicate: boolean }>(`/api/documents/${id}/file-to-storage`, { method: 'POST' }),
 }

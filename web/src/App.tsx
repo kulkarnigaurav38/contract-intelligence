@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, NavLink, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, NavLink, Route, Routes, useMatch } from 'react-router-dom'
 import AppBar from '@mui/material/AppBar'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -43,6 +43,7 @@ function Shell() {
   const t = useT(COMMON)
   const { lang, setLang } = useSettings()
   const { data: config } = usePolling(api.config, 0, () => false)
+  const viewer = useMatch('/contracts/:id') // the PDF viewer needs room for pages + sidebar
 
   return (
     <>
@@ -71,7 +72,7 @@ function Shell() {
           </Tooltip>
         </Toolbar>
       </AppBar>
-      <Container component="main" maxWidth="md" sx={{ py: 4 }}>
+      <Container component="main" maxWidth={viewer ? 'lg' : 'md'} sx={{ py: 4 }}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/contracts/:id" element={<Contract />} />

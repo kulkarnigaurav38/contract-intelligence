@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useRef, useState, type ReactNode } from 'react'
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom'
 import Accordion from '@mui/material/Accordion'
 import AccordionDetails from '@mui/material/AccordionDetails'
@@ -9,16 +9,29 @@ import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import LinearProgress from '@mui/material/LinearProgress'
 import Link from '@mui/material/Link'
+import List from '@mui/material/List'
+import ListItemButton from '@mui/material/ListItemButton'
+import ListItemIcon from '@mui/material/ListItemIcon'
+import ListItemText from '@mui/material/ListItemText'
 import Paper from '@mui/material/Paper'
+import Popover from '@mui/material/Popover'
 import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
+import { alpha, type Theme } from '@mui/material/styles'
+import AddCircleOutlineOutlinedIcon from '@mui/icons-material/AddCircleOutlineOutlined'
+import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
+import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
+import RemoveCircleOutlineOutlinedIcon from '@mui/icons-material/RemoveCircleOutlineOutlined'
 import ReplayIcon from '@mui/icons-material/Replay'
-import { api, type DocDetail, type ReportClause } from '../api'
+import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined'
+import { api, type BBox, type Decision, type DocDetail, type Item, type Report } from '../api'
 import { useLabel, useSettings, useT } from '../i18n'
 import { ErrorAlert, usePolling, useToast } from '../components/ui'
 import { CLAUSE_TYPES, COMMON, CONTRACT_TYPES } from '../vocab'
@@ -31,32 +44,79 @@ const T = {
   failed_check: { de: 'Die Prüfung ist fehlgeschlagen.', en: 'The check failed.' },
   retry: { de: 'Erneut versuchen', en: 'Try again' },
   recheck: { de: 'Erneut prüfen', en: 'Check again' },
+  rechecking: { de: 'Die Prüfung läuft erneut.', en: 'The check is running again.' },
   delete: { de: 'Löschen', en: 'Delete' },
   delete_confirm: { de: 'Diesen Vertrag aus der Prüfung entfernen?', en: 'Remove this contract from the check?' },
-  ok: { de: 'Alles in Ordnung', en: 'All good' },
-  ok_text: { de: 'Alle für diese Vertragsart erforderlichen Klauseln sind vorhanden, und es wird kein alter Firmenname mehr genannt.', en: 'All clauses required for this contract type are present and no old company name is used.' },
-  missing_h: { de: 'Fehlende Klauseln', en: 'Missing clauses' },
-  missing_none: { de: 'Keine erforderliche Klausel fehlt.', en: 'No required clause is missing.' },
-  partial: { de: 'Nur teilweise', en: 'Only partly' },
-  not_required: { de: 'Für diese Vertragsart nicht erforderlich und ebenfalls nicht enthalten: {list}.', en: 'Not required for this contract type and also not included: {list}.' },
-  names_h: { de: 'Alter Firmenname', en: 'Old company name' },
-  names_none: { de: 'Kein alter Firmenname wird als Vertragspartei genannt.', en: 'No old company name is used as a contracting party.' },
-  names_historical: { de: 'Nur als Verweis („vormals …“) genannt, das ist in Ordnung: {list}.', en: 'Only mentioned as a reference (“formerly …”), which is fine: {list}.' },
-  names_fuzzy: { de: 'ähnliche Schreibweise (Scan)', en: 'similar spelling (scan)' },
-  present_h: { de: 'Vorhandene Klauseln', en: 'Clauses present' },
-  present_none: { de: 'Keine der Standardklauseln wurde erkannt.', en: 'None of the standard clauses was recognised.' },
-  text_h: { de: 'Text des Vertrags', en: 'Contract text' },
-  text_unreadable: { de: 'Diese Seite konnte nicht zuverlässig gelesen werden – bitte das Original prüfen.', en: 'This page could not be read reliably – please check the original.' },
-  cross_checked: { de: 'Regelprüfung mit KI-Gegenprüfung im Volltext', en: 'Rule check with AI cross-check of the full text' },
-  not_cross_checked: { de: 'Nur Regelprüfung – ohne KI-Gegenprüfung', en: 'Rule check only – without AI cross-check' },
-  suspicious: { de: 'Dieses Dokument enthält Text, der sich an automatische Prüfsysteme richtet. Solche Anweisungen werden ignoriert – bitte mit besonderer Sorgfalt prüfen.', en: 'This document contains text addressed to automated review systems. Such instructions are ignored – please review with particular care.' },
   n_pages: { de: '{n} Seiten', en: '{n} pages' },
   one_page: { de: '1 Seite', en: '1 page' },
+  ok: { de: 'Alles in Ordnung', en: 'All good' },
+  ok_text: { de: 'Alle für diese Vertragsart erforderlichen Klauseln sind vorhanden, und es wird kein alter Firmenname mehr genannt.', en: 'All clauses required for this contract type are present and no old company name is used.' },
+  missing: { de: '{n} Klauseln fehlen', en: '{n} clauses missing' },
+  missing_one: { de: '1 Klausel fehlt', en: '1 clause missing' },
+  old_name: { de: 'alter Firmenname auf {p}', en: 'old company name on {p}' },
+  unreadable: { de: 'teilweise nicht lesbar', en: 'partly unreadable' },
+  suspicious: { de: 'Dieses Dokument enthält Text, der sich an automatische Prüfsysteme richtet. Solche Anweisungen werden ignoriert – bitte mit besonderer Sorgfalt prüfen.', en: 'This document contains text addressed to automated review systems. Such instructions are ignored – please review with particular care.' },
+  // markers
+  here_missing: { de: 'Hier fehlt:', en: 'Missing here:' },
+  on_this_page: { de: 'Auf dieser Seite', en: 'On this page' },
+  banner_missing: { de: 'fehlt:', en: 'missing:' },
+  banner_partial: { de: 'nur teilweise:', en: 'only partly:' },
+  banner_name: { de: 'alter Firmenname:', en: 'old company name:' },
+  kind_missing_clause: { de: 'Fehlende Klausel', en: 'Missing clause' },
+  kind_partial_clause: { de: 'Klausel nur teilweise vorhanden', en: 'Clause only partly present' },
+  kind_old_name: { de: 'Alter Firmenname', en: 'Old company name' },
+  old_name_title: { de: 'Alter Firmenname: {name}', en: 'Old company name: {name}' },
+  state_open: { de: 'Wartet auf Ihre Entscheidung', en: 'Waiting for your decision' },
+  state_accepted: { de: 'Übernommen', en: 'Accepted' },
+  state_dismissed: { de: 'Nicht zutreffend', en: 'Not applicable' },
+  state_auto: { de: 'Automatisch übernommen', en: 'Accepted automatically' },
+  state_auto_long: { de: 'Automatisch übernommen – Stichprobe nicht nötig', en: 'Accepted automatically – no spot check needed' },
+  carried_over: { de: 'aus früherer Prüfung übernommen', en: 'carried over from an earlier check' },
   why: { de: 'Begründung', en: 'Reason' },
-  rechecking: { de: 'Die Prüfung läuft erneut.', en: 'The check is running again.' },
+  note_h: { de: 'Anmerkung', en: 'Note' },
+  scan_note: { de: 'Gescanntes Dokument – bitte im Original ändern', en: 'Scanned document – please change it in the original' },
+  no_suggestion: { de: 'Kein Vorschlag verfügbar – die KI war beim Prüfen nicht erreichbar. „Erneut prüfen“ holt ihn nach.', en: 'No suggestion available – the AI was unreachable during the check. “Check again” fetches it.' },
+  accept: { de: 'Übernehmen', en: 'Accept' },
+  dismiss: { de: 'Nicht zutreffend', en: 'Not applicable' },
+  confirm: { de: 'Bestätigen', en: 'Confirm' },
+  cancel: { de: 'Abbrechen', en: 'Cancel' },
+  note_label: { de: 'Warum? (optional, hilft der KI beim nächsten Mal)', en: 'Why? (optional, helps the AI next time)' },
+  reopen: { de: 'Entscheidung zurücknehmen', en: 'Undo decision' },
+  toast_accepted: { de: 'Übernommen', en: 'Accepted' },
+  toast_dismissed: { de: 'Als nicht zutreffend markiert', en: 'Marked as not applicable' },
+  toast_reopen: { de: 'Entscheidung zurückgenommen', en: 'Decision undone' },
+  // sidebar
+  findings_h: { de: 'Fundstellen', en: 'Findings' },
+  findings_none: { de: 'Keine Fundstellen.', en: 'No findings.' },
+  waiting: { de: '{n} warten auf Ihre Entscheidung', en: '{n} waiting for your decision' },
+  waiting_one: { de: '1 wartet auf Ihre Entscheidung', en: '1 waiting for your decision' },
+  waiting_none: { de: 'Nichts wartet auf Sie', en: 'Nothing waiting for you' },
+  names_historical: { de: 'Nur als Verweis („vormals …“) genannt, das ist in Ordnung: {list}.', en: 'Only mentioned as a reference (“formerly …”), which is fine: {list}.' },
+  present_h: { de: 'Vorhandene Klauseln', en: 'Clauses present' },
+  present_none: { de: 'Keine der Standardklauseln wurde erkannt.', en: 'None of the standard clauses was recognised.' },
+  not_required: { de: 'Für diese Vertragsart nicht erforderlich und ebenfalls nicht enthalten: {list}.', en: 'Not required for this contract type and also not included: {list}.' },
+  download: { de: 'Korrigierte Fassung herunterladen', en: 'Download corrected version' },
+  download_annotated: { de: 'Kommentierte Fassung herunterladen', en: 'Download annotated version' },
+  needs_accepted: { de: 'Erst möglich, wenn mindestens ein Vorschlag übernommen wurde.', en: 'Available once at least one suggestion has been accepted.' },
+  scan_hint: { de: 'Gescanntes Dokument: Markierungen und Kommentare, keine Textänderung', en: 'Scanned document: markers and comments, no text changes' },
+  file: { de: 'In der Vertragsablage ablegen', en: 'File in the contract storage' },
+  filed: { de: 'Abgelegt unter {id}', en: 'Filed as {id}' },
+  cross_checked: { de: 'Regelprüfung mit KI-Gegenprüfung im Volltext', en: 'Rule check with AI cross-check of the full text' },
+  not_cross_checked: { de: 'Nur Regelprüfung – ohne KI-Gegenprüfung', en: 'Rule check only – without AI cross-check' },
+  degraded: { de: 'wird beim nächsten Neustart nachgeholt', en: 'will be repeated at the next restart' },
 }
 
+const KIND = { missing_clause: 'kind_missing_clause', partial_clause: 'kind_partial_clause', old_name: 'kind_old_name' } as const
+const STATE = { open: 'state_open', accepted: 'state_accepted', dismissed: 'state_dismissed', auto: 'state_auto' } as const
+const TOAST = { accepted: 'toast_accepted', dismissed: 'toast_dismissed', reopen: 'toast_reopen' } as const
+const BANNER = { missing_clause: 'banner_missing', partial_clause: 'banner_partial', old_name: 'banner_name' } as const
+
 const active = (d: DocDetail | null) => !d || d.status === 'processing' || d.report.status === 'pending' || d.report.status === 'running'
+const decided = (it: Item) => it.review.status !== 'open'
+const tone = (it: Item) => (it.kind === 'old_name' ? 'error' : it.kind === 'partial_clause' ? 'warning' : 'primary')
+const preview = (s: string) => (s.length > 120 ? `${s.slice(0, 120).trimEnd()} …` : s)
+/** Page order: page, then top edge; page-level items (no box) first. */
+const byPosition = (a: Item, b: Item) => a.page - b.page || (a.anchor.bbox?.[1] ?? -1) - (b.anchor.bbox?.[1] ?? -1)
 
 export default function Contract() {
   const id = Number(useParams().id)
@@ -68,13 +128,20 @@ export default function Contract() {
   const toast = useToast()
   const navigate = useNavigate()
   const [err, setErr] = useState('')
+  const [override, setOverride] = useState<Report | null>(null) // report returned by a decision – replaces the polled one without a reload
+  const [sel, setSel] = useState<{ key: string; el: HTMLElement } | null>(null) // item whose popover is open + its marker (popover anchor)
+  const markers = useRef<Record<string, HTMLElement | null>>({})
   const { data: doc, error, reload } = usePolling(() => api.document(id), 3000, active)
 
+  const refresh = () => {
+    setOverride(null)
+    reload()
+  }
   const recheck = async () => {
     try {
       await api.recheck(id, lang)
       toast(t('rechecking'))
-      reload()
+      refresh()
     } catch (e) {
       setErr(String(e))
     }
@@ -82,7 +149,7 @@ export default function Contract() {
   const retry = async () => {
     try {
       await api.retryDocument(id)
-      reload()
+      refresh()
     } catch (e) {
       setErr(String(e))
     }
@@ -96,19 +163,109 @@ export default function Contract() {
       setErr(String(e))
     }
   }
+  const file = async () => {
+    try {
+      const s = await api.fileToStorage(id)
+      toast(t('filed', { id: s.external_id }))
+      refresh()
+    } catch (e) {
+      setErr(String(e))
+    }
+  }
+  /** Open an item's popover at its marker (page-level items share their page's banner). */
+  const openItem = (key: string) => {
+    const el = markers.current[key]
+    if (el) setSel({ key, el })
+  }
+  /** Sidebar click: scroll the marker into view, then open its popover once the scroll has settled (the popover locks scrolling). */
+  const reveal = (key: string) => {
+    const el = markers.current[key]
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    let timer = 0
+    const settle = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        window.removeEventListener('scroll', settle)
+        openItem(key)
+      }, 150)
+    }
+    window.addEventListener('scroll', settle)
+    settle()
+  }
 
   if (error && !doc) return <ErrorAlert msg={error} />
   if (!doc) return <LinearProgress />
 
-  const r = doc.report
+  const r = override ?? doc.report
+  const items = [...(r.items ?? [])].sort(byPosition)
+  const pages = r.pages ?? []
   const clauses = r.clauses ?? []
-  const missing = clauses.filter((c) => c.required && c.status !== 'present')
-  const notRequired = clauses.filter((c) => !c.required && c.status !== 'present')
   const present = clauses.filter((c) => c.status === 'present')
-  const names = r.old_names ?? []
-  const allGood = r.status === 'ready' && missing.length === 0 && names.length === 0
-  const q = (s: string) => (lang === 'de' ? `„${s}“` : `“${s}”`)
-  const where = (c: ReportClause) => (c.page ? tc('page', { n: c.page }) : '')
+  const notRequired = clauses.filter((c) => !c.required && c.status !== 'present')
+  const historical = r.historical_names ?? []
+  const ready = doc.status === 'ready' && r.status === 'ready'
+  const scan = !r.editable
+  const open = items.filter((it) => !decided(it)).length
+  const applied = (r.summary?.accepted ?? 0) + (r.summary?.auto ?? 0)
+  const item = sel ? items.find((it) => it.key === sel.key) : undefined
+
+  const label = (it: Item) => (it.kind === 'old_name' ? t('old_name_title', { name: it.name ?? '' }) : clause(it.clause_type ?? ''))
+  const when = (iso: string) => new Date(iso).toLocaleString(lang === 'de' ? 'de-DE' : 'en-GB')
+  const icon = (it: Item) => {
+    const st = it.review.status
+    if (st === 'accepted' || st === 'auto') return <CheckCircleOutlinedIcon color="success" fontSize="small" />
+    if (st === 'dismissed') return <RemoveCircleOutlineOutlinedIcon color="disabled" fontSize="small" />
+    if (it.kind === 'old_name') return <ErrorOutlineIcon color="error" fontSize="small" />
+    if (it.kind === 'partial_clause') return <ReportProblemOutlinedIcon color="warning" fontSize="small" />
+    return <AddCircleOutlineOutlinedIcon color="primary" fontSize="small" />
+  }
+  /** One line, same wording as the list on the start page. */
+  const result = (): { text: string; ok: boolean } | null => {
+    const s = r.summary
+    if (!ready || !s) return null
+    const parts: string[] = []
+    if (s.missing === 1) parts.push(t('missing_one'))
+    else if (s.missing > 1) parts.push(t('missing', { n: s.missing }))
+    if (s.old_names) parts.push(t('old_name', { p: s.old_name_pages.length === 1 ? tc('page', { n: s.old_name_pages[0] }) : tc('pages', { n: s.old_name_pages.join(', ') }) }))
+    if (s.unreadable) parts.push(t('unreadable'))
+    return parts.length ? { text: parts.join(' · '), ok: false } : { text: t('ok'), ok: true }
+  }
+  const res = result()
+
+  const tip = (it: Item) => {
+    const text = it.review.edited_text || it.suggestion
+    return (
+      <>
+        <Box sx={{ fontWeight: 600 }}>{label(it)}</Box>
+        {text && <Box>{preview(text)}</Box>}
+        <Box sx={{ opacity: 0.75, mt: 0.5 }}>{t(STATE[it.review.status])}</Box>
+      </>
+    )
+  }
+  /** Download and filing need at least one applied suggestion (the API answers 409 otherwise). */
+  const gated = (button: ReactNode) => (
+    <Tooltip title={applied ? '' : t('needs_accepted')}>
+      <span>{button}</span>
+    </Tooltip>
+  )
+  /** Items that share one spot on the page (banner, insert line) are shown as chips. */
+  const chip = (it: Item) => (
+    <Tooltip key={it.key} title={tip(it)} arrow>
+      <Chip
+        size="small"
+        clickable
+        color={decided(it) ? 'default' : tone(it)}
+        label={`${items.indexOf(it) + 1}. ${it.kind === 'old_name' ? it.name : label(it)}`}
+        onClick={() => openItem(it.key)}
+        sx={{ fontWeight: 600, opacity: decided(it) ? 0.7 : 1, textDecoration: it.review.status === 'dismissed' ? 'line-through' : 'none', boxShadow: (th) => (sel?.key === it.key ? `0 0 0 3px ${alpha(th.palette.primary.main, 0.45)}` : 'none') }}
+      />
+    </Tooltip>
+  )
+  /** The element that stands for these items on the page – the popover anchor and the sidebar's scroll target. */
+  const register = (group: Item[]) => (el: HTMLElement | null) => {
+    for (const it of group) markers.current[it.key] = el
+  }
 
   return (
     <Stack spacing={3}>
@@ -122,6 +279,11 @@ export default function Contract() {
         <Typography color="text.secondary">
           {type(doc.contract_type)} · {doc.pages === 1 ? t('one_page') : t('n_pages', { n: doc.pages })} · {doc.filename}
         </Typography>
+        {res && (
+          <Typography sx={{ mt: 0.5, fontWeight: 600, color: res.ok ? 'success.main' : 'error.main' }}>
+            {res.text}
+          </Typography>
+        )}
       </Box>
 
       {doc.injection_suspected && <Alert severity="warning">{t('suspicious')}</Alert>}
@@ -151,135 +313,326 @@ export default function Contract() {
           <Typography variant="caption" component="div" sx={{ fontFamily: 'monospace', mt: 0.5 }}>{r.error}</Typography>
         </Alert>
       )}
+      {!ready && (
+        <Box>
+          <Button color="inherit" startIcon={<DeleteOutlineIcon />} onClick={remove}>{t('delete')}</Button>
+        </Box>
+      )}
 
-      {r.status === 'ready' && (
-        <>
-          {allGood && (
-            <Alert icon={<CheckCircleOutlinedIcon />} severity="success">
-              <Typography sx={{ fontWeight: 600 }}>{t('ok')}</Typography>
-              {t('ok_text')}
-            </Alert>
-          )}
-
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-              {missing.length > 0 && <ErrorOutlineIcon color="error" />} {t('missing_h')} {missing.length > 0 && <Chip size="small" color="error" label={missing.length} />}
-            </Typography>
-            {missing.length === 0 ? (
-              <Typography color="text.secondary">{t('missing_none')}</Typography>
-            ) : (
-              <Stack component="ul" spacing={1.5} sx={{ listStyle: 'none', pl: 0, m: 0 }}>
-                {missing.map((c) => (
-                  <Box component="li" key={c.clause_type}>
-                    <Typography sx={{ fontWeight: 600 }}>
-                      {clause(c.clause_type)}
-                      {c.status === 'partial' && <Chip size="small" color="warning" variant="outlined" label={`${t('partial')}${c.page ? ` · ${where(c)}` : ''}`} sx={{ ml: 1 }} />}
-                    </Typography>
-                    {c.status === 'partial' && c.quote && (
-                      <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>{q(c.quote)}</Typography>
+      {ready && (
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(0,1fr) 300px' }, gap: 3, alignItems: 'start' }}>
+          {/* ---------------------------------------------------------- the pages */}
+          <Stack spacing={3}>
+            {items.length === 0 && (
+              <Alert icon={<CheckCircleOutlinedIcon />} severity="success">
+                {t('ok_text')}
+              </Alert>
+            )}
+            {Array.from({ length: doc.pages }, (_, i) => i + 1).map((n) => {
+              const p = pages[n - 1]
+              const onPage = items.filter((it) => it.page === n)
+              const loose = onPage.filter((it) => !it.anchor.bbox) // no position → one banner at the top of the page
+              const inserts = new Map<string, { box: BBox; items: Item[] }>() // insert lines at the same spot → one line, one chip each
+              for (const it of onPage) {
+                if (it.anchor.kind !== 'insert' || !it.anchor.bbox) continue
+                const g = inserts.get(it.anchor.bbox.join()) ?? { box: it.anchor.bbox, items: [] }
+                g.items.push(it)
+                inserts.set(it.anchor.bbox.join(), g)
+              }
+              return (
+                <Box key={n}>
+                  <Typography variant="overline" color="text.secondary" component="div">
+                    {tc('page', { n })}
+                  </Typography>
+                  <Box sx={{ position: 'relative', bgcolor: '#fff', boxShadow: 1 }}>
+                    <img src={`/api/documents/${id}/pages/${n}.png`} alt={tc('page', { n })} loading="lazy" style={{ display: 'block', width: '100%', aspectRatio: p ? `${p.width} / ${p.height}` : '210 / 297' }} />
+                    {loose.length > 0 && (
+                      <Box ref={register(loose)} sx={{ position: 'absolute', top: 0, left: 0, right: 0, px: 1.5, py: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, fontSize: 13, fontWeight: 600, color: '#fff', bgcolor: (th) => alpha(th.palette.grey[900], 0.8) }}>
+                        {t('on_this_page')}
+                        {(['missing_clause', 'partial_clause', 'old_name'] as const).map((kind) => {
+                          const group = loose.filter((it) => it.kind === kind)
+                          return group.length ? (
+                            <Fragment key={kind}>
+                              <span>· {t(BANNER[kind])}</span>
+                              {group.map(chip)}
+                            </Fragment>
+                          ) : null
+                        })}
+                      </Box>
                     )}
-                    {c.reason && (
-                      <Typography variant="body2" color="text.secondary">
-                        {t('why')}: {c.reason}
-                      </Typography>
+                    {[...inserts.values()].map(({ box: [x0, y0, x1], items: group }) => {
+                      const done = group.every(decided)
+                      return (
+                        <Box key={group[0].key} ref={register(group)} sx={{ position: 'absolute', left: `${x0 * 100}%`, top: `${y0 * 100}%`, width: `${(x1 - x0) * 100}%`, height: 0, borderTop: '2px dashed', borderColor: done ? 'grey.500' : 'primary.main' }}>
+                          <Box sx={{ position: 'absolute', left: 0, bottom: '100%', mb: '3px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', color: done ? 'grey.600' : 'primary.main' }}>
+                            {t('here_missing')}
+                            {group.map(chip)}
+                          </Box>
+                        </Box>
+                      )
+                    })}
+                    {onPage.map((it) =>
+                      it.anchor.kind === 'highlight' && it.anchor.bbox ? (
+                        <Marker key={it.key} item={it} box={it.anchor.bbox} n={items.indexOf(it) + 1} tip={tip(it)} selected={sel?.key === it.key} onClick={() => openItem(it.key)} ref={register([it])} />
+                      ) : null,
                     )}
                   </Box>
-                ))}
-              </Stack>
-            )}
-            {notRequired.length > 0 && (
-              <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 2 }}>
-                {t('not_required', { list: notRequired.map((c) => clause(c.clause_type)).join(', ') })}
+                </Box>
+              )
+            })}
+          </Stack>
+
+          {/* ---------------------------------------------------------- the sidebar */}
+          <Stack spacing={2} sx={{ position: { md: 'sticky' }, top: 80, maxHeight: { md: 'calc(100vh - 96px)' }, overflowY: 'auto', order: { xs: -1, md: 0 } }}>
+            <Paper>
+              <Typography variant="subtitle2" sx={{ px: 2, pt: 1.5 }}>
+                {t('findings_h')}
               </Typography>
-            )}
-          </Paper>
+              {items.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ px: 2, pt: 0.5 }}>{t('findings_none')}</Typography>
+              ) : (
+                <List dense disablePadding>
+                  {items.map((it, i) => (
+                    <ListItemButton key={it.key} selected={sel?.key === it.key} onClick={() => reveal(it.key)}>
+                      <ListItemIcon sx={{ minWidth: 32 }}>{icon(it)}</ListItemIcon>
+                      <ListItemText
+                        primary={`${i + 1}. ${label(it)}`}
+                        secondary={`${tc('page', { n: it.page })}${decided(it) ? ` · ${t(STATE[it.review.status])}` : ''}`}
+                        slotProps={{ primary: { sx: { textDecoration: it.review.status === 'dismissed' ? 'line-through' : 'none', color: decided(it) ? 'text.secondary' : 'text.primary' } } }}
+                      />
+                    </ListItemButton>
+                  ))}
+                </List>
+              )}
+              <Typography variant="caption" color="text.secondary" component="div" sx={{ px: 2, py: 1.5 }}>
+                {open === 0 ? t('waiting_none') : open === 1 ? t('waiting_one') : t('waiting', { n: open })}
+              </Typography>
+              {historical.length > 0 && (
+                <Typography variant="caption" color="text.secondary" component="div" sx={{ px: 2, pb: 1.5 }}>
+                  {t('names_historical', { list: historical.join(', ') })}
+                </Typography>
+              )}
+            </Paper>
 
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-              {names.length > 0 && <ErrorOutlineIcon color="error" />} {t('names_h')} {names.length > 0 && <Chip size="small" color="error" label={names.length} />}
-            </Typography>
-            {names.length === 0 ? (
-              <Typography color="text.secondary">{t('names_none')}</Typography>
-            ) : (
-              <Stack component="ul" spacing={1.5} sx={{ listStyle: 'none', pl: 0, m: 0 }}>
-                {names.map((n, i) => (
-                  <Box component="li" key={i}>
-                    <Typography sx={{ fontWeight: 600 }}>
-                      {tc('page', { n: n.page })} · {n.name}
-                      {n.fuzzy && <Chip size="small" variant="outlined" label={t('names_fuzzy')} sx={{ ml: 1 }} />}
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>{q(n.quote)}</Typography>
-                  </Box>
-                ))}
-                {r.old_names_reason && (
-                  <Typography variant="body2" color="text.secondary">
-                    {t('why')}: {r.old_names_reason}
+            <Accordion disableGutters sx={{ '&:before': { display: 'none' } }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle2">{t('present_h')}</Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ pt: 0 }}>
+                {present.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">{t('present_none')}</Typography>
+                ) : (
+                  <Stack component="ul" spacing={0.75} sx={{ m: 0, pl: 0, listStyle: 'none' }}>
+                    {present.map((c) => (
+                      <Typography component="li" key={c.clause_type} variant="body2">
+                        <CheckCircleOutlinedIcon color="success" sx={{ fontSize: 16, verticalAlign: 'text-bottom', mr: 0.75 }} />
+                        {clause(c.clause_type)}
+                        {c.page && <Typography component="span" variant="body2" color="text.secondary"> – {tc('page', { n: c.page })}</Typography>}
+                      </Typography>
+                    ))}
+                  </Stack>
+                )}
+                {notRequired.length > 0 && (
+                  <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 1.5 }}>
+                    {t('not_required', { list: notRequired.map((c) => clause(c.clause_type)).join(', ') })}
                   </Typography>
                 )}
-              </Stack>
-            )}
-            {(r.historical_names ?? []).length > 0 && (
-              <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 2 }}>
-                {t('names_historical', { list: (r.historical_names ?? []).join(', ') })}
-              </Typography>
-            )}
-          </Paper>
+              </AccordionDetails>
+            </Accordion>
 
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 1 }}>
-              {t('present_h')}
-            </Typography>
-            {present.length === 0 ? (
-              <Typography color="text.secondary">{t('present_none')}</Typography>
-            ) : (
-              <Box component="ul" sx={{ m: 0, pl: 0, listStyle: 'none', display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 0.75 }}>
-                {present.map((c) => (
-                  <Typography component="li" key={c.clause_type} variant="body2">
-                    <CheckCircleOutlinedIcon color="success" sx={{ fontSize: 16, verticalAlign: 'text-bottom', mr: 0.75 }} />
-                    {clause(c.clause_type)} <Typography component="span" variant="body2" color="text.secondary">– {where(c)}</Typography>
-                  </Typography>
-                ))}
-              </Box>
-            )}
-          </Paper>
-
-          <Typography variant="caption" color="text.secondary">
-            {r.cross_checked ? t('cross_checked') : t('not_cross_checked')}
-            {r.generated_at ? ` · ${new Date(r.generated_at).toLocaleString(lang === 'de' ? 'de-DE' : 'en-GB')}` : ''}
-          </Typography>
-        </>
-      )}
-
-      {doc.status === 'ready' && (
-        <Accordion disableGutters sx={{ '&:before': { display: 'none' } }}>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography sx={{ fontWeight: 600 }}>{t('text_h')}</Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Stack spacing={2}>
-              {doc.page_rows.map((p) => (
-                <Box key={p.page_no}>
-                  <Typography variant="overline" color="text.secondary">
-                    {tc('page', { n: p.page_no })}
-                  </Typography>
-                  {p.method === 'tesseract' && p.confidence < 0.5 ? (
-                    <Typography variant="body2" color="text.secondary">{t('text_unreadable')}</Typography>
-                  ) : (
-                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'Georgia, serif' }}>{p.text}</Typography>
-                  )}
-                </Box>
-              ))}
+            <Stack spacing={1}>
+              {scan && <Typography variant="caption" color="text.secondary">{t('scan_hint')}</Typography>}
+              {gated(
+                <Button fullWidth variant="contained" startIcon={<DownloadOutlinedIcon />} href={`/api/documents/${id}/corrected.pdf`} target="_blank" disabled={!applied}>
+                  {t(scan ? 'download_annotated' : 'download')}
+                </Button>,
+              )}
+              {gated(
+                <Button fullWidth variant="outlined" startIcon={<ArchiveOutlinedIcon />} onClick={file} disabled={!applied}>
+                  {t('file')}
+                </Button>,
+              )}
+              {r.storage && (
+                <Typography variant="caption" color="text.secondary">
+                  {t('filed', { id: r.storage.external_id })} · {when(r.storage.at)}
+                </Typography>
+              )}
+              <Button fullWidth variant="outlined" startIcon={<ReplayIcon />} onClick={recheck}>{t('recheck')}</Button>
+              <Button fullWidth color="inherit" startIcon={<DeleteOutlineIcon />} onClick={remove}>{t('delete')}</Button>
             </Stack>
-          </AccordionDetails>
-        </Accordion>
+
+            <Typography variant="caption" color="text.secondary">
+              {r.cross_checked ? t('cross_checked') : t('not_cross_checked')}
+              {r.degraded ? ` · ${t('degraded')}` : ''}
+              {r.generated_at ? ` · ${when(r.generated_at)}` : ''}
+            </Typography>
+          </Stack>
+        </Box>
       )}
 
-      <Stack direction="row" spacing={1}>
-        {doc.status === 'ready' && r.status !== 'running' && (
-          <Button variant="outlined" startIcon={<ReplayIcon />} onClick={recheck}>{t('recheck')}</Button>
+      <Popover
+        open={!!item}
+        anchorEl={sel?.el}
+        onClose={() => setSel(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        slotProps={{ paper: { sx: { width: 440, maxWidth: 'calc(100vw - 32px)' } } }}
+      >
+        {item && (
+          <ItemPanel
+            key={item.key}
+            docId={id}
+            item={item}
+            title={label(item)}
+            scan={scan}
+            onDecided={(rep, decision) => {
+              setOverride(rep)
+              if (decision !== 'reopen') setSel(null)
+            }}
+          />
         )}
-        <Button color="inherit" startIcon={<DeleteOutlineIcon />} onClick={remove}>{t('delete')}</Button>
-      </Stack>
+      </Popover>
+    </Stack>
+  )
+}
+
+// ---------------------------------------------------------------- a highlight box on the page image
+type MarkerProps = { item: Item; box: BBox; n: number; tip: ReactNode; selected: boolean; onClick: () => void; ref: (el: HTMLElement | null) => void }
+
+function Marker({ item, box: [x0, y0, x1, y1], n, tip, selected, onClick, ref }: MarkerProps) {
+  const done = decided(item)
+  const color = (th: Theme) => (done ? th.palette.grey[600] : th.palette[tone(item)].main)
+  return (
+    <Tooltip title={tip} placement="top" arrow>
+      <Box
+        ref={ref}
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={(e) => e.key === 'Enter' && onClick()}
+        sx={{
+          position: 'absolute',
+          left: `${x0 * 100}%`,
+          top: `${y0 * 100}%`,
+          width: `${(x1 - x0) * 100}%`,
+          height: `${(y1 - y0) * 100}%`,
+          border: '2px solid',
+          borderColor: color,
+          bgcolor: (th) => alpha(color(th), done ? 0.08 : 0.18),
+          cursor: 'pointer',
+          opacity: done ? 0.6 : 1,
+          '&:hover': { opacity: 1 },
+          boxShadow: (th) => (selected ? `0 0 0 3px ${alpha(th.palette.primary.main, 0.45)}` : 'none'),
+        }}
+      >
+        <Box component="span" sx={{ position: 'absolute', left: -2, bottom: '100%', mb: '2px', px: 0.75, borderRadius: 0.5, fontSize: 12, fontWeight: 600, lineHeight: 1.5, whiteSpace: 'nowrap', color: '#fff', bgcolor: color, textDecoration: item.review.status === 'dismissed' ? 'line-through' : 'none' }}>
+          {n}
+        </Box>
+      </Box>
+    </Tooltip>
+  )
+}
+
+// ---------------------------------------------------------------- the popover: finding, suggestion, decision
+type PanelProps = { docId: number; item: Item; title: string; scan: boolean; onDecided: (report: Report, decision: Decision) => void }
+
+function ItemPanel({ docId, item, title, scan, onDecided }: PanelProps) {
+  const t = useT(T)
+  const tc = useT(COMMON)
+  const { lang } = useSettings()
+  const toast = useToast()
+  const rv = item.review
+  const editing = item.editable && rv.status === 'open'
+  const [text, setText] = useState(rv.edited_text || item.suggestion)
+  const [note, setNote] = useState('')
+  const [dismissing, setDismissing] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const q = (s: string) => (lang === 'de' ? `„${s}“` : `“${s}”`)
+
+  const send = async (decision: Decision) => {
+    setBusy(true)
+    setErr('')
+    try {
+      const body: { decision: Decision; note?: string; edited_text?: string } = { decision }
+      if (decision === 'accepted' && item.editable) body.edited_text = text
+      if (decision === 'dismissed' && note.trim()) body.note = note.trim()
+      const rep = await api.decide(docId, item.key, body)
+      toast(t(TOAST[decision]))
+      onDecided(rep, decision)
+    } catch (e) {
+      setErr(String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Stack spacing={1.5} sx={{ p: 2.5 }}>
+      <Box>
+        <Typography variant="caption" color="text.secondary">
+          {t(KIND[item.kind])} · {tc('page', { n: item.page })}
+        </Typography>
+        <Typography variant="h6">{title}</Typography>
+      </Box>
+      {item.quote && <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>{q(item.quote)}</Typography>}
+      {item.reason && (
+        <Typography variant="caption" color="text.secondary" component="div">
+          {t('why')}: {item.reason}
+        </Typography>
+      )}
+      <Box>
+        <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+          {item.suggestion_title}
+        </Typography>
+        {!(rv.edited_text || item.suggestion) && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: editing ? 1 : 0 }}>
+            {t('no_suggestion')}
+          </Typography>
+        )}
+        {editing ? (
+          <TextField multiline fullWidth size="small" minRows={2} maxRows={10} value={text} onChange={(e) => setText(e.target.value)} />
+        ) : (
+          (rv.edited_text || item.suggestion) && (
+            <>
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{rv.edited_text || item.suggestion}</Typography>
+              {scan && (
+                <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
+                  {t('scan_note')}
+                </Typography>
+              )}
+            </>
+          )
+        )}
+      </Box>
+      {err && <ErrorAlert msg={err} />}
+      {rv.status === 'open' ? (
+        dismissing ? (
+          <>
+            <TextField label={t('note_label')} multiline fullWidth size="small" minRows={2} autoFocus value={note} onChange={(e) => setNote(e.target.value)} />
+            <Stack direction="row" spacing={1}>
+              <Button variant="contained" disabled={busy} onClick={() => send('dismissed')}>{t('confirm')}</Button>
+              <Button color="inherit" disabled={busy} onClick={() => setDismissing(false)}>{t('cancel')}</Button>
+            </Stack>
+          </>
+        ) : (
+          <Stack direction="row" spacing={1}>
+            <Button variant="contained" disabled={busy} onClick={() => send('accepted')}>{t('accept')}</Button>
+            <Button variant="outlined" disabled={busy} onClick={() => setDismissing(true)}>{t('dismiss')}</Button>
+          </Stack>
+        )
+      ) : (
+        <Stack spacing={1} sx={{ alignItems: 'flex-start' }}>
+          <Chip size="small" variant="outlined" color={rv.status === 'dismissed' ? 'default' : 'success'} label={rv.status === 'auto' ? t('state_auto_long') : t(STATE[rv.status])} sx={{ height: 'auto', '& .MuiChip-label': { whiteSpace: 'normal', py: 0.25 } }} />
+          {rv.carried_over && <Typography variant="caption" color="text.secondary">{t('carried_over')}</Typography>}
+          {rv.note && (
+            <Typography variant="body2" color="text.secondary">
+              {t('note_h')}: {rv.note}
+            </Typography>
+          )}
+          <Button size="small" disabled={busy} onClick={() => send('reopen')}>{t('reopen')}</Button>
+        </Stack>
+      )}
     </Stack>
   )
 }

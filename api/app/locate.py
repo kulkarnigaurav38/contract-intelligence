@@ -138,5 +138,5 @@ def insert_line(page: pymupdf.Page, after_text: str, words: list[tuple[str, Box]
     box = next((b for tail in (flat[-60:], flat[-30:]) for b in [find_text(page, tail, words, allow_vision=False)] if b), None)
     if box is None:
         return None
-    y = min(0.99, box[3] + 0.004)
+    y = min(0.99, box[3] + (0.005 if has_text_layer(page) else 0.015))  # OCR boxes hug the ink; leave room
     return [0.08, y, 0.92, min(1.0, y + 0.012)]

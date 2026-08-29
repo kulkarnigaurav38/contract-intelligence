@@ -1,0 +1,1 @@
+Does this now capture all the requirements which are given in the original problem statement PDF? Recheck and tell me what caps are there. Also keep the technical pipeline based on the new website or the new changes. Keep it so that in the pipeline it's easier to explain what is happening.

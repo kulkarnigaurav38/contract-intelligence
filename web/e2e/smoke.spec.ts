@@ -15,19 +15,15 @@ const aiEnabled = async (page: Page): Promise<boolean> => {
 
 test('Home shows the three question cards and the contract-set strip', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Was möchten Sie wissen?' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Was möchten Sie prüfen?' })).toBeVisible()
+  await expect(page.getByText(/Contract Intelligence findet Verträge/)).toBeVisible() // one sentence on what it does
   await expect(page.getByText('Welchen Verträgen fehlt eine Klausel?')).toBeVisible()
   await expect(page.getByText('Welche Verträge enthalten eine bestimmte Regelung nicht?')).toBeVisible()
   await expect(page.getByText('Wo steht noch ein alter Firmenname?')).toBeVisible()
-  await expect(page.getByText('Contract Intelligence liest Ihre Verträge ein')).toBeVisible() // what the tool does
-  await expect(page.getByText('Verträge einlesen')).toBeVisible() // the three steps
   await expect(page.getByRole('radio')).toHaveCount(3) // one question at a time
   await expect(page.getByRole('button', { name: 'Prüfung starten' })).toBeVisible()
-  await expect(page.getByText('Was bedeuten die Begriffe?')).toBeVisible() // glossary
-  await expect(page.getByText('Ihr Vertragsbestand')).toBeVisible()
-  await expect(page.getByText(/\d+ Verträge · \d+ gut lesbar/)).toBeVisible()
-  await expect(page.getByText('Wartet auf Ihre Freigabe')).toBeVisible()
-  await expect(page.getByText('Letzte Prüfungen')).toBeVisible()
+  await expect(page.getByText(/\d+ Verträge eingelesen/)).toBeVisible() // the only status facts
+  await expect(page.getByText(/warte(n|t) auf Ihre Freigabe|Nichts wartet auf Ihre Freigabe/)).toBeVisible()
   await shot(page, '01-home')
 })
 
@@ -69,7 +65,7 @@ test('Clauses matrix renders the 12 clause headers', async ({ page }) => {
 
 test('Old-company-name check from Home lands on the check detail', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByText(/\d+ Verträge · \d+ gut lesbar/)).toBeVisible()
+  await expect(page.getByText(/\d+ Verträge eingelesen/)).toBeVisible()
   await page.getByRole('radio', { name: /Wo steht noch ein alter Firmenname/ }).check()
   await page.getByRole('button', { name: 'Prüfung starten' }).click()
   await expect(page).toHaveURL(/\/checks\/\d+$/)

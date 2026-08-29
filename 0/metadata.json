@@ -1,0 +1,103 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M178R0QAHT933GEQ0XM7C7A4",
+  "session_id": "046eadd3-6aa8-4b09-adc8-e3efac5fd391",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-29T17:23:17.399988Z",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "api/app/llm.py",
+    "api/app/main.py",
+    "api/app/models.py",
+    "api/app/report.py",
+    "api/app/routers.py"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-fable-5",
+  "turn_id": "7a938d43803c",
+  "checkpoint_transcript_start": 3038,
+  "transcript_lines_at_start": 3038,
+  "compact_transcript_start": 429,
+  "token_usage": {
+    "input_tokens": 1126,
+    "cache_creation_tokens": 93056,
+    "cache_read_tokens": 3197683,
+    "output_tokens": 64131,
+    "api_call_count": 17
+  },
+  "skill_events_version": 1,
+  "skill_events": [
+    {
+      "id": "claude-skill-toolu_01Gy5Kep1pFb3US7M8KxpRu7",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "artifact-design"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "7a938d43803c",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 2404,
+        "end": 2405,
+        "entry_ids": [
+          "d78bb2c2-39c3-4310-900c-e0a378ab34bc"
+        ],
+        "tool_use_id": "toolu_01Gy5Kep1pFb3US7M8KxpRu7"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_01Gy5Kep1pFb3US7M8KxpRu7"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: artifact-design",
+        "default_collapsed": true
+      }
+    }
+  ],
+  "session_metrics": {
+    "turn_count": 19
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-29T17:23:16.652171Z",
+    "agent_lines": 320,
+    "agent_removed": 23,
+    "human_added": 409,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 729,
+    "total_lines_changed": 752,
+    "agent_percentage": 45.611702127659576,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 379,
+      "user_lines_removed": 375,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "README.md": 50,
+        "api/tests/test_end_to_end_db.py": 26,
+        "api/tests/test_report_units.py": 153,
+        "docs/how-ai-was-used.md": 20,
+        "docs/ps-coverage.md": 15,
+        "docs/ui-spec.md": 49,
+        "web/e2e/smoke.spec.ts": 66
+      },
+      "user_removed_per_file": {
+        "README.md": 34,
+        "docs/how-ai-was-used.md": 4,
+        "docs/ps-coverage.md": 10,
+        "docs/ui-spec.md": 109,
+        "web/e2e/smoke.spec.ts": 218
+      }
+    }
+  ]
+}

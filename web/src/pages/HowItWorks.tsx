@@ -1,48 +1,77 @@
+import { useEffect, useState } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
 import Box from '@mui/material/Box'
+import Link from '@mui/material/Link'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
-import { api } from '../api'
+import { api, type Doc, type DocDetail } from '../api'
 import { useSettings, useT } from '../i18n'
 import { usePolling } from '../components/ui'
 
 const T = {
   title: { de: 'So funktioniert es', en: 'How it works' },
-  intro: { de: 'Vier Schritte, vollautomatisch nach dem Ablegen. Der Vertrag selbst wird nie verändert.', en: 'Four steps, fully automatic after the drop. The contract itself is never changed.' },
-  s1: { de: 'Lesen', en: 'Read' },
-  s1t: { de: 'Digitale PDFs werden direkt gelesen. Scans und Fotos gehen durch eine Texterkennung; wo sie unsicher ist – etwa bei Handschrift –, liest das KI-Modell die Seite als Bild. Was auch dann nicht lesbar ist, wird als „nicht lesbar“ gemeldet statt geraten.', en: 'Digital PDFs are read directly. Scans and photos go through text recognition; where it is unsure – handwriting, for instance – the AI model reads the page as an image. What is still unreadable is reported as such rather than guessed.' },
-  s2: { de: 'Zerlegen und einordnen', en: 'Split and label' },
-  s2t: { de: 'Der Text wird in Klauseln zerlegt (Nummerierung, Überschriften, §-Zeichen). Jede Klausel wird einer von zwölf Standardklauseln zugeordnet – erst nach Regeln, dann vom Modell; bei Widerspruch entscheidet die Gegenprüfung im nächsten Schritt.', en: 'The text is split into clauses (numbering, headings, § signs). Each clause is assigned to one of twelve standard clause types – by rules first, then by the model; on disagreement the cross-check in the next step decides.' },
-  s3: { de: 'Prüfen', en: 'Check' },
-  s3t: { de: 'Die Richtlinie sagt, welche Klauseln eine Vertragsart braucht. Fehlt eine, liest das Modell den ganzen Vertrag noch einmal und bestätigt oder verwirft den Fund – mit Seite, Zitat und Begründung. Alte Firmennamen stammen aus einem Register (arvato Financial Solutions, Arvato Payment Solutions GmbH, AFS); „vormals“-Verweise zählen nicht.', en: 'The guideline says which clauses a contract type needs. If one is missing, the model reads the whole contract again and confirms or dismisses the finding – with page, quote and reason. Old company names come from a register (arvato Financial Solutions, Arvato Payment Solutions GmbH, AFS); “formerly” references do not count.' },
-  s4: { de: 'Ergebnis', en: 'Result' },
-  s4t: { de: 'Jeder Fund wird direkt auf der Seite markiert – der alte Name als Kasten, die fehlende Klausel an der Stelle, an die sie gehört – mit Vorschlag (neuer Name, Klauselentwurf). Sie entscheiden je Fund: Übernehmen oder Nicht zutreffend. Übernommene Vorschläge ergeben eine korrigierte Kopie; das Original bleibt unverändert. Ihre Entscheidungen merkt sich das System: derselbe Vertrag wird nicht zweimal gefragt, und Fundarten, denen Sie durchweg zustimmen, werden nur noch stichprobenartig vorgelegt.', en: 'Every finding is marked right on the page – the old name as a box, the missing clause where it belongs – with a suggestion (new name, drafted clause). You decide per finding: accept or not applicable. Accepted suggestions produce a corrected copy; the original stays untouched. The system remembers your decisions: the same contract is never asked twice, and kinds of findings you consistently agree with are only spot-checked.' },
-  models: { de: 'Eingesetzte Modelle', en: 'Models used' },
+  intro: {
+    de: 'Jeder Vertrag durchläuft diese Schritte – automatisch nach dem Ablegen, in dieser Reihenfolge. Die Seite wird aus dem Code erzeugt und ist immer aktuell.',
+    en: 'Every contract goes through these steps – automatically after the drop, in this order. This page is generated from the code and is always up to date.',
+  },
+  read: { de: 'Lesen', en: 'Read' },
+  check: { de: 'Prüfen', en: 'Check' },
+  decide: { de: 'Entscheiden', en: 'Decide' },
+  produces: { de: '→ erzeugt: {x}', en: '→ produces: {x}' },
+  example: { de: 'Beispiel: {title}', en: 'Example: {title}' },
+  ex_pages: { de: '{pages} Seiten: {t} Textebene, {o} OCR, {v} Vision', en: '{pages} pages: {t} text layer, {o} OCR, {v} vision' },
+  ex_clauses: { de: '{n} Klauseln erkannt', en: '{n} clauses recognised' },
+  ex_entities: { de: '{n} Namensfunde', en: '{n} name hits' },
+  ex_rules: { de: '{required} erforderliche Klauseltypen, {missing} fehlen, {partial} nur teilweise, {old_names} alte Namen', en: '{required} required clause types, {missing} missing, {partial} only partly, {old_names} old names' },
+  ex_placed: { de: '{placed} von {items} Funden exakt verortet', en: '{placed} of {items} findings placed exactly' },
+  ex_drafted: { de: '{n} Vorschläge', en: '{n} suggestions' },
+  ex_decisions: { de: '{open} offen, {accepted} übernommen, {dismissed} nicht zutreffend, {auto} automatisch', en: '{open} open, {accepted} accepted, {dismissed} not applicable, {auto} automatic' },
+  ex_copy: { de: 'Korrigierte Kopie: {s}', en: 'Corrected copy: {s}' },
+  copy_yes: { de: 'verfügbar', en: 'available' },
+  copy_no: { de: 'sobald ein Vorschlag übernommen ist', en: 'once a suggestion is accepted' },
+  open: { de: 'Vertrag öffnen', en: 'Open contract' },
   offline: { de: 'Ohne Modellschlüssel läuft nur die Regelprüfung; Ergebnisse sind dann als „ohne KI-Gegenprüfung“ gekennzeichnet.', en: 'Without a model key only the rule check runs; results are then marked “without AI cross-check”.' },
   data: { de: 'Verträge, Text und Ergebnisse liegen in einer eigenen Datenbank; an das Modell gehen nur die Seiten des jeweils geprüften Vertrags. Text im Dokument, der sich an Prüfsysteme richtet, wird erkannt und ignoriert.', en: 'Contracts, text and results live in a dedicated database; only the pages of the contract being checked are sent to the model. Text inside a document that addresses review systems is detected and ignored.' },
 }
 
-const PURPOSE: Record<string, { de: string; en: string }> = {
-  classify: { de: 'Klauseln einordnen', en: 'Label clauses' },
-  extract: { de: 'Vertragsdaten erkennen', en: 'Recognise contract data' },
-  verify: { de: 'Gegenprüfung im Volltext', en: 'Full-text cross-check' },
-  ocr_vision: { de: 'Handschrift und schwierige Scans lesen', en: 'Read handwriting and difficult scans' },
-  screen: { de: 'Verdächtigen Text erkennen', en: 'Detect suspicious text' },
-  draft: { de: 'Fehlende Klausel entwerfen', en: 'Draft the missing clause' },
-  locate: { de: 'Fundstelle auf gescannten Seiten finden', en: 'Locate a passage on scanned pages' },
-  embed: { de: 'Ähnliche Klauseln finden', en: 'Find similar clauses' },
-}
+const PHASES = ['read', 'check', 'decide'] as const
+
+/** A checked contract with something to show (a missing clause or an old name). */
+const showable = (d: Doc) => d.report_status === 'ready' && !!d.report_summary && d.report_summary.missing + d.report_summary.old_names > 0
 
 export default function HowItWorks() {
   const t = useT(T)
   const { lang } = useSettings()
   const { data: config } = usePolling(api.config, 0, () => false)
-  const steps = [
-    ['s1', 's1t'],
-    ['s2', 's2t'],
-    ['s3', 's3t'],
-    ['s4', 's4t'],
-  ] as const
+  const { data: pipeline } = usePolling(api.pipeline, 0, () => false)
+  const { data: docs } = usePolling(api.documents, 0, () => false)
+  const exampleId = docs ? ((docs.find((d) => d.id === 1 && showable(d)) ?? docs.find(showable))?.id ?? null) : null
+  const [ex, setEx] = useState<DocDetail | null>(null)
+  useEffect(() => {
+    if (exampleId) api.document(exampleId).then(setEx, () => setEx(null))
+  }, [exampleId])
+
+  const stages = pipeline?.stages ?? []
+
+  let lines: Record<(typeof PHASES)[number], string[]> | null = null
+  if (ex?.report.summary) {
+    const s = ex.report.summary
+    const items = ex.report.items ?? []
+    const by = (method: string) => ex.page_rows.filter((p) => p.method === method).length
+    lines = {
+      read: [t('ex_pages', { pages: ex.pages, t: by('text_layer'), o: by('tesseract'), v: by('vision_llm') }), t('ex_clauses', { n: ex.clauses }), t('ex_entities', { n: ex.entities })],
+      check: [
+        t('ex_rules', { required: (ex.report.clauses ?? []).filter((c) => c.required).length, missing: s.missing, partial: s.partial, old_names: s.old_names }),
+        t('ex_placed', { placed: items.filter((i) => i.anchor.bbox).length, items: items.length }),
+        t('ex_drafted', { n: items.filter((i) => i.suggestion).length }),
+      ],
+      decide: [
+        t('ex_decisions', { open: s.open, accepted: s.accepted, dismissed: s.dismissed, auto: s.auto }),
+        t('ex_copy', { s: s.accepted + s.auto > 0 ? t('copy_yes') : t('copy_no') }),
+      ],
+    }
+  }
 
   return (
     <Stack spacing={3}>
@@ -52,43 +81,81 @@ export default function HowItWorks() {
         </Typography>
         <Typography color="text.secondary">{t('intro')}</Typography>
       </Box>
-      <Stack spacing={2}>
-        {steps.map(([h, b], i) => (
-          <Paper key={h} sx={{ p: 3, display: 'flex', gap: 2.5 }}>
-            <Typography variant="h4" color="primary" sx={{ minWidth: 40, lineHeight: 1 }}>
-              {i + 1}
-            </Typography>
-            <Box>
-              <Typography variant="h6" sx={{ mb: 0.5 }}>
-                {t(h)}
-              </Typography>
-              <Typography color="text.secondary">{t(b)}</Typography>
-            </Box>
+
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} sx={{ alignItems: 'flex-start' }}>
+        <Stack spacing={3} sx={{ flex: 1, minWidth: 0, alignSelf: 'stretch' }}>
+          {PHASES.map((phase) => {
+            const list = stages.filter((s) => s.phase === phase)
+            if (!list.length) return null
+            return (
+              <Box key={phase}>
+                <Typography variant="h6" sx={{ mb: 1.5 }}>
+                  {t(phase)}
+                </Typography>
+                {list.map((s) => (
+                  <Box
+                    key={s.id}
+                    sx={{
+                      display: 'flex',
+                      gap: 2,
+                      position: 'relative',
+                      pb: 2,
+                      '&:last-child': { pb: 0 },
+                      '&:not(:last-child)::before': { content: '""', position: 'absolute', left: 15, top: 32, bottom: 0, borderLeft: '2px solid', borderColor: 'divider' },
+                    }}
+                  >
+                    <Box sx={{ width: 32, height: 32, borderRadius: '50%', bgcolor: 'primary.main', color: 'primary.contrastText', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, flexShrink: 0 }}>
+                      {stages.indexOf(s) + 1}
+                    </Box>
+                    <Paper sx={{ p: 2, flex: 1, minWidth: 0, transition: 'box-shadow .15s', '&:hover': { boxShadow: 3 } }}>
+                      <Typography sx={{ fontWeight: 600 }}>{s.title[lang]}</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        {s.text[lang]}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 1, fontFamily: 'monospace' }}>
+                        {s.model ? `${s.tools} · ${s.model}` : s.tools}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" component="div">
+                        {t('produces', { x: s.produces[lang] })}
+                      </Typography>
+                    </Paper>
+                  </Box>
+                ))}
+              </Box>
+            )
+          })}
+        </Stack>
+
+        {ex && lines && (
+          <Paper sx={{ p: 2.5, width: { xs: '100%', md: 300 }, flexShrink: 0, position: { md: 'sticky' }, top: 88 }}>
+            <Typography sx={{ fontWeight: 600, mb: 1.5 }}>{t('example', { title: ex.title || ex.filename })}</Typography>
+            {PHASES.map((phase) => (
+              <Box key={phase} sx={{ mb: 1.5 }}>
+                <Typography variant="overline" color="primary" component="div" sx={{ lineHeight: 1.8 }}>
+                  {t(phase)}
+                </Typography>
+                {lines[phase].map((l) => (
+                  <Typography key={l} variant="body2" color="text.secondary">
+                    {l}
+                  </Typography>
+                ))}
+              </Box>
+            ))}
+            <Link component={RouterLink} to={`/contracts/${ex.id}`} variant="body2">
+              {t('open')}
+            </Link>
           </Paper>
-        ))}
-      </Stack>
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          {t('models')}
-        </Typography>
-        {config?.llm_enabled ? (
-          <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 3, rowGap: 0.5 }}>
-            {config.routing
-              .filter((r) => r.task in PURPOSE)
-              .map((r) => (
-                <Box key={r.task} sx={{ display: 'contents' }}>
-                  <Typography component="dt" variant="body2">{PURPOSE[r.task][lang]}</Typography>
-                  <Typography component="dd" variant="body2" color="text.secondary" sx={{ m: 0, fontFamily: 'monospace' }}>{r.model}</Typography>
-                </Box>
-              ))}
-          </Box>
-        ) : (
-          <Typography color="text.secondary">{t('offline')}</Typography>
         )}
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          {t('data')}
+      </Stack>
+
+      {config && !config.llm_enabled && (
+        <Typography variant="body2" color="text.secondary">
+          {t('offline')}
         </Typography>
-      </Paper>
+      )}
+      <Typography variant="body2" color="text.secondary">
+        {t('data')}
+      </Typography>
     </Stack>
   )
 }

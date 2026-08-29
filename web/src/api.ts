@@ -96,6 +96,8 @@ export type Doc = {
 }
 
 export type DocDetail = Doc & {
+  clauses: number // clauses recognised while reading
+  entities: number // company-name hits while reading
   report: Report
   page_rows: { page_no: number; method: string; confidence: number; text: string }[]
 }
@@ -110,14 +112,48 @@ export type Config = {
   embedding: { model: string; dim: number }
 }
 
+/** One contract flagged by a cross-contract audit (POST /api/audits). */
+export type Finding = {
+  id: number
+  document_id: number
+  verdict: string // confirmed | partial | unverified | not_cross_checked | dismissed
+  evidence: { page: number; quote: string }[]
+  reasoning: string
+}
+
+export type Audit = {
+  id: number
+  kind: string // missing_clause | missing_passage | rename
+  params: Record<string, string>
+  status: string // running | done | failed
+  summary: { scope?: number; findings?: Record<string, number>; error?: string }
+  created_at: string
+  findings: number | Finding[] // count in the list, rows in the detail
+}
+
+/** One step of the processing pipeline (GET /api/pipeline, generated from the backend code). */
+export type Stage = {
+  id: string
+  phase: 'read' | 'check' | 'decide'
+  title: { de: string; en: string }
+  text: { de: string; en: string }
+  tools: string
+  task: string | null
+  model: string | null
+  produces: { de: string; en: string }
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init)
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
   return res.json()
 }
 
+const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+
 export const api = {
   config: () => request<Config>('/api/config'),
+  pipeline: () => request<{ stages: Stage[] }>('/api/pipeline'),
   documents: () => request<Doc[]>('/api/documents'),
   document: (id: number) => request<DocDetail>(`/api/documents/${id}`),
   upload: (files: File[], language: string) => {
@@ -126,10 +162,13 @@ export const api = {
     return request<{ queued: number }>(`/api/documents/upload?language=${language}`, { method: 'POST', body })
   },
   ingestSamples: (language: string) => request<{ queued: number }>(`/api/documents/ingest-samples?language=${language}`, { method: 'POST' }),
+  sync: () => request<{ source: string; queued: boolean }>('/api/documents/sync', { method: 'POST' }),
   recheck: (id: number, language: string) => request<{ queued: number }>(`/api/documents/${id}/report?language=${language}`, { method: 'POST' }),
   retryDocument: (id: number) => request<{ queued: number }>(`/api/documents/${id}/retry`, { method: 'POST' }),
   deleteDocument: (id: number) => request<{ deleted: number }>(`/api/documents/${id}`, { method: 'DELETE' }),
   decide: (id: number, key: string, body: { decision: Decision; note?: string; edited_text?: string }) =>
-    request<Report>(`/api/documents/${id}/items/${encodeURIComponent(key)}/decide`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+    request<Report>(`/api/documents/${id}/items/${encodeURIComponent(key)}/decide`, json(body)),
   fileToStorage: (id: number) => request<{ external_id: string; duplicate: boolean }>(`/api/documents/${id}/file-to-storage`, { method: 'POST' }),
+  createAudit: (kind: string, params: Record<string, string>) => request<Audit>('/api/audits', json({ kind, params })),
+  audit: (id: number) => request<Audit & { findings: Finding[] }>(`/api/audits/${id}`),
 }

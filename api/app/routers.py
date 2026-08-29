@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import chat, correct, evaluation, files, policy, report, sources
+from app import chat, correct, evaluation, files, pipeline, policy, report, sources
 from app.audits.graph import coverage_matrix, run_audit
 from app.config import settings
 from app.db import SessionLocal, get_session
@@ -48,6 +48,12 @@ def _doc_summary(d: Document, clause_count: int, entity_count: int) -> dict:
             "injection_note": d.injection_note, "warnings": d.warnings, "sha256": d.sha256, "created_at": d.created_at,
             "clauses": clause_count, "entities": entity_count,
             "report_status": d.report.get("status", "pending"), "report_summary": d.report.get("summary")}
+
+
+@router.get("/pipeline")
+def pipeline_stages() -> dict:
+    """The stages every contract goes through - the 'So funktioniert es' page is generated from this."""
+    return pipeline.describe()
 
 
 @router.get("/documents")

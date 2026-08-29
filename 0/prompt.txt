@@ -1,0 +1,94 @@
+The current landing page of the website works fine but the page after the AI or the OCR reader, whatever, is done finding the clauses which are missing or even the contracts which contain the old names or old company names. Even if they are images which are scanned to create a PDF, the legal team obviously has a physical copy of all of this so we actually don't need to edit the PDF per se. The ones which have text or something should be editable on the website but the ones which are the image scans we should be able to just show them or point the legal team to the exact location in the PDF where the request changes are.
+
+I need an overlay after the landing page which shows which parts are missing after the landing page. When someone uploads a PDF or contract and the missing clauses are older or references to folder company names are found on the next page, I need the website to go to a PDF overlay similar to what I love PDF does with the edit PDF. I need the website to point to certain parts of the PDF where there is a clause missing. As a human or a legal person who doesn't have a tech background, until they see the PDF itself they will not have trust in the system.
+
+Currently it feels like there are too many tables outside the PDFs or too many things which are happening on the website itself and not exactly on the website itself. It doesn't increase the trust of the legal person until they see the PDF itself. I need a PDF overlay where you can scroll through the entire PDF like a PDF viewer, so to speak. After that the AI or the website should be able to point to certain parts of the PDF where there is something missing. When I hover over it I should be able to see the suggestions which the AI has made and there I need to be able to make changes if it's actually text in a digitally generated PDF. Otherwise if it's a JPG I should be able to see all the comments or corrections that the AI suggests.
+
+After this I still need the step where if the AI is doing something wrong, I need a simple overlay or somewhere where the legal team can correct the AI. This should get stored in the backend. Next time when the same file appears, the suggestion should improve and over time, as I said before, the human in the loop should reduce and there should be fewer mistakes made by the AI. That's what I need.
+
+---
+
+<task-notification>
+<task-id>ad47ca310ec1b18ab</task-id>
+<tool-use-id>toolu_018dPnnA8CABn4PuQNDifLRR</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-gaurav-Downloads-riverty-challenge/046eadd3-6aa8-4b09-adc8-e3efac5fd391/tasks/ad47ca310ec1b18ab.output</output-file>
+<status>completed</status>
+<summary>Agent "Rewrite report unit tests" finished</summary>
+<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>
+<result>Done. All three files are green.
+
+## Files changed (only these three)
+
+- `/Users/gaurav/Downloads/riverty_challenge/api/tests/test_report_units.py` — rewritten against the new `report.py` (11 tests)
+- `/Users/gaurav/Downloads/riverty_challenge/api/tests/test_learning_units.py` — new (4 tests)
+- `/Users/gaurav/Downloads/riverty_challenge/api/tests/test_correct_units.py` — new (2 tests)
+
+`cd api &amp;&amp; uv run pytest tests/test_report_units.py tests/test_learning_units.py tests/test_correct_units.py -q` → **17 passed**. No app code touched; nothing committed. (`test_end_to_end_db.py` / `test_live_gemini.py` not run.)
+
+## What the tests do
+
+**test_report_units.py** — an `offline` fixture (composed into `no_model` / `verifier`) patches `learning.precedents → []`, `learning.previous → None`, `learning.rate → 1.0`, `report.source_path → None`, `report.draft_clause → None`, so the real `finalize` and real `learning.apply` run with no DB and no PDF. The fake `_verify` now accepts the 4th `precedents` argument; the fake doc gained `id, sha256, language, input_type, pages, report`, clauses gained `ordinal`. All previous coverage kept (rule-only, refuted/partial, old names incl. historical + refuted, `required_for`, `build()` failure path); summaries now include `open/accepted/dismissed/auto`. Added:
+- items for missing/partial clauses and old names: exact keys (`clause:&lt;type&gt;`, `name:&lt;page&gt;:&lt;slug&gt;`), kinds, anchors (`insert`/`highlight`, bbox None without a file), titles per language, suggestions (`Riverty GmbH` vs `Riverty` for `AFS`), a fake `Draft` becoming `"&lt;heading&gt;\n\n&lt;text&gt;"` with the partial quote passed to the drafter, `class_key`, `review`, `policy`;
+- a dismissed decision and a hand-edited suggestion survive a second `finalize` on the same report;
+- `decide()` with a fake session: review fields, summary counts, the `Decision` row handed to `session.add`, reopen, unknown key → `KeyError`.
+
+**test_learning_units.py** — `class_key`; `apply()` with patched `rate`/`_spot`/`previous`: unverified → required even at rate 0.2; rate 1.0 → required; rate 0.2 &amp; no sample → auto, and exactly the lowest key is turned back to `open` / `spot_check` with `minimum: True`; sampled → spot_check without a minimum; a previous decision → `carried_over` with earlier status/note/edited_text/actor/timestamp, and a carried-over item does not count as the contract's spot check.
+
+**test_correct_units.py** — real C01 PDF via patched `correct.source_path`: accepted rename removes `arvato Financial Solutions` from page 1 and inserts `Riverty GmbH`; accepted clause adds one page with `Addendum` + the body text and leaves an `Addendum: anti-corruption / compliance` note on page 2; the original file is unchanged; dismissed items change nothing.
+
+## Things in app code that look like real issues (not fixed)
+
+1. **`app/correct.py` TITLES en dash renders wrong.** `"Addendum – inserted clauses"` / `"Nachtrag – eingefügte Klauseln"` come out as `Addendum · inserted clauses` in the generated addendum: the base-14 `hebo`/`helv` fonts have no U+2013, so PyMuPDF substitutes a middle dot. Use `-` or a Unicode font. (My test asserts only `"Addendum"` so it does not depend on this.)
+2. **`app/correct.py` `_write_addendum` can silently drop a clause.** If a block does not fit on the current page, it retries once on a fresh page; if it still does not fit (a clause longer than one page), the loop ends and the text is never written, with no error.
+3. **`app/correct.py` rename replaces case-insensitively / by substring.** `page.search_for` is case-insensitive (`search_for("afs")` = 2 hits on C01; `search_for("MERCHANT")` = 5), so a short alias such as `AFS` can be redacted inside unrelated words on other contracts. Harmless on C01, risky in general.
+4. **Pre-existing unrelated failure:** `tests/test_resilience_units.py::test_with_retry_gives_up_loudly_and_raises_non_transient_immediately` fails on its own (`assert 1 == 4`): `with_retry` now fails fast on `"429 RESOURCE_EXHAUSTED"` because it matches the `QUOTA` pattern in `app/llm.py`, but the test still expects 4 attempts. Not caused by my changes.
+
+Minor observations, not bugs: `report.decide()` never updates `item["policy"]`, so an item a human accepts after auto-acceptance keeps `policy.kind == "auto"`; `_build` queries `learning.precedents` for every required clause even when it is confidently present and never verified (wasted DB round-trips). Also note `git status` shows `tests/test_report_units.py` was untracked (never committed), plus unrelated pending edits in `README.md`, `docs/`, `web/`, `tests/test_end_to_end_db.py` and an untracked `data/cache/` that predate this task.</result>
+<usage><subagent_tokens>99902</subagent_tokens><tool_uses>16</tool_uses><duration_ms>482548</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>bq0sifjx3</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-gaurav-Downloads-riverty-challenge/046eadd3-6aa8-4b09-adc8-e3efac5fd391/tasks/bq0sifjx3.output</output-file>
+<status>completed</status>
+<summary>Background command "Run the full end-to-end DB suite against ci_test" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>a8ad97095503e202a</task-id>
+<tool-use-id>toolu_01NoB6ARL536T5QDJRRnjHmx</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-gaurav-Downloads-riverty-challenge/046eadd3-6aa8-4b09-adc8-e3efac5fd391/tasks/a8ad97095503e202a.output</output-file>
+<status>completed</status>
+<summary>Agent "Update docs for viewer product" finished</summary>
+<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>
+<result>All five docs are updated; every anchor matched exactly once, and the stale-phrase sweep only hits intended uses ("API-only" for the audits, "full text" for the verifier).
+
+## Changed files
+
+- `/Users/gaurav/Downloads/riverty_challenge/README.md`
+- `/Users/gaurav/Downloads/riverty_challenge/docs/ui-spec.md`
+- `/Users/gaurav/Downloads/riverty_challenge/docs/ps-coverage.md`
+- `/Users/gaurav/Downloads/riverty_challenge/docs/how-ai-was-used.md`
+- `/Users/gaurav/Downloads/riverty_challenge/docs/tech-choices.md`
+
+## Summary
+
+1. **README**: intro, feature table (new row on carry-over/falling review rate, "sensitive documents" now about the untouched original and the corrected copy), contract-page bullet, architecture diagram (place → draft → viewer → decisions → storage), module list (`files/locate/draft/learning/correct`, startup catch-up), per-document API line, "Also in the API" (audit review queue stays API-only; same `policy.py` rules), run-through, and test commands with the counts as instructed (39 unit / 12 e2e / 10 live; report/learning/correct unit files and Playwright by name only).
+2. **ui-spec.md** is now the contract for start page + viewer + how-it-works: pages at 110 dpi with cached PNGs, marker table by kind/anchor (box, dashed insertion line, page-level banner), where boxes come from, sidebar (Fundstellen, Vorhandene Klauseln, gated download/filing buttons, degraded caption), popover contents, decision-state table (open/accepted/dismissed/auto + carried_over) with the exact labels from `Contract.tsx`, what a decision does server-side, and the corrected copy per input type; how-it-works section unchanged.
+3. **ps-coverage.md**: A1/A4/A5/A6/A7 and the deliverables rows rewritten for markers, decisions, corrected copy and the `copy-&lt;sha256&gt;` idempotent filing; D1 gains the 18/18 line; D2 test suites rewritten; F gains the honest limits (draft never final, handwriting boxes depend on OCR/vision, addendum page, quota → "ohne KI-Gegenprüfung" until restart, audits/chat API-only). CUAD numbers untouched.
+4. **how-ai-was-used.md**: PDF-overlay demand added to "what the human decided", verification counts updated, new dated entry "2026-08-29 — the findings on the PDF itself" (the quote, what was built, the quota 429 that hung the pipeline, `QUOTA_COOLDOWN` fail-fast + `degraded` + startup re-check), two new known limits.
+5. **tech-choices.md**: four small additions only (vision also places handwriting markers, Tesseract word boxes place scan markers, draft/locate on the cheap tier, PyMuPDF's roles in viewer and corrected copy).
+
+## Things you should know
+
+- **One unit test currently fails** in the "stable" set: `tests/test_resilience_units.py::test_with_retry_gives_up_loudly_and_raises_non_transient_immediately` expects 4 attempts on `429 RESOURCE_EXHAUSTED`, but `with_retry` now fails fast after one call (`assert 1 == 4`). It is stale against the new `QUOTA_COOLDOWN` contract, not a doc problem; the docs say "39 offline unit tests" (38 pass). I did not touch it (docs-only remit).
+- `tests/test_learning_units.py` and `tests/test_correct_units.py` do not exist yet in `api/tests/`; the docs reference them by name as instructed.
+- `web/src/pages/Contract.tsx` was still being edited on disk while I read it (582 → 626 lines); the spec reflects the labels and layout as read.
+- `HowItWorks.tsx` filters the model card to tasks in its `PURPOSE` map, so `draft`, `locate` and `answer` are not listed there. I left that page's section unchanged per your instruction, but the "task → model id" sentence is slightly broader than what the card shows.</result>
+<usage><subagent_tokens>135830</subagent_tokens><tool_uses>37</tool_uses><duration_ms>773813</duration_ms></usage>
+</task-notification>

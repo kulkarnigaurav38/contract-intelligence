@@ -27,6 +27,7 @@ class Document(Base):
     injection_suspected: Mapped[bool] = mapped_column(default=False)
     injection_note: Mapped[str] = mapped_column(Text, default="")
     warnings: Mapped[list] = mapped_column(JSON, default=list)  # stages that had to fall back (provider outage etc.)
+    report: Mapped[dict] = mapped_column(JSON, default=dict)  # the per-contract result, see report.py
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     page_rows: Mapped[list["Page"]] = relationship(back_populates="document", cascade="all, delete-orphan")

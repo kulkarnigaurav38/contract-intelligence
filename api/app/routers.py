@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import chat, evaluation, policy, sources
+from app import chat, evaluation, policy, report, sources
 from app.audits.graph import coverage_matrix, run_audit
 from app.config import settings
 from app.db import SessionLocal, get_session
@@ -45,7 +45,8 @@ def _doc_summary(d: Document, clause_count: int, entity_count: int) -> dict:
             "language": d.language, "input_type": d.input_type, "pages": d.pages, "status": d.status,
             "error": d.error, "ingest_summary": d.ingest_summary, "injection_suspected": d.injection_suspected,
             "injection_note": d.injection_note, "warnings": d.warnings, "sha256": d.sha256, "created_at": d.created_at,
-            "clauses": clause_count, "entities": entity_count}
+            "clauses": clause_count, "entities": entity_count,
+            "report_status": d.report.get("status", "pending"), "report_summary": d.report.get("summary")}
 
 
 @router.get("/documents")
@@ -61,7 +62,7 @@ def get_document(doc_id: int, session: Session = Depends(get_session)) -> dict:
     d = session.get(Document, doc_id)
     if not d:
         raise HTTPException(404)
-    return {**_doc_summary(d, len(d.clauses), len(d.entities)),
+    return {**_doc_summary(d, len(d.clauses), len(d.entities)), "report": d.report,
             "page_rows": [{"page_no": p.page_no, "method": p.method, "confidence": p.confidence, "text": p.text}
                           for p in sorted(d.page_rows, key=lambda p: p.page_no)],
             "clause_rows": [{"id": c.id, "ordinal": c.ordinal, "page_no": c.page_no, "heading": c.heading,
@@ -73,18 +74,20 @@ def get_document(doc_id: int, session: Session = Depends(get_session)) -> dict:
                             for e in d.entities]}
 
 
-def _ingest_many(paths: list[Path], actor: str) -> None:
+def _ingest_many(paths: list[Path], actor: str, language: str = "de") -> None:
     for path in paths:
         with SessionLocal() as session:
-            ingest_path(session, path, actor)
+            doc = ingest_path(session, path, actor)
+            if doc.status == "ready" and not doc.report:  # a re-uploaded (known) file keeps its report
+                report.build(session, doc, language)
 
 
 @router.post("/documents/ingest-samples")
-def ingest_samples(background: BackgroundTasks, actor: str = "system", batch: int = 1) -> dict:
+def ingest_samples(background: BackgroundTasks, actor: str = "system", batch: int = 1, language: str = "de") -> dict:
     """batch 1 = the sample set; batch 2 = the 'new arrivals'; 3 = real contracts (CUAD subset); 4 = real German documents."""
     folder = settings.data_dir / {1: "contracts", 2: "contracts_batch2", 3: "real/cuad", 4: "real/german"}.get(batch, "contracts")
     paths = sorted(p for p in folder.iterdir() if p.suffix.lower() in (".pdf", ".jpg", ".jpeg", ".png"))
-    background.add_task(_ingest_many, paths, actor)
+    background.add_task(_ingest_many, paths, actor, language)
     return {"queued": len(paths)}
 
 
@@ -101,28 +104,47 @@ def sync_source(background: BackgroundTasks, actor: str = "system") -> dict:
 
 
 @router.post("/documents/upload")
-def upload(background: BackgroundTasks, file: UploadFile, actor: str = "legal.reviewer") -> dict:
+def upload(background: BackgroundTasks, files: list[UploadFile], actor: str = "legal.reviewer", language: str = "de") -> dict:
+    """One or many contracts at once; each is read and checked automatically."""
     UPLOADS.mkdir(exist_ok=True)
-    data = file.file.read()
-    path = UPLOADS / f"{hashlib.sha256(data).hexdigest()[:12]}_{Path(file.filename).name}"
-    path.write_bytes(data)
-    background.add_task(_ingest_many, [path], actor)
-    return {"queued": 1, "filename": path.name}
+    paths = []
+    for file in files:
+        data = file.file.read()
+        path = UPLOADS / f"{hashlib.sha256(data).hexdigest()[:12]}_{Path(file.filename).name}"
+        path.write_bytes(data)
+        paths.append(path)
+    background.add_task(_ingest_many, paths, actor, language)
+    return {"queued": len(paths), "filenames": [p.name for p in paths]}
 
 
-def _guidelines() -> dict:
-    return json.loads((settings.data_dir / "guidelines.json").read_text())
+def _report_job(doc_id: int, language: str) -> None:
+    with SessionLocal() as session:
+        doc = session.get(Document, doc_id)
+        if doc and doc.status == "ready":
+            report.build(session, doc, language)
 
 
-def required_clauses(contract_type: str) -> list[str]:
-    g = _guidelines()
-    return sorted(set(g.get("*", [])) | set(g.get(contract_type, [])))
+@router.post("/documents/{doc_id}/report")
+def rebuild_report(doc_id: int, background: BackgroundTasks, language: str = "de", session: Session = Depends(get_session)) -> dict:
+    """Check a contract again (e.g. after the guideline changed or a provider outage)."""
+    d = session.get(Document, doc_id)
+    if not d:
+        raise HTTPException(404)
+    d.report = {"status": "running"}
+    session.commit()
+    background.add_task(_report_job, doc_id, language)
+    return {"queued": 1}
 
 
-@router.get("/guidelines")
-def guidelines() -> dict:
-    g = _guidelines()
-    return {k: v for k, v in g.items() if not k.startswith("_")}
+@router.delete("/documents/{doc_id}")
+def delete_document(doc_id: int, actor: str = "legal.reviewer", session: Session = Depends(get_session)) -> dict:
+    d = session.get(Document, doc_id)
+    if not d:
+        raise HTTPException(404)
+    log(session, actor, "document.deleted", "document", d.id, {"filename": d.filename, "sha256": d.sha256})
+    session.delete(d)
+    session.commit()
+    return {"deleted": doc_id}
 
 
 @router.post("/documents/{doc_id}/retry")

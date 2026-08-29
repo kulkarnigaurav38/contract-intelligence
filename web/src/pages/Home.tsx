@@ -1,14 +1,18 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
+import Divider from '@mui/material/Divider'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import LinearProgress from '@mui/material/LinearProgress'
 import Link from '@mui/material/Link'
 import List from '@mui/material/List'
 import ListItemButton from '@mui/material/ListItemButton'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
+import Radio from '@mui/material/Radio'
+import RadioGroup from '@mui/material/RadioGroup'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
@@ -18,10 +22,11 @@ import DriveFileRenameOutlineIcon from '@mui/icons-material/DriveFileRenameOutli
 import GridOnIcon from '@mui/icons-material/GridOn'
 import HowToRegIcon from '@mui/icons-material/HowToReg'
 import ManageSearchIcon from '@mui/icons-material/ManageSearch'
+import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import { api, type Audit, type Doc } from '../api'
 import { useLabel, useSettings, useT } from '../i18n'
-import { Small, Tech } from '../components/tech'
+import { Details, Small, Tech } from '../components/tech'
 import { EmptyState, ErrorAlert, legibility, usePolling, useToast } from '../components/ui'
 import { AUDIT_KINDS, AUDIT_QUESTIONS, AUDIT_STATUS, CLAUSE_TYPES, COMMON, CONTRACT_TYPES, CONTRACT_TYPE_KEYS } from '../vocab'
 
@@ -30,6 +35,32 @@ const T = {
   day: { de: 'Guten Tag', en: 'Good afternoon' },
   evening: { de: 'Guten Abend', en: 'Good evening' },
   headline: { de: 'Was möchten Sie wissen?', en: 'What would you like to know?' },
+  what: { de: 'Contract Intelligence liest Ihre Verträge ein – PDFs, Scans und Fotos –, findet Verträge, in denen eine Klausel oder Regelung fehlt oder noch ein alter Firmenname steht, und legt Ihnen jeden Fund mit Beleg und Seitenzahl zur Freigabe vor. Ohne Ihre Freigabe passiert nichts.', en: 'Contract Intelligence reads your contracts – PDFs, scans and photos –, finds contracts that lack a clause or passage or still carry an old company name, and puts every finding in front of you with its evidence and page for approval. Nothing happens without your approval.' },
+  step1: { de: 'Verträge einlesen', en: 'Read contracts in' },
+  step1_text: { de: 'Hochladen oder aus der Ablage abholen. Jeder Vertrag wird in Klauseln und Namen zerlegt.', en: 'Upload or fetch from the library. Every contract is split into clauses and names.' },
+  step2: { de: 'Prüfung starten', en: 'Start a check' },
+  step2_text: { de: 'Eine der drei Fragen stellen. Die Antwort kommt mit Beleg und wird von der KI gegengeprüft.', en: 'Ask one of the three questions. The answer comes with evidence and is cross-checked by the AI.' },
+  step3: { de: 'Funde freigeben', en: 'Approve findings' },
+  step3_text: { de: 'Jeden Fund ansehen, freigeben oder ablehnen. Ihre Entscheidungen senken mit der Zeit die Prüflast.', en: 'Look at each finding, approve or reject. Your decisions lower the review load over time.' },
+  new_check: { de: 'Neue Prüfung', en: 'New check' },
+  q_which: { de: '1 · Was möchten Sie prüfen?', en: '1 · What would you like to check?' },
+  q_input: { de: '2 · Ihre Angabe', en: '2 · Your input' },
+  q_scope: { de: '3 · Eingrenzen (optional)', en: '3 · Narrow down (optional)' },
+  exp_missing_clause: { de: 'Findet Verträge, in denen eine der zwölf Standardklauseln nicht vorkommt – z. B. keine Haftungsbegrenzung.', en: 'Finds contracts in which one of the twelve standard clauses does not occur – e.g. no limitation of liability.' },
+  exp_missing_passage: { de: 'Findet Verträge, die eine bestimmte Regelung nicht enthalten. Sie beschreiben die Regelung in eigenen Worten.', en: 'Finds contracts that do not contain a specific passage. You describe the passage in your own words.' },
+  exp_rename: { de: 'Findet Verträge, die noch einen alten Firmennamen als Vertragspartei nennen – historische Verweise („vormals“) werden nicht gemeldet.', en: 'Finds contracts that still name an old company name as a party – historical references (“formerly”) are not reported.' },
+  clause_help: { de: 'Die Zahl in Klammern: in wie vielen Verträgen diese Klausel bisher nicht gefunden wurde.', en: 'The number in brackets: in how many contracts this clause has not been found so far.' },
+  scope_help: { de: 'Leer lassen, um alle Verträge zu prüfen.', en: 'Leave empty to check all contracts.' },
+  start: { de: 'Prüfung starten', en: 'Start check' },
+  glossary: { de: 'Was bedeuten die Begriffe?', en: 'What do the terms mean?' },
+  g_check: { de: 'Prüfung', en: 'Check' }, g_check_d: { de: 'Eine Frage, die über alle Verträge (oder eine Vertragsart) beantwortet wird. Ergebnis: eine Liste von Funden.', en: 'A question answered across all contracts (or one contract type). Result: a list of findings.' },
+  g_finding: { de: 'Fund', en: 'Finding' }, g_finding_d: { de: 'Ein Vertrag, auf den die Frage zutrifft – mit Beleg, Seite und Verlässlichkeit. Ein Fund wartet auf Ihre Entscheidung.', en: 'A contract the question applies to – with evidence, page and confidence. A finding waits for your decision.' },
+  g_evidence: { de: 'Beleg', en: 'Evidence' }, g_evidence_d: { de: 'Die zitierte Stelle im Vertrag, auf die sich ein Fund stützt. „Vertrag öffnen“ springt dorthin.', en: 'The quoted passage a finding rests on. “Open contract” jumps to it.' },
+  g_verify: { de: 'KI-Gegenprüfung', en: 'AI cross-check' }, g_verify_d: { de: 'Ein unabhängiges Modell liest den ganzen Vertrag und bestätigt oder entkräftet den Fund. Fehlt sie, ist der Fund „nicht gegengeprüft“.', en: 'An independent model reads the whole contract and confirms or refutes the finding. Without it a finding is “not cross-checked”.' },
+  g_approve: { de: 'Freigabe', en: 'Approval' }, g_approve_d: { de: 'Ihre Entscheidung zu einem Fund. Sie wird mit Zeitpunkt und Prüfsumme protokolliert. Freigegebene Funde können in der Vertragsablage abgelegt werden.', en: 'Your decision on a finding. It is logged with time and checksum. Approved findings can be filed in the contract storage.' },
+  g_matrix: { de: 'Klausel-Übersicht', en: 'Clause overview' }, g_matrix_d: { de: 'Welche der zwölf Standardklauseln in welchem Vertrag gefunden wurden – entsteht beim Einlesen. Rote Striche: laut Richtlinie erforderlich, aber nicht gefunden.', en: 'Which of the twelve standard clauses were found in which contract – built while reading. Red dashes: required by the guideline but not found.' },
+  g_legibility: { de: 'Lesbarkeit', en: 'Legibility' }, g_legibility_d: { de: 'Wie zuverlässig ein Scan gelesen werden konnte. „Nicht lesbar“ heißt: der Vertrag gilt als ungeprüft, bitte Original ansehen.', en: 'How reliably a scan could be read. “Unreadable” means: the contract counts as unchecked, please look at the original.' },
+  g_load: { de: 'Prüflast', en: 'Review load' }, g_load_d: { de: 'Der Anteil der Funde, den Sie noch selbst ansehen. Er sinkt, wenn Sie einer Fundart wiederholt zustimmen, und steigt sofort wieder, wenn Sie ablehnen.', en: 'The share of findings you still look at yourself. It falls when you repeatedly agree with a kind of finding and rises again as soon as you reject one.' },
   clause: { de: 'Klausel', en: 'Clause' },
   missing_1: { de: '(1 fehlt)', en: '(1 missing)' },
   missing_n: { de: '({n} fehlen)', en: '({n} missing)' },
@@ -99,29 +130,6 @@ function storedClause(): string {
 function greetingKey(): 'morning' | 'day' | 'evening' {
   const h = new Date().getHours()
   return h < 12 ? 'morning' : h < 18 ? 'day' : 'evening'
-}
-
-// ---------------------------------------------------------------- question card
-function QuestionCard({ kind, icon, children, onCheck, disabled, hint }: { kind: string; icon: ReactNode; children: ReactNode; onCheck: () => void; disabled: boolean; hint?: string }) {
-  const question = useLabel(AUDIT_QUESTIONS)
-  const tc = useT(COMMON)
-  return (
-    <Paper sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'flex-start' }}>
-        <Box sx={{ color: 'primary.main', display: 'flex', mt: 0.25 }}>{icon}</Box>
-        <Typography variant="h6" sx={{ fontSize: 17, lineHeight: 1.35 }}>
-          {question(kind)}
-        </Typography>
-      </Stack>
-      <Box sx={{ flexGrow: 1 }}>{children}</Box>
-      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-        <Button variant="contained" onClick={onCheck} disabled={disabled}>
-          {tc('check')}
-        </Button>
-        {hint && <Small>{hint}</Small>}
-      </Stack>
-    </Paper>
-  )
 }
 
 // ---------------------------------------------------------------- recent check as a sentence
@@ -284,91 +292,56 @@ export default function Home() {
   const autoCount = allFindings?.filter((f) => f.review_status === 'auto_approved').length ?? 0
   const autoLine =
     autoCount > 0 ? (
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-        {autoCount === 1 ? t('auto_one') : t('auto_many', { n: autoCount })}
-      </Typography>
+      <Small sx={{ mt: 0.5 }}>{autoCount === 1 ? t('auto_one') : t('auto_many', { n: autoCount })}</Small>
     ) : null
 
+  const questionLabel = useLabel(AUDIT_QUESTIONS)
+  const [kind, setKind] = useState<'missing_clause' | 'missing_passage' | 'rename'>('rename')
+  const canStart = canCheck && (kind === 'missing_clause' ? !!clauseValue : kind === 'missing_passage' ? !!passage.trim() : true)
+  const startSelected = () => {
+    if (kind === 'missing_clause') return start('missing_clause', { clause_type: clauseValue })
+    if (kind === 'missing_passage') return start('missing_passage', { passage: passage.trim() })
+    return start('rename', oldName.trim() ? { old_name: oldName.trim() } : {})
+  }
+  const QUESTIONS = [
+    { key: 'missing_clause' as const, icon: <GridOnIcon fontSize="small" /> },
+    { key: 'missing_passage' as const, icon: <ManageSearchIcon fontSize="small" /> },
+    { key: 'rename' as const, icon: <DriveFileRenameOutlineIcon fontSize="small" /> },
+  ]
+  const STEPS = [
+    { n: 1, title: t('step1'), text: t('step1_text'), to: '/contracts' },
+    { n: 2, title: t('step2'), text: t('step2_text'), to: '/checks' },
+    { n: 3, title: t('step3'), text: t('step3_text'), to: '/approvals' },
+  ]
+  const GLOSSARY = ['check', 'finding', 'evidence', 'verify', 'approve', 'matrix', 'legibility', 'load'] as const
+
   return (
-    <Stack spacing={3} sx={{ maxWidth: 1100 }}>
+    <Stack spacing={3} sx={{ maxWidth: 1000 }}>
       {docsError && <ErrorAlert msg={docsError} severity="warning" />}
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ justifyContent: 'space-between', alignItems: { md: 'flex-end' } }}>
-        <Box>
-          <Typography variant="body1" color="text.secondary">
-            {t(greetingKey())}
-          </Typography>
-          <Typography variant="h5">{t('headline')}</Typography>
-        </Box>
-        <TextField
-          select
-          size="small"
-          label={tc('contract_type')}
-          value={contractType}
-          onChange={(e) => setContractType(e.target.value)}
-          slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
-          sx={{ minWidth: 280 }}
-        >
-          <MenuItem value="">{tc('all_types')}</MenuItem>
-          {CONTRACT_TYPE_KEYS.map((k) => (
-            <MenuItem key={k} value={k}>
-              {ctypeLabel(k)}
-            </MenuItem>
+      <Box>
+        <Typography variant="body2" color="text.secondary">
+          {t(greetingKey())}
+        </Typography>
+        <Typography variant="h5" sx={{ mb: 1 }}>
+          {t('headline')}
+        </Typography>
+        <Typography variant="body1" sx={{ maxWidth: 760 }}>
+          {t('what')}
+        </Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, mt: 2 }}>
+          {STEPS.map((s) => (
+            <Stack key={s.n} direction="row" spacing={1.25} component={RouterLink} to={s.to} sx={{ textDecoration: 'none', color: 'inherit', alignItems: 'flex-start' }}>
+              <Box sx={{ width: 24, height: 24, borderRadius: '50%', bgcolor: 'primary.main', color: 'primary.contrastText', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, mt: '2px' }}>
+                {s.n}
+              </Box>
+              <Box>
+                <Typography variant="subtitle2">{s.title}</Typography>
+                <Small>{s.text}</Small>
+              </Box>
+            </Stack>
           ))}
-        </TextField>
-      </Stack>
-
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' }, gap: 2 }}>
-        <QuestionCard kind="missing_clause" icon={<GridOnIcon />} disabled={!canCheck || !clauseValue} hint={hint} onCheck={() => start('missing_clause', { clause_type: clauseValue })}>
-          <TextField select fullWidth size="small" label={t('clause')} value={clauseValue} onChange={(e) => chooseClause(e.target.value)}>
-            {taxonomy.map((k) => (
-              <MenuItem key={k} value={k}>
-                {clauseLabel(k)}
-                {coverage && (
-                  <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                    {missing(k) === 1 ? t('missing_1') : t('missing_n', { n: missing(k) })}
-                  </Typography>
-                )}
-              </MenuItem>
-            ))}
-          </TextField>
-        </QuestionCard>
-
-        <QuestionCard kind="missing_passage" icon={<ManageSearchIcon />} disabled={!canCheck || !passage.trim()} hint={hint} onCheck={() => start('missing_passage', { passage: passage.trim() })}>
-          <TextField
-            fullWidth
-            multiline
-            size="small"
-            minRows={passageFocus ? 5 : 2}
-            label={t('passage')}
-            placeholder={t('passage_example')}
-            helperText={t('passage_help')}
-            value={passage}
-            onChange={(e) => setPassage(e.target.value)}
-            onFocus={() => setPassageFocus(true)}
-            onBlur={() => setPassageFocus(false)}
-          />
-        </QuestionCard>
-
-        <QuestionCard kind="rename" icon={<DriveFileRenameOutlineIcon />} disabled={!canCheck} hint={hint} onCheck={() => start('rename', oldName.trim() ? { old_name: oldName.trim() } : {})}>
-          <Typography variant="body2" color="text.secondary">
-            {t('registry', { names: REGISTRY_NAMES })}
-          </Typography>
-          {showOther && <TextField fullWidth size="small" label={t('other_name_label')} value={oldName} onChange={(e) => setOldName(e.target.value)} sx={{ mt: 1.5 }} />}
-          <Link
-            component="button"
-            type="button"
-            variant="caption"
-            underline="hover"
-            onClick={() => {
-              if (showOther) setOldName('')
-              setShowOther(!showOther)
-            }}
-            sx={{ mt: 1 }}
-          >
-            {showOther ? t('other_name_hide') : t('other_name')}
-          </Link>
-        </QuestionCard>
+        </Box>
       </Box>
 
       {docs && docs.length === 0 && (
@@ -392,19 +365,157 @@ export default function Home() {
       )}
 
       {docs && docs.length > 0 && (
+        <Paper sx={{ p: { xs: 2, md: 3 }, borderLeft: 4, borderLeftColor: 'primary.main' }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            {t('new_check')}
+          </Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.1fr 1fr' }, gap: { xs: 2, md: 4 } }}>
+            <Box>
+              <Typography variant="overline" color="text.secondary">
+                {t('q_which')}
+              </Typography>
+              <RadioGroup value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
+                {QUESTIONS.map((q) => (
+                  <FormControlLabel
+                    key={q.key}
+                    value={q.key}
+                    control={<Radio />}
+                    sx={{ alignItems: 'flex-start', mb: 1, mx: 0 }}
+                    label={
+                      <Box sx={{ pt: 1 }}>
+                        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                          <Box sx={{ color: 'primary.main', display: 'flex' }}>{q.icon}</Box>
+                          <Typography variant="subtitle1" sx={{ lineHeight: 1.3 }}>
+                            {questionLabel(q.key)}
+                          </Typography>
+                        </Stack>
+                        <Small>{t(`exp_${q.key}` as const)}</Small>
+                      </Box>
+                    }
+                  />
+                ))}
+              </RadioGroup>
+            </Box>
+            <Stack spacing={2.5}>
+              <Box>
+                <Typography variant="overline" color="text.secondary">
+                  {t('q_input')}
+                </Typography>
+                {kind === 'missing_clause' && (
+                  <TextField select fullWidth size="small" label={t('clause')} value={clauseValue} onChange={(e) => chooseClause(e.target.value)} helperText={t('clause_help')} sx={{ mt: 1 }}>
+                    {taxonomy.map((k) => (
+                      <MenuItem key={k} value={k}>
+                        {clauseLabel(k)}
+                        {coverage && (
+                          <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                            {missing(k) === 1 ? t('missing_1') : t('missing_n', { n: missing(k) })}
+                          </Typography>
+                        )}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+                {kind === 'missing_passage' && (
+                  <TextField
+                    fullWidth
+                    multiline
+                    size="small"
+                    minRows={passageFocus ? 5 : 3}
+                    label={t('passage')}
+                    placeholder={t('passage_example')}
+                    helperText={t('passage_help')}
+                    value={passage}
+                    onChange={(e) => setPassage(e.target.value)}
+                    onFocus={() => setPassageFocus(true)}
+                    onBlur={() => setPassageFocus(false)}
+                    sx={{ mt: 1 }}
+                  />
+                )}
+                {kind === 'rename' && (
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="body2">{t('registry', { names: REGISTRY_NAMES })}</Typography>
+                    {showOther && <TextField fullWidth size="small" label={t('other_name_label')} value={oldName} onChange={(e) => setOldName(e.target.value)} sx={{ mt: 1.5 }} />}
+                    <Link
+                      component="button"
+                      type="button"
+                      variant="caption"
+                      underline="hover"
+                      onClick={() => {
+                        if (showOther) setOldName('')
+                        setShowOther(!showOther)
+                      }}
+                      sx={{ mt: 1 }}
+                    >
+                      {showOther ? t('other_name_hide') : t('other_name')}
+                    </Link>
+                  </Box>
+                )}
+              </Box>
+              <Box>
+                <Typography variant="overline" color="text.secondary">
+                  {t('q_scope')}
+                </Typography>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  label={tc('contract_type')}
+                  value={contractType}
+                  onChange={(e) => setContractType(e.target.value)}
+                  helperText={t('scope_help')}
+                  slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
+                  sx={{ mt: 1 }}
+                >
+                  <MenuItem value="">{tc('all_types')}</MenuItem>
+                  {CONTRACT_TYPE_KEYS.map((k) => (
+                    <MenuItem key={k} value={k}>
+                      {ctypeLabel(k)}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Box>
+              <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+                <Button variant="contained" size="large" startIcon={<PlayArrowIcon />} onClick={startSelected} disabled={!canStart}>
+                  {t('start')}
+                </Button>
+                {hint && <Small>{hint}</Small>}
+              </Stack>
+            </Stack>
+          </Box>
+        </Paper>
+      )}
+
+      {docs && docs.length > 0 && (
         <>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-            <Paper sx={{ p: 2.5 }}>
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="overline" color="text.secondary">
+                {t('stock_title')}
+              </Typography>
+              <Stack spacing={1} sx={{ mt: 0.5, alignItems: 'flex-start' }}>
+                <Typography variant="body2">{stockParts.join(' · ')}</Typography>
+                {reading && (
+                  <Box sx={{ width: '100%' }}>
+                    <LinearProgress variant="determinate" value={total ? (done / total) * 100 : 0} sx={{ mb: 0.75 }} />
+                    <Small>{t('reading', { done, total })}</Small>
+                  </Box>
+                )}
+                <Button size="small" variant="outlined" startIcon={<UploadFileIcon />} component={RouterLink} to="/contracts">
+                  {t('add_contracts')}
+                </Button>
+              </Stack>
+            </Paper>
+            <Paper sx={{ p: 2 }}>
               <Typography variant="overline" color="text.secondary">
                 {t('pending_title')}
               </Typography>
               {pending && pending.length > 0 && (
-                <Stack spacing={1.5} sx={{ mt: 0.5, alignItems: 'flex-start' }}>
+                <Stack spacing={1} sx={{ mt: 0.5, alignItems: 'flex-start' }}>
                   <Box>
-                    <Typography variant="body1">{pending.length === 1 ? t('pending_one') : t('pending_many', { n: pending.length })}</Typography>
+                    <Typography variant="body2">{pending.length === 1 ? t('pending_one') : t('pending_many', { n: pending.length })}</Typography>
                     {autoLine}
                   </Box>
-                  <Button variant="contained" startIcon={<HowToRegIcon />} component={RouterLink} to="/approvals">
+                  <Button size="small" variant="contained" startIcon={<HowToRegIcon />} component={RouterLink} to="/approvals">
                     {t('to_approvals')}
                   </Button>
                 </Stack>
@@ -413,46 +524,22 @@ export default function Home() {
                 <Stack direction="row" spacing={1} sx={{ mt: 0.5, alignItems: 'flex-start' }}>
                   <CheckCircleOutlinedIcon color="success" fontSize="small" sx={{ mt: 0.25 }} />
                   <Box>
-                    <Typography variant="body1">{t('nothing_pending')}</Typography>
+                    <Typography variant="body2">{t('nothing_pending')}</Typography>
                     {autoLine}
                   </Box>
                 </Stack>
               )}
             </Paper>
-
-            <Paper sx={{ p: 2.5 }}>
-              <Typography variant="overline" color="text.secondary">
-                {t('stock_title')}
-              </Typography>
-              <Stack spacing={1.5} sx={{ mt: 0.5, alignItems: 'flex-start' }}>
-                <Typography variant="body1">{stockParts.join(' · ')}</Typography>
-                {reading && (
-                  <Box sx={{ width: '100%' }}>
-                    <LinearProgress variant="determinate" value={total ? (done / total) * 100 : 0} sx={{ mb: 0.75 }} />
-                    <Typography variant="body2" color="text.secondary">
-                      {t('reading', { done, total })}
-                    </Typography>
-                  </Box>
-                )}
-                <Button variant="outlined" startIcon={<UploadFileIcon />} component={RouterLink} to="/contracts">
-                  {t('add_contracts')}
-                </Button>
-              </Stack>
-            </Paper>
           </Box>
 
           <Box>
-            <Typography variant="h6" sx={{ mb: 1 }}>
+            <Typography variant="subtitle1" sx={{ mb: 1 }}>
               {t('recent_title')}
             </Typography>
-            {recent && recent.length === 0 && (
-              <Typography variant="body2" color="text.secondary">
-                {t('recent_none')}
-              </Typography>
-            )}
+            {recent && recent.length === 0 && <Small>{t('recent_none')}</Small>}
             {recent && recent.length > 0 && (
               <Paper>
-                <List disablePadding>
+                <List disablePadding dense>
                   {recent.map((a) => (
                     <AuditRow key={a.id} audit={a} />
                   ))}
@@ -462,6 +549,18 @@ export default function Home() {
           </Box>
         </>
       )}
+
+      <Divider />
+      <Details label={t('glossary')}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5 }}>
+          {GLOSSARY.map((g) => (
+            <Box key={g}>
+              <Typography variant="subtitle2">{t(`g_${g}` as const)}</Typography>
+              <Small>{t(`g_${g}_d` as const)}</Small>
+            </Box>
+          ))}
+        </Box>
+      </Details>
 
       {config && (
         <Tech>

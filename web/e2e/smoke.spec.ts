@@ -133,11 +133,63 @@ test('Contract page: a scanned contract offers the annotated version', async ({ 
   await shot(page, '03-contract-scan', false)
 })
 
-test('How it works: four steps and the models used', async ({ page }) => {
+test('How it works: pipeline stages from the API and an example contract', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 1000 })
   await page.goto('/how-it-works')
   await expect(page.getByRole('heading', { name: 'So funktioniert es' })).toBeVisible()
-  for (const step of ['Lesen', 'Zerlegen und einordnen', 'Prüfen', 'Ergebnis']) await expect(page.getByRole('heading', { name: step, exact: true })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Eingesetzte Modelle' })).toBeVisible()
+  for (const phase of ['Lesen', 'Prüfen', 'Entscheiden']) await expect(page.getByRole('heading', { name: phase, exact: true })).toBeVisible()
+
+  // one numbered card per stage, each ending with its "→ erzeugt:" line
+  const produces = page.getByText(/^→ erzeugt:/)
+  await expect(produces.first()).toBeVisible()
+  expect(await produces.count()).toBeGreaterThanOrEqual(14)
+  await expect(page.getByText('Datei lesen', { exact: true })).toBeVisible()
+  await expect(page.getByText('Korrigierte Kopie', { exact: true })).toBeVisible()
+
+  // the sticky example panel links to the contract it was computed from
+  const example = page.getByText(/^Beispiel: /)
+  await expect(example).toBeVisible()
+  await shot(page, '04-how-it-works', false)
+  const title = (await example.textContent())!.replace(/^Beispiel: /, '')
+  await page.getByRole('link', { name: 'Vertrag öffnen' }).click()
+  await expect(page).toHaveURL(/\/contracts\/\d+$/)
+  await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible()
+})
+
+test('Start page filter answers the cross-contract question', async ({ page }) => {
+  test.setTimeout(150_000) // "Klausel fehlt" loads every checked contract once
+  await page.goto('/')
+  const count = page.getByText(/^(\d+ Verträge|1 Vertrag)$/)
+  const listRows = page.getByRole('list').getByRole('button')
+  const filter = (name: string) => page.getByRole('button', { name, exact: true }) // rows contain the same words
+  await expect(listRows.first()).toBeVisible()
+  const all = (await count.textContent())!
+  const total = parseInt(all)
+
+  // "Alter Firmenname": only contracts with an old name, and each row says so
+  await filter('Alter Firmenname').click()
+  await expect(listRows.filter({ hasNotText: 'Firmenname' })).toHaveCount(0)
+  const oldNames = parseInt((await count.textContent())!)
+  expect(oldNames).toBeGreaterThan(0)
+  expect(oldNames).toBeLessThanOrEqual(total)
+  await expect(listRows).toHaveCount(oldNames)
+  await shot(page, '05-home-filter')
+
+  // "Klausel fehlt": a clause type to pick (default Haftungsbegrenzung); the per-contract details load first
+  await filter('Klausel fehlt').click()
+  await expect(page.getByRole('combobox')).toHaveText('Haftungsbegrenzung')
+  await expect(page.locator('.MuiLinearProgress-root')).toBeHidden({ timeout: 60_000 })
+  await expect(listRows.first()).toBeVisible({ timeout: 60_000 })
+  await expect(listRows).toHaveCount(parseInt((await count.textContent())!))
+
+  // "Regelung fehlt": free-text search; nothing typed, nothing to search
+  await filter('Regelung fehlt').click()
+  await expect(page.getByPlaceholder(/^z\. B\. /)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Suchen', exact: true })).toBeDisabled()
+
+  await filter('Alle').click()
+  await expect(count).toHaveText(all)
+  await expect(page.getByRole('button', { name: 'Neue Dateien aus SharePoint holen' })).toHaveCount(0) // document_source is local
 })
 
 test('Language switch: EN and back to DE', async ({ page }) => {

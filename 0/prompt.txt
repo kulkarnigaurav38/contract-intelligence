@@ -1,0 +1,15 @@
+<task-notification>
+<task-id>bkqarax7g</task-id>
+<tool-use-id>toolu_014AVBzQ8XoG5aok6QzRn9VJ</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-gaurav-Downloads-riverty-challenge/046eadd3-6aa8-4b09-adc8-e3efac5fd391/tasks/bkqarax7g.output</output-file>
+<status>killed</status>
+<summary>Background command "Restart the Vite dev server on 5174" was stopped</summary>
+</task-notification>
+
+---
+
+the landing page is too all over the place and confusing. understand hierarchy, what's important should be highlighted and also, an explanation of what the website does and what these fields and parts of website mean, should be given.
+
+---
+
+try again

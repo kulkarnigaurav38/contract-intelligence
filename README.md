@@ -128,9 +128,9 @@ cd web && npm install && npm run dev               # http://localhost:5173 (prox
 ## Tests
 
 ```bash
-cd api && uv run pytest tests/test_ingest_units.py tests/test_policy_units.py tests/test_providers_units.py tests/test_resilience_units.py -q   # 39 offline unit tests
+cd api && uv run pytest tests/test_ingest_units.py tests/test_policy_units.py tests/test_providers_units.py tests/test_resilience_units.py tests/test_report_units.py tests/test_learning_units.py tests/test_correct_units.py -q   # 56 offline unit tests
 cd api && uv run pytest            # the above plus test_report_units.py, test_learning_units.py and test_correct_units.py (placed findings, decisions, corrected copy), 12 end-to-end tests against pgvector (test_end_to_end_db.py drops and recreates the schema of DATABASE_URL) and 10 live Gemini tests (skipped without a key)
-cd web && npx playwright test      # browser tests in web/e2e/smoke.spec.ts against the running stack (BASE_URL overrides :5173)
+cd web && npx playwright test      # 7 browser tests in web/e2e/smoke.spec.ts against the running stack (BASE_URL overrides :5173)
 ```
 
 Regenerate the corpus with `cd api && uv run python ../data/generate.py`.

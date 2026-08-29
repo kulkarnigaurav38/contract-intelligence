@@ -69,12 +69,12 @@ The automatic per-contract report (`api/app/report.py`) was compared with the sa
 expectations (clause missing per guideline, rename needed) matched.
 
 ### D2. Test suites
-`cd api && uv run pytest tests/test_ingest_units.py tests/test_policy_units.py tests/test_providers_units.py tests/test_resilience_units.py -q`
-→ 39 offline unit tests; `tests/test_report_units.py`, `tests/test_learning_units.py` and `tests/test_correct_units.py`
-cover the placed findings, the decisions and the corrected copy. `cd api && uv run pytest` additionally runs the 12
+`cd api && uv run pytest tests/test_*_units.py -q` → 56 offline unit tests (ingest gates, providers, resilience, review
+policy, and — in `tests/test_report_units.py`, `tests/test_learning_units.py`, `tests/test_correct_units.py` — the placed
+findings, the decisions and the corrected copy). `cd api && uv run pytest` additionally runs the 12
 end-to-end tests on PostgreSQL/pgvector (`tests/test_end_to_end_db.py`, drops and recreates the schema) and the 10
-live Gemini tests (incl. the full learning loop; skipped without a key). `cd web && npx playwright test` → the browser
-tests in `web/e2e/smoke.spec.ts`.
+live Gemini tests (incl. the full learning loop; skipped without a key). `cd web && npx playwright test` → 7 browser
+tests in `web/e2e/smoke.spec.ts` (drop zone, multi-upload, viewer with markers + accept/undo, scanned contract, how it works, language, redirect).
 
 ### D3. Real-world data
 See section E — the synthetic corpus proves the mechanics; real contracts prove the claims.

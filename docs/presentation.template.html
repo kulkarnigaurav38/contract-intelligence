@@ -222,7 +222,7 @@
       </table></div>
       <div class="tablewrap">{{REAL_TABLE}}</div>
     </div>
-    <p class="mono" style="color:var(--muted)">Tests: 47 unit · 12 end-to-end on pgvector · 10 live Gemini incl. the learning loop · 6 browser. Every number is computed against an answer key (<code>POST /api/eval/run</code>), not asserted; the automatic per-contract result uses the same rule layer and the same verifier.</p>
+    <p class="mono" style="color:var(--muted)">Tests: 56 unit · 12 end-to-end on pgvector · 10 live Gemini incl. the learning loop · 7 browser. Every number is computed against an answer key (<code>POST /api/eval/run</code>), not asserted; the automatic per-contract result uses the same rule layer and the same verifier.</p>
   </div>
   <div class="foot"><span>docs/ps-coverage.md § D–E · data/real/cuad_ground_truth.json</span><span></span></div>
 </section>
@@ -305,7 +305,7 @@
       <div><ul>
         <li>Claude Code as pair programmer for code, tests, fixtures and docs; multi-agent workflows for the UI design panel, page implementation with review loops, adversarial accuracy reviews and the dataset research with URL verification.</li>
         <li>Framing, the Gemini/MUI choices, the rebrand scenario, the German-first brief, "defensible", the shrinking HITL, the demand for real data — and the cut from a multi-page tool to a file converter with the findings on the page — were mine; the AI proposed, I accepted, redirected or rejected.</li>
-        <li>Verified rather than trusted: 75 automated tests, metrics against answer keys, an adversarial review that corrected the AI's own explanatory text.</li>
+        <li>Verified rather than trusted: 85 automated tests, metrics against answer keys, an adversarial review that corrected the AI's own explanatory text.</li>
       </ul></div>
       <div class="card"><h3>Try it</h3><p><code>docker compose up --build</code> → drop a contract or <em>Beispielverträge laden</em> → click the result line → decide on the page → <em>Korrigierte Fassung herunterladen</em>. <code>GEMINI_API_KEY</code> optional: without it the rule check still runs end to end (no handwriting, no drafts).</p><p style="margin-top:10px">docs/how-ai-was-used.md · docs/ps-coverage.md · docs/tech-choices.md</p></div>
     </div>

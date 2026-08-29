@@ -6,11 +6,12 @@ from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, UploadFile
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import chat, evaluation, policy, report, sources
+from app import chat, correct, evaluation, files, policy, report, sources
 from app.audits.graph import coverage_matrix, run_audit
 from app.config import settings
 from app.db import SessionLocal, get_session
@@ -136,6 +137,96 @@ def rebuild_report(doc_id: int, background: BackgroundTasks, language: str = "de
     return {"queued": 1}
 
 
+# ---------------------------------------------------------------- the viewer: pages, decisions, corrected copy
+@router.get("/documents/{doc_id}/pages/{page_no}.png")
+def page_image(doc_id: int, page_no: int, session: Session = Depends(get_session)) -> Response:
+    d = session.get(Document, doc_id)
+    if not d:
+        raise HTTPException(404)
+    data = files.page_png(d, page_no)
+    if data is None:
+        raise HTTPException(404, "page not available")
+    return Response(content=data, media_type="image/png", headers={"Cache-Control": "private, max-age=86400"})
+
+
+@router.get("/documents/{doc_id}/file")
+def original_file(doc_id: int, session: Session = Depends(get_session)) -> FileResponse:
+    d = session.get(Document, doc_id)
+    if not d:
+        raise HTTPException(404)
+    path = files.source_path(d)
+    if path is None:
+        raise HTTPException(409, "source file no longer available")
+    return FileResponse(path, filename=d.filename)
+
+
+class ItemDecision(BaseModel):
+    decision: str  # accepted | dismissed | reopen
+    note: str = ""
+    edited_text: str = ""
+    actor: str = "legal.reviewer"
+
+
+@router.post("/documents/{doc_id}/items/{key}/decide")
+def decide_item(doc_id: int, key: str, body: ItemDecision, session: Session = Depends(get_session)) -> dict:
+    d = session.get(Document, doc_id)
+    if not d:
+        raise HTTPException(404)
+    if body.decision not in ("accepted", "dismissed", "reopen"):
+        raise HTTPException(400, "decision must be accepted, dismissed or reopen")
+    try:
+        r = report.decide(session, d, key, body.decision, body.note, body.edited_text, body.actor)
+    except KeyError:
+        raise HTTPException(404, "no such finding")
+    log(session, body.actor, f"item.{body.decision}", "document", d.id, {"item": key, "sha256": d.sha256, "note": body.note})
+    session.commit()
+    return r
+
+
+def _corrected(d: Document) -> bytes:
+    if not any(it["review"]["status"] in ("accepted", "auto") for it in d.report.get("items", [])):
+        raise HTTPException(409, "nothing accepted yet")
+    data = correct.corrected_pdf(d, d.report)
+    if data is None:
+        raise HTTPException(409, "source file no longer available")
+    return data
+
+
+@router.get("/documents/{doc_id}/corrected.pdf")
+def corrected_copy(doc_id: int, session: Session = Depends(get_session)) -> Response:
+    d = session.get(Document, doc_id)
+    if not d:
+        raise HTTPException(404)
+    stem = Path(d.filename).stem
+    return Response(content=_corrected(d), media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{stem}_korrigiert.pdf"'})
+
+
+@router.post("/documents/{doc_id}/file-to-storage")
+def file_to_storage(doc_id: int, actor: str = "legal.reviewer", session: Session = Depends(get_session)) -> dict:
+    """Store the corrected copy in the contract storage (store-only, idempotent: same content -> same key)."""
+    d = session.get(Document, doc_id)
+    if not d:
+        raise HTTPException(404)
+    data = _corrected(d)
+    sha = hashlib.sha256(data).hexdigest()
+    applied = [{"key": it["key"], "kind": it["kind"], "page": it["page"], "text": it["review"].get("edited_text") or it["suggestion"],
+                "decided_by": it["review"]["actor"], "decided_at": it["review"]["decided_at"]}
+               for it in d.report.get("items", []) if it["review"]["status"] in ("accepted", "auto")]
+    payload = {"filename": f"{Path(d.filename).stem}_korrigiert.pdf", "original_sha256": d.sha256, "sha256": sha,
+               "size": len(data), "applied": applied, "filed_by": actor}
+    r = httpx.post(f"{settings.contract_storage_url}/contracts", json=payload, headers={"Idempotency-Key": f"copy-{sha}"},
+                   timeout=30)
+    r.raise_for_status()
+    ref = r.json()
+    rep = dict(d.report)
+    rep["storage"] = {"external_id": ref["external_id"], "sha256": sha, "at": datetime.now(timezone.utc).isoformat()}
+    d.report = rep
+    log(session, actor, "document.copy_filed", "document", d.id, {"external_id": ref["external_id"], "sha256": sha})
+    session.commit()
+    return ref
+
+
 @router.delete("/documents/{doc_id}")
 def delete_document(doc_id: int, actor: str = "legal.reviewer", session: Session = Depends(get_session)) -> dict:
     d = session.get(Document, doc_id)
@@ -154,9 +245,7 @@ def retry_document(doc_id: int, background: BackgroundTasks, actor: str = "legal
     d = session.get(Document, doc_id)
     if not d:
         raise HTTPException(404)
-    path = next((p for folder in (settings.data_dir / "contracts", settings.data_dir / "contracts_batch2", UPLOADS,
-                                  settings.data_dir / "inbox", settings.document_source_path)
-                 for p in [folder / d.filename] if p.exists()), None)
+    path = files.source_path(d)
     if path is None:
         raise HTTPException(409, "source file no longer available")
     session.delete(d)
@@ -169,7 +258,7 @@ def retry_document(doc_id: int, background: BackgroundTasks, actor: str = "legal
 def coverage(session: Session = Depends(get_session)) -> dict:
     matrix = coverage_matrix(session)
     for row in matrix["rows"]:
-        row["required"] = required_clauses(row["contract_type"])
+        row["required"] = sorted(report.required_for(row["contract_type"]))
     return matrix
 
 
@@ -181,7 +270,7 @@ def guideline_audits(background: BackgroundTasks, contract_type: str = "", actor
         d.contract_type for d in session.scalars(select(Document).where(Document.status == "ready"))})
     created = []
     for ct in types:
-        for clause_type in required_clauses(ct):
+        for clause_type in sorted(report.required_for(ct)):
             audit = Audit(kind="missing_clause", params={"clause_type": clause_type, "contract_type": ct, "language": language,
                                                          "guideline": True})
             session.add(audit)

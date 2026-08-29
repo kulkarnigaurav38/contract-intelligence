@@ -136,6 +136,24 @@ class AuditLog(Base):
     details: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
+class Decision(Base):
+    """What the legal team said about one finding of one file - reused when the file comes back, and as precedent."""
+
+    __tablename__ = "decisions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id", ondelete="SET NULL"), nullable=True)
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    item_key: Mapped[str] = mapped_column(String(160))
+    class_key: Mapped[str] = mapped_column(String(160), index=True)
+    decision: Mapped[str] = mapped_column(String(16))  # accepted | dismissed | reopened
+    note: Mapped[str] = mapped_column(Text, default="")
+    edited_text: Mapped[str] = mapped_column(Text, default="")
+    quote: Mapped[str] = mapped_column(Text, default="")
+    actor: Mapped[str] = mapped_column(String(64), default="legal.reviewer")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class StoredContract(Base):
     """Stand-in for the external contract-storage REST API (store-only, idempotent)."""
 

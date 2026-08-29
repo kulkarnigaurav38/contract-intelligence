@@ -22,7 +22,11 @@ from app.config import settings
 log = logging.getLogger("contracts.llm")
 T = TypeVar("T")
 TRANSIENT = re.compile(r"\b(50[0234]|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overloaded|high demand|timed? ?out|rate limit|"
-                       r"disconnected|connection (reset|error|aborted)|reset by peer|ServiceUnavailable|InternalServerError|DeadlineExceeded)\b", re.I)
+                       r"disconnected|connection (reset|error|aborted)|reset by peer|ServiceUnavailable|InternalServerError|DeadlineExceeded|"
+                       r"Broken pipe|ReadError|WriteError|ConnectError|RemoteProtocolError)\b", re.I)
+QUOTA = re.compile(r"spending cap|exceeded your current quota|RESOURCE_EXHAUSTED", re.I)
+QUOTA_COOLDOWN = 600.0  # seconds: a spent budget does not recover within a retry loop; fail fast, degrade honestly
+_quota_until = 0.0
 
 # task -> (model tier, thinking level, purpose)
 TASKS: dict[str, tuple[str, str, str]] = {
@@ -32,6 +36,8 @@ TASKS: dict[str, tuple[str, str, str]] = {
     "screen": ("lite", "minimal", "Screen document text for prompt-injection"),
     "verify": ("pro", "high", "Independently verify each finding against the full contract"),
     "answer": ("flash", "medium", "Answer questions over retrieved clauses with citations"),
+    "draft": ("flash", "medium", "Draft a missing clause in the contract's language and style"),
+    "locate": ("flash", "low", "Find where a passage sits on a scanned or handwritten page"),
 }
 
 DOC_GUARD = (
@@ -96,6 +102,9 @@ def with_retry(fn: Callable[[], T], task: str, attempts: int = 5, base_delay: fl
     """Call fn; on transient provider errors (503/429/timeouts) back off exponentially, then give up loudly.
 
     Non-transient errors (bad request, schema mismatch) are raised immediately - they are bugs, not weather."""
+    global _quota_until
+    if time.monotonic() < _quota_until:
+        raise ModelUnavailable(f"{task}: provider quota exhausted (cooling down)")
     delay = base_delay
     for attempt in range(1, attempts + 1):
         try:
@@ -103,6 +112,10 @@ def with_retry(fn: Callable[[], T], task: str, attempts: int = 5, base_delay: fl
         except Exception as exc:  # noqa: BLE001 - provider SDKs raise many types
             if not TRANSIENT.search(str(exc)):
                 raise
+            if QUOTA.search(str(exc)) and "429" in str(exc):
+                _quota_until = time.monotonic() + QUOTA_COOLDOWN
+                log.warning("%s: provider quota exhausted, failing fast for %.0f min: %s", task, QUOTA_COOLDOWN / 60, str(exc)[:160])
+                raise ModelUnavailable(f"{task}: {str(exc)[:120]}") from exc
             if attempt == attempts:
                 log.warning("%s: provider unavailable after %d attempts: %s", task, attempts, str(exc)[:160])
                 raise ModelUnavailable(f"{task}: {str(exc)[:120]}") from exc

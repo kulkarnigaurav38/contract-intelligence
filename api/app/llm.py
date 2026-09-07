@@ -11,6 +11,7 @@ core when no provider is configured.
 import logging
 import re
 import time
+import warnings
 from collections.abc import Callable
 from typing import TypeVar
 
@@ -20,6 +21,7 @@ from langchain_core.embeddings import Embeddings
 from app.config import settings
 
 log = logging.getLogger("contracts.llm")
+warnings.filterwarnings("ignore", message=r"Model '.*' uses fixed sampling defaults")  # Flash-Lite ignores temperature; one line per call otherwise
 T = TypeVar("T")
 TRANSIENT = re.compile(r"\b(50[0234]|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overloaded|high demand|timed? ?out|rate limit|"
                        r"disconnected|connection (reset|error|aborted)|reset by peer|ServiceUnavailable|InternalServerError|DeadlineExceeded|"

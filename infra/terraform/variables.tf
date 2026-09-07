@@ -15,15 +15,6 @@ variable "tenant_id" {
   type = string
 }
 
-variable "db_password" {
-  type      = string
-  sensitive = true
-}
-
-variable "db_sku" {
-  default = "GP_Standard_D2ds_v5"
-}
-
 variable "container_registry" {
   description = "ACR login server hosting the two images."
   type        = string
@@ -67,4 +58,13 @@ variable "entra_client_id" {
 variable "legal_group_object_id" {
   description = "Entra ID group allowed to use the tool."
   default     = ""
+}
+
+variable "neo4j_uri" {
+  description = "Bolt URI of the database: Neo4j AuraDB from the Azure Marketplace (neo4j+s://<id>.databases.neo4j.io) or a self-hosted Neo4j."
+  type        = string
+}
+
+variable "neo4j_user" {
+  default = "neo4j"
 }

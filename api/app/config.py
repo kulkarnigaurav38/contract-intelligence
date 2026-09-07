@@ -11,12 +11,13 @@ class Settings(BaseSettings):
     LLM:        gemini (Google AI Studio / Vertex)      | foundry (Azure AI Foundry / Azure OpenAI)
     OCR:        tesseract (local) + vision escalation   | document_intelligence (Azure AI Document Intelligence)
     Documents:  local folder (demo)                     | sharepoint (Microsoft Graph, delta sync)
+    Database:   Neo4j - self-hosted container here, AuraDB from the Azure Marketplace in production; one graph holds
+                the documents, their clauses and names, the guideline, the register, the decisions and the audit log.
     'auto' picks whichever credentials are present; Gemini/Tesseract/local win when both are configured.
     """
 
     model_config = SettingsConfigDict(env_file=REPO_ROOT / ".env", extra="ignore")
 
-    database_url: str = "postgresql+psycopg://contracts:contracts@localhost:5432/contracts"
     data_dir: Path = REPO_ROOT / "data"
     contract_storage_url: str = "http://localhost:8000/api/mock-contract-storage"
 
@@ -43,6 +44,12 @@ class Settings(BaseSettings):
     azure_document_intelligence_endpoint: str = ""
     azure_document_intelligence_key: str = ""
 
+    # ---- The database: Neo4j --------------------------------------------------------------------
+    neo4j_uri: str = "bolt://localhost:7687"  # neo4j+s://<id>.databases.neo4j.io for AuraDB; empty only in unit tests
+    neo4j_user: str = "neo4j"
+    neo4j_password: str = ""
+    neo4j_database: str = "neo4j"
+
     # ---- Document source ----------------------------------------------------------------------
     document_source: str = "local"  # local | sharepoint
     document_source_path: Path = REPO_ROOT / "data" / "contracts"  # the folder standing in for the SharePoint library
@@ -66,6 +73,11 @@ class Settings(BaseSettings):
     @property
     def llm_enabled(self) -> bool:
         return self.llm_provider_resolved != "none"
+
+    @property
+    def graph_enabled(self) -> bool:
+        """False only in unit tests, which run without a server: every store call then raises GraphUnavailable."""
+        return bool(self.neo4j_uri)
 
     @property
     def ocr_provider_resolved(self) -> str:

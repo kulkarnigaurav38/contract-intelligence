@@ -8,17 +8,15 @@ import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
-from app import chat, correct, evaluation, files, pipeline, policy, report, sources
+from app import chat, correct, evaluation, files, graph, pipeline, policy, report, sources
 from app.audits.graph import coverage_matrix, run_audit
 from app.config import settings
-from app.db import SessionLocal, get_session
+from app.db import SessionLocal, Store, get_session
 from app.ingest.classify import TAXONOMY
 from app.ingest.pipeline import ingest_path, log
 from app.llm import routing_table
-from app.models import Audit, AuditLog, Clause, Document, Entity, Finding, Page, StoredContract
+from app.models import Audit, Document, Finding, StoredContract
 
 router = APIRouter(prefix="/api")
 UPLOADS = settings.data_dir / "uploads"
@@ -37,7 +35,8 @@ def config() -> dict:
     return {"llm_enabled": settings.llm_enabled, "provider": settings.llm_provider_resolved,
             "ocr_provider": settings.ocr_provider_resolved, "document_source": settings.document_source,
             "routing": routing_table(), "taxonomy": TAXONOMY,
-            "embedding": {"model": model_id("embedding"), "dim": settings.embedding_dim}}
+            "embedding": {"model": model_id("embedding"), "dim": settings.embedding_dim},
+            "graph": {"enabled": settings.graph_enabled, "uri": settings.neo4j_uri}}
 
 
 # ---------------------------------------------------------------- documents
@@ -57,15 +56,13 @@ def pipeline_stages() -> dict:
 
 
 @router.get("/documents")
-def list_documents(session: Session = Depends(get_session)) -> list[dict]:
-    clauses = dict(session.execute(select(Clause.document_id, func.count()).group_by(Clause.document_id)).all())
-    ents = dict(session.execute(select(Entity.document_id, func.count()).group_by(Entity.document_id)).all())
-    return [_doc_summary(d, clauses.get(d.id, 0), ents.get(d.id, 0))
-            for d in session.scalars(select(Document).order_by(Document.id))]
+def list_documents(session: Store = Depends(get_session)) -> list[dict]:
+    counts = session.document_counts()
+    return [_doc_summary(d, *counts.get(d.id, (0, 0))) for d in session.documents()]
 
 
 @router.get("/documents/{doc_id}")
-def get_document(doc_id: int, session: Session = Depends(get_session)) -> dict:
+def get_document(doc_id: int, session: Store = Depends(get_session)) -> dict:
     d = session.get(Document, doc_id)
     if not d:
         raise HTTPException(404)
@@ -89,11 +86,29 @@ def _ingest_many(paths: list[Path], actor: str, language: str = "de") -> None:
                 report.build(session, doc, language)
 
 
+SAMPLE_FOLDERS = {1: "contracts", 2: "contracts_batch2", 3: "real/cuad", 4: "real/german"}
+
+
+def _sample_paths(batch: int) -> list[Path]:
+    folder = settings.data_dir / SAMPLE_FOLDERS.get(batch, "contracts")
+    return sorted(p for p in folder.iterdir() if p.suffix.lower() in (".pdf", ".jpg", ".jpeg", ".png"))
+
+
+@router.get("/samples")
+def samples() -> list[dict]:
+    """The sample contracts that can be loaded one at a time: batch 1 = the demo set, 2 = the 'new arrivals'."""
+    return [{"batch": b, "file": p.name} for b in (1, 2) for p in _sample_paths(b)]
+
+
 @router.post("/documents/ingest-samples")
-def ingest_samples(background: BackgroundTasks, actor: str = "system", batch: int = 1, language: str = "de") -> dict:
-    """batch 1 = the sample set; batch 2 = the 'new arrivals'; 3 = real contracts (CUAD subset); 4 = real German documents."""
-    folder = settings.data_dir / {1: "contracts", 2: "contracts_batch2", 3: "real/cuad", 4: "real/german"}.get(batch, "contracts")
-    paths = sorted(p for p in folder.iterdir() if p.suffix.lower() in (".pdf", ".jpg", ".jpeg", ".png"))
+def ingest_samples(background: BackgroundTasks, actor: str = "system", batch: int = 1, language: str = "de", file: str = "") -> dict:
+    """batch 1 = the sample set; 2 = the 'new arrivals'; 3 = real contracts (CUAD subset); 4 = real German documents.
+    `file` loads a single sample by name instead of a whole batch."""
+    paths = _sample_paths(batch)
+    if file:
+        paths = [p for b in SAMPLE_FOLDERS for p in _sample_paths(b) if p.name == file]
+        if not paths:
+            raise HTTPException(404, "no such sample")
     background.add_task(_ingest_many, paths, actor, language)
     return {"queued": len(paths)}
 
@@ -132,7 +147,7 @@ def _report_job(doc_id: int, language: str) -> None:
 
 
 @router.post("/documents/{doc_id}/report")
-def rebuild_report(doc_id: int, background: BackgroundTasks, language: str = "de", session: Session = Depends(get_session)) -> dict:
+def rebuild_report(doc_id: int, background: BackgroundTasks, language: str = "de", session: Store = Depends(get_session)) -> dict:
     """Check a contract again (e.g. after the guideline changed or a provider outage)."""
     d = session.get(Document, doc_id)
     if not d:
@@ -145,7 +160,7 @@ def rebuild_report(doc_id: int, background: BackgroundTasks, language: str = "de
 
 # ---------------------------------------------------------------- the viewer: pages, decisions, corrected copy
 @router.get("/documents/{doc_id}/pages/{page_no}.png")
-def page_image(doc_id: int, page_no: int, session: Session = Depends(get_session)) -> Response:
+def page_image(doc_id: int, page_no: int, session: Store = Depends(get_session)) -> Response:
     d = session.get(Document, doc_id)
     if not d:
         raise HTTPException(404)
@@ -156,7 +171,7 @@ def page_image(doc_id: int, page_no: int, session: Session = Depends(get_session
 
 
 @router.get("/documents/{doc_id}/file")
-def original_file(doc_id: int, session: Session = Depends(get_session)) -> FileResponse:
+def original_file(doc_id: int, session: Store = Depends(get_session)) -> FileResponse:
     d = session.get(Document, doc_id)
     if not d:
         raise HTTPException(404)
@@ -174,7 +189,7 @@ class ItemDecision(BaseModel):
 
 
 @router.post("/documents/{doc_id}/items/{key}/decide")
-def decide_item(doc_id: int, key: str, body: ItemDecision, session: Session = Depends(get_session)) -> dict:
+def decide_item(doc_id: int, key: str, body: ItemDecision, session: Store = Depends(get_session)) -> dict:
     d = session.get(Document, doc_id)
     if not d:
         raise HTTPException(404)
@@ -199,7 +214,7 @@ def _corrected(d: Document) -> bytes:
 
 
 @router.get("/documents/{doc_id}/corrected.pdf")
-def corrected_copy(doc_id: int, session: Session = Depends(get_session)) -> Response:
+def corrected_copy(doc_id: int, session: Store = Depends(get_session)) -> Response:
     d = session.get(Document, doc_id)
     if not d:
         raise HTTPException(404)
@@ -209,7 +224,7 @@ def corrected_copy(doc_id: int, session: Session = Depends(get_session)) -> Resp
 
 
 @router.post("/documents/{doc_id}/file-to-storage")
-def file_to_storage(doc_id: int, actor: str = "legal.reviewer", session: Session = Depends(get_session)) -> dict:
+def file_to_storage(doc_id: int, actor: str = "legal.reviewer", session: Store = Depends(get_session)) -> dict:
     """Store the corrected copy in the contract storage (store-only, idempotent: same content -> same key)."""
     d = session.get(Document, doc_id)
     if not d:
@@ -234,7 +249,7 @@ def file_to_storage(doc_id: int, actor: str = "legal.reviewer", session: Session
 
 
 @router.delete("/documents/{doc_id}")
-def delete_document(doc_id: int, actor: str = "legal.reviewer", session: Session = Depends(get_session)) -> dict:
+def delete_document(doc_id: int, actor: str = "legal.reviewer", session: Store = Depends(get_session)) -> dict:
     d = session.get(Document, doc_id)
     if not d:
         raise HTTPException(404)
@@ -246,7 +261,7 @@ def delete_document(doc_id: int, actor: str = "legal.reviewer", session: Session
 
 @router.post("/documents/{doc_id}/retry")
 def retry_document(doc_id: int, background: BackgroundTasks, actor: str = "legal.reviewer",
-                   session: Session = Depends(get_session)) -> dict:
+                   session: Store = Depends(get_session)) -> dict:
     """Read a failed (or degraded) document again, e.g. after a provider outage."""
     d = session.get(Document, doc_id)
     if not d:
@@ -260,6 +275,33 @@ def retry_document(doc_id: int, background: BackgroundTasks, actor: str = "legal
     return {"queued": 1, "filename": d.filename}
 
 
+# ---------------------------------------------------------------- the knowledge graph
+def _graph(fn):
+    try:
+        return fn()
+    except graph.GraphUnavailable as exc:
+        raise HTTPException(503, f"graph unavailable: {exc}")
+
+
+@router.get("/graph/stats")
+def graph_stats() -> dict:
+    """Node and relationship counts, and how many guideline gaps the graph pattern finds."""
+    return _graph(lambda: {**graph.stats(), "gaps": len(graph.gaps())})
+
+
+@router.get("/graph/gaps")
+def graph_gaps() -> list[dict]:
+    """Which contracts lack a clause type the guideline requires - one graph pattern, no search:
+    (Contract)-[:OF_TYPE]->(ContractType)-[:REQUIRES]->(ClauseType) without a HAS_CLAUSE->IS_A path to it."""
+    return _graph(graph.gaps)
+
+
+@router.post("/graph/gleif")
+def graph_gleif() -> dict:
+    """Refresh the name registry from the public LEI register (GLEIF, CC0): current and previous legal names."""
+    return _graph(lambda: {"records": graph.sync_gleif()})
+
+
 def _guidelines() -> dict:
     return json.loads((settings.data_dir / "guidelines.json").read_text())
 
@@ -271,7 +313,7 @@ def guidelines() -> dict:
 
 
 @router.get("/coverage")
-def coverage(session: Session = Depends(get_session)) -> dict:
+def coverage(session: Store = Depends(get_session)) -> dict:
     matrix = coverage_matrix(session)
     for row in matrix["rows"]:
         row["required"] = sorted(report.required_for(row["contract_type"]))
@@ -280,10 +322,9 @@ def coverage(session: Session = Depends(get_session)) -> dict:
 
 @router.post("/audits/guideline")
 def guideline_audits(background: BackgroundTasks, contract_type: str = "", actor: str = "legal.reviewer",
-                     language: str = "de", session: Session = Depends(get_session)) -> dict:
+                     language: str = "de", session: Store = Depends(get_session)) -> dict:
     """One missing-clause check per clause the guideline requires, for one contract type or for all."""
-    types = [contract_type] if contract_type else sorted({
-        d.contract_type for d in session.scalars(select(Document).where(Document.status == "ready"))})
+    types = [contract_type] if contract_type else session.contract_types()
     created = []
     for ct in types:
         for clause_type in sorted(report.required_for(ct)):
@@ -325,7 +366,7 @@ def _finding_dict(f: Finding) -> dict:
 
 
 @router.post("/audits")
-def create_audit(req: AuditRequest, background: BackgroundTasks, session: Session = Depends(get_session)) -> dict:
+def create_audit(req: AuditRequest, background: BackgroundTasks, session: Store = Depends(get_session)) -> dict:
     if req.kind not in ("missing_clause", "missing_passage", "rename"):
         raise HTTPException(400, "unknown audit kind")
     if req.kind == "missing_clause" and req.params.get("clause_type") not in TAXONOMY:
@@ -342,12 +383,12 @@ def create_audit(req: AuditRequest, background: BackgroundTasks, session: Sessio
 
 
 @router.get("/audits")
-def list_audits(session: Session = Depends(get_session)) -> list[dict]:
-    return [_audit_dict(a) for a in session.scalars(select(Audit).order_by(Audit.id.desc()))]
+def list_audits(session: Store = Depends(get_session)) -> list[dict]:
+    return [_audit_dict(a) for a in session.audits(findings=True, newest_first=True)]
 
 
 @router.get("/audits/{audit_id}")
-def get_audit(audit_id: int, session: Session = Depends(get_session)) -> dict:
+def get_audit(audit_id: int, session: Store = Depends(get_session)) -> dict:
     a = session.get(Audit, audit_id)
     if not a:
         raise HTTPException(404)
@@ -362,15 +403,12 @@ class Review(BaseModel):
 
 
 @router.get("/findings")
-def list_findings(review_status: str | None = None, session: Session = Depends(get_session)) -> list[dict]:
-    q = select(Finding).where(Finding.verdict != "dismissed").order_by(Finding.id.desc())
-    if review_status:
-        q = q.where(Finding.review_status == review_status)
-    return [_finding_dict(f) for f in session.scalars(q)]
+def list_findings(review_status: str | None = None, session: Store = Depends(get_session)) -> list[dict]:
+    return [_finding_dict(f) for f in session.findings(exclude_verdict="dismissed", review_status=review_status or None, order="id_desc")]
 
 
 @router.post("/findings/{finding_id}/review")
-def review_finding(finding_id: int, review: Review, session: Session = Depends(get_session)) -> dict:
+def review_finding(finding_id: int, review: Review, session: Store = Depends(get_session)) -> dict:
     f = session.get(Finding, finding_id)
     if not f:
         raise HTTPException(404)
@@ -384,7 +422,7 @@ def review_finding(finding_id: int, review: Review, session: Session = Depends(g
 
 
 @router.post("/findings/{finding_id}/push-to-storage")
-def push_to_storage(finding_id: int, actor: str = "legal.reviewer", session: Session = Depends(get_session)) -> dict:
+def push_to_storage(finding_id: int, actor: str = "legal.reviewer", session: Store = Depends(get_session)) -> dict:
     f = session.get(Finding, finding_id)
     if not f:
         raise HTTPException(404)
@@ -404,32 +442,28 @@ def push_to_storage(finding_id: int, actor: str = "legal.reviewer", session: Ses
 
 
 @router.get("/policy")
-def review_policy(session: Session = Depends(get_session)) -> dict:
+def review_policy(session: Store = Depends(get_session)) -> dict:
     """Per finding class: how the team's decisions have changed the review rate."""
-    keys = sorted({k for k in session.scalars(select(Finding.class_key).distinct()) if k})
     classes = []
-    for k in keys:
+    for k in session.class_keys():
         stats = policy.class_stats(session, k)
-        sample = session.scalar(select(Finding).where(Finding.class_key == k).limit(1))
-        counts = dict(session.execute(select(Finding.review_status, func.count()).where(Finding.class_key == k)
-                                      .group_by(Finding.review_status)).all())
-        classes.append({**stats, "kind": sample.audit.kind, "params": sample.audit.params, "findings": counts})
+        sample = session.findings(class_key=k, limit=1)[0]
+        classes.append({**stats, "kind": sample.audit.kind, "params": sample.audit.params, "findings": session.finding_status_counts(k)})
     return {"classes": classes, "rules": {"min_decisions": policy.MIN_DECISIONS, "min_agreement": policy.MIN_AGREEMENT,
                                          "tiers": policy.TIERS}}
 
 
 @router.get("/audit-log")
-def audit_log(session: Session = Depends(get_session)) -> list[dict]:
+def audit_log(session: Store = Depends(get_session)) -> list[dict]:
     return [{"id": e.id, "ts": e.ts, "actor": e.actor, "action": e.action, "target_type": e.target_type,
-             "target_id": e.target_id, "details": e.details}
-            for e in session.scalars(select(AuditLog).order_by(AuditLog.id.desc()).limit(200))]
+             "target_id": e.target_id, "details": e.details} for e in session.audit_log(200)]
 
 
 # mock of the external contract-storage REST API (store-only, legally compliant copy)
 @router.post("/mock-contract-storage/contracts", status_code=201)
 def storage_put(payload: dict, idempotency_key: str = Header(alias="Idempotency-Key"),
-                session: Session = Depends(get_session)) -> dict:
-    existing = session.scalar(select(StoredContract).where(StoredContract.idempotency_key == idempotency_key))
+                session: Store = Depends(get_session)) -> dict:
+    existing = session.stored(idempotency_key)
     if existing:
         return {"external_id": existing.external_id, "duplicate": True}
     rec = StoredContract(external_id=f"CS-{uuid.uuid4().hex[:10].upper()}", idempotency_key=idempotency_key,
@@ -440,9 +474,9 @@ def storage_put(payload: dict, idempotency_key: str = Header(alias="Idempotency-
 
 
 @router.get("/mock-contract-storage/contracts")
-def storage_list(session: Session = Depends(get_session)) -> list[dict]:
+def storage_list(session: Store = Depends(get_session)) -> list[dict]:
     return [{"external_id": r.external_id, "sha256": r.sha256, "created_at": r.created_at, "payload": r.payload}
-            for r in session.scalars(select(StoredContract).order_by(StoredContract.id.desc()))]
+            for r in session.stored_all()]
 
 
 # ---------------------------------------------------------------- chat + eval
@@ -452,12 +486,12 @@ class Question(BaseModel):
 
 
 @router.post("/chat")
-def ask(q: Question, session: Session = Depends(get_session)) -> dict:
+def ask(q: Question, session: Store = Depends(get_session)) -> dict:
     return chat.ask(session, q.question, q.language)
 
 
 @router.post("/eval/run")
-def run_eval(session: Session = Depends(get_session)) -> dict:
+def run_eval(session: Store = Depends(get_session)) -> dict:
     return evaluation.run_eval(session)
 
 

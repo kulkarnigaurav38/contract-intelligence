@@ -1,8 +1,9 @@
 """A corrected copy of a contract with the accepted suggestions applied. The original is never touched.
 
-Digital page: the old name is replaced in place (redaction with replacement text). Scanned page: the spot is
-highlighted and gets a comment, because the team changes the paper original. A missing clause cannot be flowed
-into an existing PDF, so it goes on an addendum page and a note marks where it belongs.
+Digital page: the old name is redacted and the new one set in its place with the size, baseline, font family and
+colour of the original span, so it reads like the surrounding text. Scanned page: the spot is highlighted and gets
+a comment, because the team changes the paper original. A missing clause cannot be flowed into an existing PDF,
+so it goes on an addendum page and a note marks where it belongs.
 """
 
 import pymupdf
@@ -26,9 +27,30 @@ def _rect(bbox: list[float], page: pymupdf.Page) -> pymupdf.Rect:
     return pymupdf.Rect(bbox[0] * w, bbox[1] * h, bbox[2] * w, bbox[3] * h)
 
 
-def _grow(page: pymupdf.Page, rect: pymupdf.Rect, text: str, size: float) -> pymupdf.Rect:
+def _span_at(page: pymupdf.Page, rect: pymupdf.Rect) -> dict | None:
+    """The text span under `rect`: its font, size, colour and baseline are what the replacement copies."""
+    for block in page.get_text("dict", clip=rect)["blocks"]:
+        for line in block.get("lines", []):
+            for span in line["spans"]:
+                if pymupdf.Rect(span["bbox"]).intersects(rect):
+                    return span
+    return None
+
+
+def _font(name: str) -> str:
+    """The base-14 face closest to the document's font (the replacement must be embeddable without the original)."""
+    n = name.lower()
+    bold = "bold" in n or "black" in n or "heavy" in n
+    if "times" in n or "georgia" in n or "garamond" in n or ("serif" in n and "sans" not in n):
+        return "tibo" if bold else "tiro"
+    if "courier" in n or "mono" in n:
+        return "cobo" if bold else "cour"
+    return "hebo" if bold else "helv"
+
+
+def _grow(page: pymupdf.Page, rect: pymupdf.Rect, text: str, size: float, font: str = "helv") -> pymupdf.Rect:
     """Widen the box to the right for a longer replacement, as far as the line is empty there."""
-    need = pymupdf.get_text_length(text, fontname="helv", fontsize=size) + 2
+    need = pymupdf.get_text_length(text, fontname=font, fontsize=size) + 2
     if need <= rect.width:
         return rect
     limit = pymupdf.Rect(rect.x1, rect.y0, min(page.rect.width - 36, rect.x0 + need), rect.y1)
@@ -40,9 +62,9 @@ def _grow(page: pymupdf.Page, rect: pymupdf.Rect, text: str, size: float) -> pym
     return pymupdf.Rect(rect.x0, rect.y0, max(rect.x1, min(limit.x1, free_until - 1)), rect.y1)
 
 
-def _fit(text: str, rect: pymupdf.Rect) -> float:
-    size = min(11.0, rect.height * 0.8)
-    while size > 5 and pymupdf.get_text_length(text, fontname="helv", fontsize=size) > rect.width:
+def _fit(text: str, rect: pymupdf.Rect, size: float, font: str = "helv") -> float:
+    """The original size unless the replacement still does not fit the (widened) box; then smaller, never below 5 pt."""
+    while size > 5 and pymupdf.get_text_length(text, fontname=font, fontsize=size) > rect.width:
         size -= 0.5
     return size
 
@@ -84,10 +106,19 @@ def corrected_pdf(doc: Document, report: dict) -> bytes | None:
         if it["kind"] == "old_name":
             hits = all_occurrences(page, it["name"]) if has_text_layer(page) else []
             if hits:
+                inserts = []
                 for r in hits:
-                    r = _grow(page, r, text, min(11.0, r.height * 0.8))
-                    page.add_redact_annot(r, text=text, fontname="helv", fontsize=_fit(text, r), fill=(1, 1, 1), align=0)
-                page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE)
+                    span = _span_at(page, r)
+                    size = span["size"] if span else r.height * 0.8
+                    font = _font(span["font"]) if span else "helv"
+                    color = pymupdf.sRGB_to_pdf(span["color"]) if span else (0, 0, 0)
+                    baseline = span["origin"][1] if span else r.y1 - 0.2 * r.height
+                    grown = _grow(page, r, text, size, font)
+                    page.add_redact_annot(grown, fill=(1, 1, 1))
+                    inserts.append((pymupdf.Point(r.x0, baseline), _fit(text, grown, size, font), font, color))
+                page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE)  # first the white-out, then the new text on top
+                for point, size, font, color in inserts:
+                    page.insert_text(point, text, fontname=font, fontsize=size, color=color)
             else:
                 where = _rect(bbox, page) if bbox else pymupdf.Rect(36, 36, 200, 60)
                 if bbox:

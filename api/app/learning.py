@@ -9,9 +9,7 @@ one spot check per contract - the review rules (thresholds) are the ones in app/
 import hashlib
 from datetime import datetime, timezone
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
+from app.db import Store
 from app.models import Decision, Document
 from app.policy import review_rate
 
@@ -23,26 +21,26 @@ def class_key(kind: str, contract_type: str, clause_type: str = "") -> str:
     return "rename" if kind == "old_name" else f"missing:{contract_type}:{clause_type}"
 
 
-def current_decisions(session: Session, key: str) -> list[Decision]:
+def current_decisions(session: Store, key: str) -> list[Decision]:
     """Latest decision per (file, item), oldest first; reopened items drop out."""
     latest: dict[tuple[str, str], Decision] = {}
-    for d in session.scalars(select(Decision).where(Decision.class_key == key).order_by(Decision.id)):
+    for d in session.decisions(class_key=key):
         latest[(d.sha256, d.item_key)] = d
     return sorted((d for d in latest.values() if d.decision in HUMAN), key=lambda d: d.id)
 
 
-def rate(session: Session, key: str) -> float:
+def rate(session: Store, key: str) -> float:
     return review_rate([AS_POLICY[d.decision] for d in current_decisions(session, key)])
 
 
-def precedents(session: Session, key: str, limit: int = 3) -> list[dict]:
+def precedents(session: Store, key: str, limit: int = 3) -> list[dict]:
     rows = [d for d in reversed(current_decisions(session, key)) if d.note.strip()][:limit]
     return [{"decision": AS_POLICY[d.decision], "note": d.note, "quote": d.quote} for d in rows]
 
 
-def previous(session: Session, sha256: str, item_key: str) -> Decision | None:
-    d = session.scalar(select(Decision).where(Decision.sha256 == sha256, Decision.item_key == item_key)
-                       .order_by(Decision.id.desc()).limit(1))
+def previous(session: Store, sha256: str, item_key: str) -> Decision | None:
+    rows = session.decisions(sha256=sha256, item_key=item_key)
+    d = rows[-1] if rows else None
     return d if d is not None and d.decision in HUMAN else None
 
 
@@ -50,7 +48,7 @@ def _spot(sha256: str, key: str, r: float) -> bool:
     return int(hashlib.sha256(f"{sha256}:{key}".encode()).hexdigest()[:8], 16) % 100 < round(r * 100)
 
 
-def apply(session: Session, doc: Document, items: list[dict]) -> None:
+def apply(session: Store, doc: Document, items: list[dict]) -> None:
     """Fill item['review'] and item['policy'] for every finding of a fresh report."""
     now = datetime.now(timezone.utc).isoformat()
     automated, spot_checked = [], 0
@@ -78,6 +76,8 @@ def apply(session: Session, doc: Document, items: list[dict]) -> None:
         it["policy"] = {"kind": "spot_check", "review_rate": it["policy"]["review_rate"], "minimum": True}
 
 
-def record(session: Session, doc: Document, item: dict, decision: str, note: str, edited_text: str, actor: str) -> None:
+def record(session: Store, doc: Document, item: dict, decision: str, note: str, edited_text: str, actor: str) -> None:
+    """A Decision node, linked to the contract and the clause type: the drafter retrieves accepted wording and the
+    cross-check the notes from there."""
     session.add(Decision(document_id=doc.id, sha256=doc.sha256, item_key=item["key"], class_key=item["class_key"],
                          decision=decision, note=note, edited_text=edited_text, quote=item.get("quote", "")[:400], actor=actor))

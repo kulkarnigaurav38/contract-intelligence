@@ -11,10 +11,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.db import Store
 from app.ingest.pipeline import ingest_path
 from app.models import Document, SyncState
 
@@ -34,8 +33,8 @@ class LocalFolderSource:
     def __init__(self, folder: Path):
         self.folder = folder
 
-    def new_files(self, session: Session) -> list[NewFile]:
-        known = set(session.scalars(select(Document.sha256)))
+    def new_files(self, session: Store) -> list[NewFile]:
+        known = session.known_shas()
         out = []
         for path in sorted(p for p in self.folder.iterdir() if p.suffix.lower() in SUPPORTED):
             if hashlib.sha256(path.read_bytes()).hexdigest() not in known:
@@ -64,7 +63,7 @@ class SharePointSource:
             raise RuntimeError(f"Graph token failed: {result.get('error_description', result)}")
         return result["access_token"]
 
-    def new_files(self, session: Session) -> list[NewFile]:
+    def new_files(self, session: Store) -> list[NewFile]:
         headers = {"Authorization": f"Bearer {self._token()}"}
         state = session.get(SyncState, self.STATE_KEY)
         url = state.value if state else (f"{self.GRAPH}/drives/{settings.sharepoint_drive_id}/root:"
@@ -99,6 +98,6 @@ def source():
     return LocalFolderSource(settings.document_source_path)
 
 
-def sync(session: Session, actor: str = "system") -> list[Document]:
+def sync(session: Store, actor: str = "system") -> list[Document]:
     """Ingest everything the source reports as new. Idempotent: the pipeline skips known checksums anyway."""
     return [ingest_path(session, f.path, actor) for f in source().new_files(session)]

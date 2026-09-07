@@ -8,13 +8,10 @@ audit (deterministic + verifier).
 import json
 import re
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from app.config import settings
+from app.db import Store
 from app.ingest.classify import TAXONOMY
 from app.ingest.ocr import UNREADABLE_BELOW
-from app.models import Audit, Document
 
 
 def _prf(tp: int, fp: int, fn: int) -> dict:
@@ -31,11 +28,10 @@ def _score(predicted: set, actual: set) -> tuple[dict, list]:
     return _prf(len(tp), len(fp), len(fn)), errors
 
 
-def run_eval(session: Session) -> dict:
+def run_eval(session: Store) -> dict:
     gt = json.loads((settings.data_dir / "ground_truth.json").read_text())
     truth = {c["file"]: c for c in gt["contracts"]}
-    docs = {d.filename: d for d in session.scalars(select(Document).where(Document.status == "ready"))
-            if d.filename in truth}
+    docs = {d.filename: d for d in session.documents(status="ready", children=True) if d.filename in truth}
     if not docs:
         return {"error": "no ground-truth documents ingested"}
     # documents the pipeline flagged as unreadable are escalated to humans, not scored as clean
@@ -74,7 +70,7 @@ def run_eval(session: Session) -> dict:
 
     # finished audits: findings (confirmed + unverified) vs truth
     audits = []
-    for audit in session.scalars(select(Audit).where(Audit.status == "done").order_by(Audit.id)):
+    for audit in session.audits(status="done", findings=True):
         if audit.params.get("document_ids"):  # scoped to a benchmark (e.g. CUAD): scored in real_data, not here
             continue
         scope = {fn for fn, d in docs.items()  # only documents that existed when the check ran
@@ -103,7 +99,7 @@ def run_eval(session: Session) -> dict:
             "extraction": extraction, "audits": audits, "injection": injection}
 
 
-def real_data(session: Session) -> dict | None:
+def real_data(session: Store) -> dict | None:
     """Score the pipeline against CUAD's expert annotations for the five clause types the two taxonomies share."""
     path = settings.data_dir / "real" / "cuad_ground_truth.json"
     if not path.exists():
@@ -112,7 +108,7 @@ def real_data(session: Session) -> dict | None:
     truth = {c["file"]: c for c in gt["contracts"]}
     # uploads are stored as <12-hex-hash>_<original name>; match on the original name
     docs = {}
-    for d in session.scalars(select(Document).where(Document.status == "ready")):
+    for d in session.documents(status="ready", children=True):
         name = d.filename.split("_", 1)[1] if re.match(r"^[0-9a-f]{12}_", d.filename) else d.filename
         if name in truth:
             docs[name] = d
@@ -139,7 +135,7 @@ def real_data(session: Session) -> dict | None:
     metrics, errors = _score(pred, actual)
     audits = []
     ids = {d.id: fn for fn, d in docs.items()}
-    for audit in session.scalars(select(Audit).where(Audit.status == "done").order_by(Audit.id)):
+    for audit in session.audits(status="done", findings=True):
         if audit.kind != "missing_clause" or audit.params.get("clause_type") not in types or not audit.params.get("document_ids"):
             continue
         t = audit.params["clause_type"]

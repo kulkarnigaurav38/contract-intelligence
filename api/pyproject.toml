@@ -12,14 +12,12 @@ dependencies = [
     "langchain-openai>=1.6.0",
     "langgraph>=1.2.11",
     "msal>=1.38.0",
-    "pgvector>=0.5.0",
+    "neo4j>=6.3.0",
     "pillow>=12.3.0",
-    "psycopg[binary]>=3.3.4",
     "pydantic-settings>=2.15.0",
     "pymupdf>=1.28.2",
     "pytesseract>=0.3.13",
     "python-multipart>=0.0.32",
-    "sqlalchemy>=2.0.52",
     "uvicorn[standard]>=0.52.4",
 ]
 

@@ -1,9 +1,10 @@
 # Production shape on Azure. Not applied for the case study - it documents the infrastructure story:
-#   - documents stay in the tenant: SharePoint (source) -> Blob (working copies) -> PostgreSQL/pgvector (index)
+#   - documents stay in the tenant: SharePoint (source) -> Blob (working copies) -> Neo4j (the database: contracts,
+#     clauses with vector + full-text index, names, guideline, register, decisions, audit log)
 #   - the API and web containers run on Container Apps behind Entra ID
 #   - OCR and models: Azure AI Document Intelligence for scans; LLM access through Foundry or
 #     Gemini on Vertex AI (europe-west3), configured by variable, key held in Key Vault
-#   - everything logs to Log Analytics; the append-only audit log lives in PostgreSQL
+#   - everything logs to Log Analytics; the append-only audit log lives in the graph
 
 terraform {
   required_version = ">= 1.6"
@@ -72,35 +73,6 @@ resource "azurerm_storage_container" "contracts" {
   container_access_type = "private"
 }
 
-# ---------------------------------------------------------------- index: PostgreSQL with pgvector
-resource "azurerm_postgresql_flexible_server" "db" {
-  name                          = "psql-${local.name}"
-  resource_group_name           = azurerm_resource_group.rg.name
-  location                      = azurerm_resource_group.rg.location
-  version                       = "16"
-  administrator_login           = "contracts"
-  administrator_password        = var.db_password
-  sku_name                      = var.db_sku
-  storage_mb                    = 65536
-  backup_retention_days         = 35
-  geo_redundant_backup_enabled  = true
-  public_network_access_enabled = false
-  tags                          = local.tags
-}
-
-resource "azurerm_postgresql_flexible_server_configuration" "extensions" {
-  name      = "azure.extensions"
-  server_id = azurerm_postgresql_flexible_server.db.id
-  value     = "VECTOR"
-}
-
-resource "azurerm_postgresql_flexible_server_database" "contracts" {
-  name      = "contracts"
-  server_id = azurerm_postgresql_flexible_server.db.id
-  charset   = "UTF8"
-  collation = "en_US.utf8"
-}
-
 # ---------------------------------------------------------------- OCR for scans (production path for Tesseract's role)
 resource "azurerm_cognitive_account" "document_intelligence" {
   name                  = "di-${local.name}"
@@ -140,6 +112,13 @@ resource "azurerm_cognitive_deployment" "tier" {
     capacity = each.value.capacity
   }
 }
+
+# ---------------------------------------------------------------- the database: Neo4j
+# One graph is the database (api/app/db.py, api/app/graph.py). Managed: Neo4j AuraDB from the Azure Marketplace (EU
+# regions with data residency, daily backups; Professional from ~$65 per GB-month) - there is no first-class azurerm
+# resource, the instance is created from the marketplace listing, its bolt URI passed as var.neo4j_uri and its password
+# stored in Key Vault as 'neo4j-password'. Self-hosted alternative: the neo4j:2026.07 container on this Container Apps
+# environment with an Azure Files volume, exactly as docker-compose.yml runs it.
 
 # ---------------------------------------------------------------- compute
 resource "azurerm_container_app_environment" "env" {
@@ -186,13 +165,13 @@ resource "azurerm_container_app" "api" {
     identity            = azurerm_user_assigned_identity.api.id
   }
   secret {
-    name                = "database-url"
-    key_vault_secret_id = "${azurerm_key_vault.kv.vault_uri}secrets/database-url"
+    name                = "entra-client-secret"
+    key_vault_secret_id = "${azurerm_key_vault.kv.vault_uri}secrets/entra-client-secret"
     identity            = azurerm_user_assigned_identity.api.id
   }
   secret {
-    name                = "entra-client-secret"
-    key_vault_secret_id = "${azurerm_key_vault.kv.vault_uri}secrets/entra-client-secret"
+    name                = "neo4j-password"
+    key_vault_secret_id = "${azurerm_key_vault.kv.vault_uri}secrets/neo4j-password"
     identity            = azurerm_user_assigned_identity.api.id
   }
 
@@ -207,10 +186,6 @@ resource "azurerm_container_app" "api" {
       env {
         name        = "GEMINI_API_KEY"
         secret_name = "llm-api-key"
-      }
-      env {
-        name        = "DATABASE_URL"
-        secret_name = "database-url"
       }
       env {
         name        = "ENTRA_CLIENT_SECRET"
@@ -231,6 +206,18 @@ resource "azurerm_container_app" "api" {
       env {
         name  = "AZURE_OPENAI_ENDPOINT"
         value = var.llm_provider == "foundry" ? azurerm_cognitive_account.foundry[0].endpoint : ""
+      }
+      env {
+        name  = "NEO4J_URI"
+        value = var.neo4j_uri
+      }
+      env {
+        name  = "NEO4J_USER"
+        value = var.neo4j_user
+      }
+      env {
+        name        = "NEO4J_PASSWORD"
+        secret_name = "neo4j-password"
       }
       env {
         name  = "DOCUMENT_SOURCE"

@@ -1,19 +1,20 @@
-"""End-to-end against Postgres/pgvector (offline LLM): ingest fixtures, run audits, review, push, eval.
+"""End-to-end against a scratch Neo4j (offline LLM): ingest fixtures, run audits, review, push, eval.
 
-Skipped automatically when the database is unreachable.
+The store is pointed at NEO4J_TEST_URI (tests/conftest.py) - never a working graph, the suite wipes it - and the
+suite is skipped without one: `docker compose --profile test up -d neo4j-test`, then
+`NEO4J_TEST_URI=bolt://localhost:7688 uv run pytest tests/test_end_to_end_graph.py`.
 """
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import text
 
-from app import routers
+from app import db, routers
 from app.config import settings
-from app.db import engine
 from app.ingest.classify import TAXONOMY
 
 DATA = Path(__file__).resolve().parents[2] / "data"
@@ -22,24 +23,14 @@ BY_FILE = {c["file"]: c for c in GT.values()}
 GT1 = {k: v for k, v in GT.items() if v.get("batch", 1) == 1}
 
 
-def _db_up() -> bool:
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        return True
-    except Exception:
-        return False
-
-
-pytestmark = pytest.mark.skipif(not _db_up(), reason="database not reachable")
+pytestmark = pytest.mark.skipif(not os.environ.get("NEO4J_TEST_URI") or not db.reachable(), reason="no scratch Neo4j (NEO4J_TEST_URI)")
 
 
 @pytest.fixture(scope="module")
 def client():
     from app.main import app
 
-    with engine.begin() as conn:  # clean slate for a deterministic run
-        conn.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public"))
+    db.run("MATCH (n) DETACH DELETE n")  # clean slate for a deterministic run
     settings.contract_storage_url = "http://testserver/api/mock-contract-storage"
     settings.gemini_api_key = ""  # this suite pins the deterministic core; the live model path has its own tests
     with TestClient(app) as c:

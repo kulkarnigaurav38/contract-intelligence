@@ -7,11 +7,9 @@ import re
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
+from app.db import Store
 from app.llm import DOC_GUARD, ModelUnavailable, chat, with_retry
-from app.models import Document, Entity
 from app.retrieval import hybrid_search
 
 GENERIC = {"gmbh", "agreement", "vertrag", "contract", "limited", "group", "software", "solutions", "financial",
@@ -41,25 +39,26 @@ class Answer(BaseModel):
     citations: list[Citation]
 
 
-def documents_named_in(session: Session, question: str) -> list[dict]:
+def documents_named_in(session: Store, question: str) -> list[dict]:
     """Contracts whose counterparty (or title) is named in the question, e.g. 'Nordlicht' -> C01."""
     words = {w.lower() for w in re.findall(r"[A-ZÄÖÜ][\wäöüß]{3,}", question)} - GENERIC
     if not words:
         return []
     hits: dict[int, str] = {}
-    for e in session.scalars(select(Entity).where(Entity.kind.in_(["counterparty", "third_party"]))):
+    for e in session.mentions(["counterparty", "third_party"]):
         if words & ({w.lower() for w in re.findall(r"[\wäöüß]{4,}", e.name)} - GENERIC):
             hits.setdefault(e.document_id, e.name)
     return [{"document_id": d.id, "title": d.title, "counterparty": hits[d.id]}
-            for d in session.scalars(select(Document).where(Document.id.in_(hits))).all()]
+            for d in session.documents(ids=list(hits))] if hits else []
 
 
-def build(session: Session):
+def build(session: Store):
     def retrieve(state: ChatState) -> ChatState:
         scope = documents_named_in(session, state["question"])
         hits = hybrid_search(session, state["question"], k=8, document_ids=[d["document_id"] for d in scope] or None)
+        docs = {d.id: d for d in session.documents(ids={c.document_id for c, _ in hits})} if hits else {}
         passages = [{
-            "index": i, "document_id": c.document_id, "filename": c.document.filename, "title": c.document.title,
+            "index": i, "document_id": c.document_id, "filename": docs[c.document_id].filename, "title": docs[c.document_id].title,
             "page": c.page_no, "clause_type": c.clause_type, "heading": c.heading, "text": c.text, "score": round(s, 4),
         } for i, (c, s) in enumerate(hits)]
         return {"passages": passages, "scope": scope}
@@ -106,7 +105,7 @@ def build(session: Session):
     return g.compile()
 
 
-def ask(session: Session, question: str, language: str = "en") -> dict:
+def ask(session: Store, question: str, language: str = "en") -> dict:
     state = build(session).invoke({"question": question, "language": language})
     return {"answer": state["answer"], "citations": state["citations"], "mode": state["mode"],
             "passages": state["passages"], "scope": state.get("scope", [])}

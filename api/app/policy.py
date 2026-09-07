@@ -11,9 +11,7 @@ to the verifier as precedents.
 import hashlib
 from datetime import datetime, timezone
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
+from app.db import Store
 from app.models import Audit, AuditLog, Finding
 
 MIN_DECISIONS = 8  # consecutive agreeing human decisions before any automation (a policy knob; the sample set yields 9)
@@ -31,11 +29,8 @@ def class_key(kind: str, params: dict) -> str:
     return f"rename:{params.get('old_name') or 'registry'}"
 
 
-def human_decisions(session: Session, key: str) -> list[Finding]:
-    return session.scalars(
-        select(Finding).where(Finding.class_key == key, Finding.review_status.in_(HUMAN))
-        .order_by(Finding.reviewed_at)
-    ).all()
+def human_decisions(session: Store, key: str) -> list[Finding]:
+    return session.findings(class_key=key, review_status_in=HUMAN, order="reviewed_at")
 
 
 def review_rate(decisions: list[str]) -> float:
@@ -56,14 +51,14 @@ def review_rate(decisions: list[str]) -> float:
     return 1.0
 
 
-def class_stats(session: Session, key: str) -> dict:
+def class_stats(session: Store, key: str) -> dict:
     decisions = [f.review_status for f in human_decisions(session, key)]
     since = 0
     for d in reversed(decisions):
         if d != "approved":
             break
         since += 1
-    auto = session.scalar(select(Finding.id).where(Finding.class_key == key, Finding.review_status == "auto_approved").limit(1))
+    auto = session.findings(class_key=key, review_status="auto_approved", limit=1)
     return {
         "class_key": key,
         "decisions": len(decisions),
@@ -72,23 +67,23 @@ def class_stats(session: Session, key: str) -> dict:
         "since_rejection": since,
         "agreement": round(decisions.count("approved") / len(decisions), 3) if decisions else None,
         "review_rate": review_rate(decisions),
-        "automation_active": auto is not None,
+        "automation_active": bool(auto),
     }
 
 
-def precedents(session: Session, key: str, limit: int = 3) -> list[dict]:
+def precedents(session: Store, key: str, limit: int = 3) -> list[dict]:
     """The team's most recent decisions with a note, newest first: what they consider acceptable and why."""
     rows = [f for f in reversed(human_decisions(session, key)) if f.review_note.strip()][:limit]
     return [{"decision": f.review_status, "note": f.review_note, "quote": (f.evidence[0]["quote"] if f.evidence else "")}
             for f in rows]
 
 
-def previous_decision(session: Session, document_id: int, key: str, exclude_id: int | None = None) -> Finding | None:
+def previous_decision(session: Store, document_id: int, key: str, exclude_id: int | None = None) -> Finding | None:
     """The team's latest decision on the same contract and question, if any."""
-    q = select(Finding).where(Finding.document_id == document_id, Finding.class_key == key, Finding.review_status.in_(HUMAN))
-    if exclude_id is not None:
-        q = q.where(Finding.id != exclude_id)
-    return session.scalar(q.order_by(Finding.reviewed_at.desc()).limit(1))
+    for f in session.findings(document_id=document_id, class_key=key, review_status_in=HUMAN, order="reviewed_at_desc"):
+        if exclude_id is None or f.id != exclude_id:
+            return f
+    return None
 
 
 def _spot_check(audit_id: int, sha256: str, rate: float) -> bool:
@@ -96,7 +91,7 @@ def _spot_check(audit_id: int, sha256: str, rate: float) -> bool:
     return int(hashlib.sha256(f"{audit_id}:{sha256}".encode()).hexdigest()[:8], 16) % 100 < round(rate * 100)
 
 
-def apply(session: Session, audit: Audit) -> dict:
+def apply(session: Store, audit: Audit) -> dict:
     """Decide for every new finding whether a person must look at it. Returns counts for the audit summary."""
     key = class_key(audit.kind, audit.params)
     rate = review_rate([f.review_status for f in human_decisions(session, key)])
@@ -138,14 +133,13 @@ def apply(session: Session, audit: Audit) -> dict:
         f = min((f for f in audit.findings if f.policy.get("kind") == "auto"), key=lambda f: f.document.sha256)
         f.review_status, f.reviewed_at, f.policy = "pending", None, {"kind": "spot_check", "review_rate": rate, "minimum": True}
         f.method_chain = f.method_chain[:-1] + [f"policy: class review rate {rate:.0%}, selected as the run's minimum spot check"]
-        session.query(AuditLog).filter(AuditLog.target_type == "finding", AuditLog.target_id == f.id,
-                                       AuditLog.action == "finding.auto_approved").delete()
+        session.delete_log("finding", f.id, "finding.auto_approved")
         counts["auto_approved"] -= 1
         counts["spot_check"] += 1
     session.commit()
     return counts
 
 
-def _log(session: Session, f: Finding, action: str, details: dict) -> None:
+def _log(session: Store, f: Finding, action: str, details: dict) -> None:
     session.add(AuditLog(actor="system", action=action, target_type="finding", target_id=f.id,
                          details={"document_id": f.document_id, "sha256": f.document.sha256, **details}))

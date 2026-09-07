@@ -1,26 +1,26 @@
 """The audit graph: plan -> deterministic -> verify -> report.
 
 Deterministic first: coverage matrix / entity registry / embedding similarity
-produce *claims* with evidence. The verifier then reads the full contract for
-every claim that is not already certain. Every finding records the chain of
-methods that produced it, so a reviewer can see whether it came from a rule,
-a model, or both.
+produce *claims* with evidence. The verifier then reads the graph's selection
+for every claim that is not already certain, and the full contract before it
+confirms an absence. Every finding records the chain of methods that produced
+it, so a reviewer can see whether it came from a rule, a model, or both.
 """
 
 import re
 from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
+from app import graph as kg
 from app import policy
-from app.audits.verify import verify
+from app.audits.verify import verify_absence
 from app.config import settings
+from app.db import Store
 from app.ingest.classify import TAXONOMY
 from app.ingest.entities import HISTORICAL_RE
 from app.ingest.ocr import ESCALATE_BELOW, UNREADABLE_BELOW
-from app.models import Audit, Clause, Document, Entity, Finding, Page
+from app.models import Audit, Clause, Document, Finding
 from app.retrieval import best_match_per_document
 
 LABELS = {
@@ -47,18 +47,15 @@ def _present_sim() -> tuple[float, float]:
     return (0.75, 0.60) if settings.llm_enabled else (0.45, 0.25)
 
 
-def build(session: Session):
+def build(session: Store):
     def plan(state: AuditState) -> AuditState:
-        q = select(Document.id).where(Document.status == "ready")
-        if ct := state["params"].get("contract_type"):
-            q = q.where(Document.contract_type == ct)
-        if ids := state["params"].get("document_ids"):  # e.g. an evaluation restricted to one benchmark
-            q = q.where(Document.id.in_(ids))
-        return {"scope": list(session.scalars(q)), "claims": []}
+        docs = session.documents(status="ready", contract_type=state["params"].get("contract_type") or None,
+                                 ids=state["params"].get("document_ids") or None)  # ids: e.g. an evaluation on one benchmark
+        return {"scope": [d.id for d in docs], "claims": []}
 
     def deterministic(state: AuditState) -> AuditState:
         kind, params = state["kind"], state["params"]
-        docs = session.scalars(select(Document).where(Document.id.in_(state["scope"]))).all()
+        docs = session.documents(ids=state["scope"], children=True)
         claims, summary = [], {"scope": len(docs), "present": 0, "missing": 0, "uncertain": 0, "historical_only": 0,
                                "unreadable": 0}
         # Never silently pass a document the pipeline could not read: surface it instead.
@@ -93,6 +90,7 @@ def build(session: Session):
                         "claim": f"The contract contains a {LABELS[ct]} clause (heading: '{best.heading}').",
                         "evidence": [{"page": best.page_no, "quote": best.text[:400]}],
                         "method_chain": [f"coverage matrix: labelled {ct} at {best.confidence:.0%} via {best.method}"],
+                        "query": kg.type_query(ct), "types": (ct,),
                     })
                 else:
                     summary["missing"] += 1
@@ -112,6 +110,7 @@ def build(session: Session):
                 claims.append({
                     "document_id": doc.id, "direction": "missing", "confidence": round(max(0.5, 1 - sim), 2),
                     "claim": f"The contract contains no provision equivalent to: \"{passage}\"",
+                    "query": passage,
                     "evidence": [{"page": clause.page_no, "quote": clause.text[:400]}] if clause else [],
                     "method_chain": [f"hybrid retrieval: closest clause similarity {sim:.2f} "
                                      f"({'below' if direction == 'missing' else 'between'} thresholds "
@@ -141,6 +140,7 @@ def build(session: Session):
                     "confidence": round(min(0.85, min(m["confidence"] for m in active)), 2),
                     "claim": f"The contract names {', '.join(repr(n) for n in names)} as an active contracting party "
                              f"(not merely a historical reference), so the name must be updated to '{new_name}'.",
+                    "query": ", ".join(names), "names": tuple(names),
                     "evidence": [{"page": m["page"], "quote": m["context"]} for m in active[:3]],
                     "method_chain": chain,
                 })
@@ -163,10 +163,12 @@ def build(session: Session):
                        claim["method_chain"] + [f"verification skipped: reviewer decided finding #{decided.id}"],
                        decided.reasoning, decided.evidence)
                 continue
-            pages = [(p.page_no, p.text) for p in session.scalars(
-                select(Page).where(Page.document_id == claim["document_id"]).order_by(Page.page_no))]
-            session.commit()  # never hold a transaction (and its locks) across a model call
-            verdict = verify(pages, claim["claim"], state["params"].get("language", "en"), history)
+            scoped = kg.verify_context(session, claim["document_id"], claim.get("query", claim["claim"]),
+                                       types=claim.get("types", ()), names=claim.get("names", ()))
+            full = kg.full_text(session, claim["document_id"])
+            session.commit()  # never hold a transaction across a model call
+            verdict, complete = verify_absence(scoped, full, claim["claim"], state["params"].get("language", "en"), history,
+                                               "confirmed" if claim["direction"] == "missing" else "refuted")
             if verdict is None:
                 why = "verifier: unavailable offline" if not settings.llm_enabled else "verifier: provider unavailable, retried 5x"
                 if claim["direction"] == "missing":
@@ -174,6 +176,8 @@ def build(session: Session):
                            claim["method_chain"] + [why], "")
                 continue
             chain = claim["method_chain"] + [f"verifier {settings.model_pro}: {verdict.verdict} ({verdict.confidence:.0%})"]
+            if not complete:
+                chain.append("full-text confirmation could not run (provider unavailable); the scoped read stands")
             evidence = claim["evidence"]
             if verdict.quote:
                 evidence = [{"page": verdict.page, "quote": verdict.quote[:400]}] + evidence
@@ -212,7 +216,7 @@ def build(session: Session):
     return g.compile()
 
 
-def _missing_claim(session: Session, doc: Document, ct: str, nearest: tuple[int, float] | None) -> dict:
+def _missing_claim(session: Store, doc: Document, ct: str, nearest: tuple[int, float] | None) -> dict:
     chain = [f"coverage matrix: 0 of {len(doc.clauses)} clauses labelled {ct}"]
     evidence, confidence = [], 0.6
     if nearest:
@@ -223,16 +227,17 @@ def _missing_claim(session: Session, doc: Document, ct: str, nearest: tuple[int,
         if settings.llm_enabled:
             confidence = round(min(0.95, max(0.5, 1 - sim)), 2)
     return {"document_id": doc.id, "direction": "missing", "confidence": confidence,
-            "claim": f"The contract contains no {LABELS[ct]} clause.", "evidence": evidence, "method_chain": chain}
+            "claim": f"The contract contains no {LABELS[ct]} clause.", "evidence": evidence, "method_chain": chain,
+            "query": kg.type_query(ct), "types": (ct,)}
 
 
-def _rename_mentions(session: Session, doc: Document, old_name: str | None) -> list[dict]:
+def _rename_mentions(session: Store, doc: Document, old_name: str | None) -> list[dict]:
     if not old_name:
         return [{"name": e.name, "page": e.page_no, "context": e.context, "historical": e.historical,
                  "confidence": e.confidence} for e in doc.entities if e.kind == "our_entity_old"]
     pattern = re.compile(r"(?<![\w-])" + re.escape(old_name) + r"(?![\w-])", re.I)
     out = []
-    for page in session.scalars(select(Page).where(Page.document_id == doc.id)):
+    for page in doc.page_rows:
         for m in pattern.finditer(page.text):
             before = page.text[max(0, m.start() - 80): m.start()]
             context = (before + m.group(0) + page.text[m.end(): m.end() + 80]).replace("\n", " ").strip()
@@ -241,14 +246,14 @@ def _rename_mentions(session: Session, doc: Document, old_name: str | None) -> l
     return out
 
 
-def _store(session: Session, audit_id: int, claim: dict, verdict: str, confidence: float, chain: list[str],
+def _store(session: Store, audit_id: int, claim: dict, verdict: str, confidence: float, chain: list[str],
            reasoning: str, evidence: list[dict] | None = None) -> None:
     session.add(Finding(audit_id=audit_id, document_id=claim["document_id"], verdict=verdict,
                         confidence=round(confidence, 2), method_chain=chain,
                         evidence=evidence if evidence is not None else claim["evidence"], reasoning=reasoning))
 
 
-def run_audit(session: Session, audit_id: int) -> None:
+def run_audit(session: Store, audit_id: int) -> None:
     audit = session.get(Audit, audit_id)
     try:
         build(session).invoke({"audit_id": audit.id, "kind": audit.kind, "params": audit.params})
@@ -259,8 +264,8 @@ def run_audit(session: Session, audit_id: int) -> None:
         session.commit()
 
 
-def coverage_matrix(session: Session) -> dict:
-    docs = session.scalars(select(Document).where(Document.status == "ready").order_by(Document.id)).all()
+def coverage_matrix(session: Store) -> dict:
+    docs = session.documents(status="ready", children=True)
     rows = []
     for doc in docs:
         cells = {}

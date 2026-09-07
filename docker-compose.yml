@@ -1,24 +1,42 @@
 services:
-  db:
-    image: pgvector/pgvector:pg16
+  neo4j:
+    image: neo4j:2026.07
     environment:
-      POSTGRES_USER: contracts
-      POSTGRES_PASSWORD: contracts
-      POSTGRES_DB: contracts
+      NEO4J_AUTH: neo4j/contracts-graph
     ports:
-      - "5432:5432"
+      - "7474:7474"
+      - "7687:7687"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - neo4jdata:/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U contracts"]
-      interval: 3s
-      timeout: 3s
-      retries: 20
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p contracts-graph 'RETURN 1' || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 20s
+
+  # a scratch instance for the end-to-end suite, which wipes its graph:
+  #   docker compose --profile test up -d neo4j-test && cd api && NEO4J_TEST_URI=bolt://localhost:7688 uv run pytest tests/test_end_to_end_graph.py
+  neo4j-test:
+    image: neo4j:2026.07
+    profiles: ["test"]
+    environment:
+      NEO4J_AUTH: neo4j/contracts-graph
+    ports:
+      - "7688:7687"
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p contracts-graph 'RETURN 1' || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 20s
 
   api:
     build: ./api
     environment:
-      DATABASE_URL: postgresql+psycopg://contracts:contracts@db:5432/contracts
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: contracts-graph
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       CONTRACT_STORAGE_URL: http://api:8000/api/mock-contract-storage
       DATA_DIR: /srv/data
@@ -27,7 +45,7 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      db:
+      neo4j:
         condition: service_healthy
 
   web:
@@ -38,4 +56,4 @@ services:
       - api
 
 volumes:
-  pgdata:
+  neo4jdata:

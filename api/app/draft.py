@@ -15,19 +15,25 @@ class Draft(BaseModel):
 
 
 def draft_clause(pages: list[tuple[int, str]], clause_type: str, contract_type: str, language: str,
-                 partial_quote: str = "") -> Draft | None:
+                 partial_quote: str = "", precedents: list[str] = ()) -> Draft | None:
+    """`pages` is the whole contract, or (from the knowledge graph) its outline as page 0 plus the clauses around the
+    insertion point; `precedents` is wording the team accepted for this clause type in contracts of the same type."""
     llm = chat("draft")
     if llm is None:
         return None
-    body = "\n".join(f'<page n="{n}">\n{t}\n</page>' for n, t in pages)
+    body = "\n".join(f'<outline>\n{t}\n</outline>' if n == 0 else f'<page n="{n}">\n{t}\n</page>' for n, t in pages)
     task = (f"The contract has a provision on this subject that is materially narrower: \"{partial_quote}\". Draft the "
             f"amendment that completes it (as a replacement clause)." if partial_quote
             else "The contract has no such clause. Draft it as a new clause.")
+    if precedents:
+        task += (" Wording the legal team accepted for this clause type in comparable contracts - follow its substance, "
+                 "adapted to this contract:\n" + "\n---\n".join(p[:1500] for p in precedents))
     messages = [
         SystemMessage(content=(
             "You draft one clause for an existing commercial contract of a German payments company (Riverty GmbH). "
             f"Write in {LANGUAGES.get(language, 'English')}, in the register, numbering style and defined terms of the "
-            "contract you are given (use the parties' names as the contract names them). Market-standard, balanced, "
+            "contract you are given - in full, or as its outline plus the clauses around the insertion point (use the "
+            "parties' names as the contract names them). Market-standard, balanced, "
             "3-6 sentences, no commentary, no placeholders in brackets unless a figure genuinely must be agreed. "
             + DOC_GUARD
         )),

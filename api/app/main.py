@@ -19,8 +19,7 @@ def catch_up_reports() -> None:
         return ""
 
     with SessionLocal() as session:
-        todo = [(d.id, wants(d.report)) for d in session.query(Document).filter(Document.status == "ready").order_by(Document.id)
-                if wants(d.report)]
+        todo = [(d.id, wants(d.report)) for d in session.documents(status="ready") if wants(d.report)]
     for doc_id, what in todo:
         with SessionLocal() as session:
             doc = session.get(Document, doc_id)
@@ -34,7 +33,7 @@ def catch_up_reports() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    init_db()
+    init_db()  # constraints, indexes, the guideline and the name register - the graph is the database
     threading.Thread(target=catch_up_reports, daemon=True).start()
     yield
 

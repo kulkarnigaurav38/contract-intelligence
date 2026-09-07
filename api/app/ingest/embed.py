@@ -1,7 +1,7 @@
 """Embeddings: Gemini when configured, a deterministic hashed bag-of-words otherwise.
 
-The offline vector is crude, but it keeps the pgvector path exercised end to
-end without a key; full-text search carries most of the retrieval weight
+The offline vector is crude, but it keeps the vector-index path exercised end
+to end without a key; full-text search carries most of the retrieval weight
 offline anyway.
 """
 

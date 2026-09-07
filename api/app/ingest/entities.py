@@ -14,6 +14,7 @@ from difflib import SequenceMatcher
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
+from app.config import settings
 from app.llm import DOC_GUARD, ModelUnavailable, chat, with_retry
 
 # longest names first so "Arvato Systems GmbH" is claimed before the bare brand "Arvato"
@@ -35,7 +36,21 @@ SUFFIX_RE = re.compile(
 )
 CONTEXT = 80
 FUZZY_MIN = 0.8  # OCR-tolerant matching, multi-word registry names only
-FUZZY_NAMES = [(name, kind) for name, kind, _ in REGISTRY if len(name.split()) >= 2]
+
+
+def registry() -> list[tuple[str, str, bool]]:
+    """The built-in names plus those the knowledge graph holds (seeded from GLEIF, the public LEI register), longest
+    first so 'Arvato Payment Solutions GmbH' is claimed before 'Arvato Payment Solutions' and the bare brand."""
+    names = list(REGISTRY)
+    if settings.graph_enabled:
+        from app import graph  # lazy: graph imports this module
+
+        try:
+            known = {n.lower() for n, _, _ in names}
+            names += [(n, k, False) for n, k in graph.registry() if n.lower() not in known]
+        except graph.GraphUnavailable:
+            pass
+    return sorted(names, key=lambda r: -len(r[0]))
 
 
 @dataclass
@@ -57,24 +72,26 @@ def normalize(name: str) -> str:
 def find_mentions(pages: list[tuple[int, str]], ocr_pages: frozenset[int] = frozenset()) -> list[Mention]:
     """Exact registry matches everywhere; fuzzy matches additionally on OCR'd pages (noise-tolerant)."""
     mentions: list[Mention] = []
+    names = registry()
     for page_no, text in pages:
         taken: list[tuple[int, int]] = []
 
         def free(a: int, b: int) -> bool:
             return all(b <= s or a >= e for s, e in taken)
 
-        for name, kind, cs in REGISTRY:
-            pattern = re.compile(r"(?<![\w-])" + re.escape(name) + r"(?![\w-])", 0 if cs else re.I)
+        for name, kind, cs in names:
+            # a name may wrap onto the next line in a PDF: any whitespace between its words counts
+            pattern = re.compile(r"(?<![\w-])" + r"\s+".join(re.escape(w) for w in name.split()) + r"(?![\w-])", 0 if cs else re.I)
             for m in pattern.finditer(text):
                 if not free(m.start(), m.end()):
                     continue
                 taken.append((m.start(), m.end()))
                 before = text[max(0, m.start() - CONTEXT): m.start()]
                 context = (before + m.group(0) + text[m.end(): m.end() + CONTEXT]).replace("\n", " ")
-                mentions.append(Mention(page_no, m.group(0), normalize(name), kind, context.strip(),
+                mentions.append(Mention(page_no, " ".join(m.group(0).split()), normalize(name), kind, context.strip(),
                                         bool(HISTORICAL_RE.search(before))))
         if page_no in ocr_pages:
-            for start, end, name, kind, ratio in _fuzzy(text):
+            for start, end, name, kind, ratio in _fuzzy(text, names):
                 if not free(start, end):
                     continue
                 taken.append((start, end))
@@ -87,15 +104,17 @@ def find_mentions(pages: list[tuple[int, str]], ocr_pages: frozenset[int] = froz
                 continue
             taken.append((m.start(), m.end()))
             context = text[max(0, m.start() - CONTEXT): m.end() + CONTEXT].replace("\n", " ")
-            mentions.append(Mention(page_no, m.group(1), normalize(m.group(1)), "counterparty", context.strip(), False))
+            mentions.append(Mention(page_no, " ".join(m.group(1).split()), normalize(m.group(1)), "counterparty", context.strip(), False))
     return mentions
 
 
-def _fuzzy(text: str) -> list[tuple[int, int, str, str, float]]:
+def _fuzzy(text: str, names: list[tuple[str, str, bool]]) -> list[tuple[int, int, str, str, float]]:
     """Slide word n-grams over the text and compare them to multi-word registry names."""
     tokens = [(m.start(), m.end()) for m in re.finditer(r"\S+", text)]
     hits = []
-    for name, kind in FUZZY_NAMES:
+    for name, kind, _ in names:
+        if len(name.split()) < 2:
+            continue
         target, n = normalize(name), len(name.split())
         for i in range(len(tokens) - n + 1):
             start, end = tokens[i][0], tokens[i + n - 1][1]

@@ -4,10 +4,9 @@ import hashlib
 import re
 from pathlib import Path
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
+from app import graph
 from app.config import settings
+from app.db import Store
 from app.ingest import classify, embed, entities, loader, ocr, screen, segment
 from app.models import AuditLog, Clause, Document, Entity, Page
 
@@ -36,14 +35,14 @@ def guess_contract_type(title: str, text: str) -> str:
     return "other"
 
 
-def log(session: Session, actor: str, action: str, target_type: str, target_id: int, details: dict) -> None:
+def log(session: Store, actor: str, action: str, target_type: str, target_id: int, details: dict) -> None:
     session.add(AuditLog(actor=actor, action=action, target_type=target_type, target_id=target_id, details=details))
 
 
-def ingest_path(session: Session, path: Path, actor: str = "system") -> Document:
+def ingest_path(session: Store, path: Path, actor: str = "system") -> Document:
     data = path.read_bytes()
     sha = hashlib.sha256(data).hexdigest()
-    existing = session.scalar(select(Document).where(Document.sha256 == sha))
+    existing = session.document_by_sha(sha)
     if existing:
         return existing
     doc = Document(filename=path.name, sha256=sha, status="processing")
@@ -52,17 +51,20 @@ def ingest_path(session: Session, path: Path, actor: str = "system") -> Document
     try:
         _process(session, doc, path)
         doc.status = "ready"
-    except Exception as exc:  # keep the row so the failure is visible in the UI
+        graph.link_type(doc.id, doc.contract_type)
+    except Exception as exc:  # keep the node so the failure is visible in the UI
         session.rollback()
         doc = session.get(Document, doc.id)
         doc.status, doc.error = "failed", f"{type(exc).__name__}: {exc}"
     log(session, actor, "ingest", "document", doc.id,
         {"filename": doc.filename, "sha256": sha, "status": doc.status, "input_type": doc.input_type})
     session.commit()
+    session.refresh(doc)  # the pages, clauses and mentions just written, for the check that follows
     return doc
 
 
-def _process(session: Session, doc: Document, path: Path) -> None:
+def _process(session: Store, doc: Document, path: Path) -> None:
+    """Everything is collected first and written by one commit at the end, so nothing partial survives a failure."""
     input_type, page_inputs = loader.load(path)
     doc.input_type, doc.pages = input_type, len(page_inputs)
     page_texts: list[tuple[int, str]] = []

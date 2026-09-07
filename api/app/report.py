@@ -5,10 +5,12 @@ LangGraph of six steps whose ids are the ones the 'So funktioniert es' page show
 
     rules -> cross_check -> place -> draft -> policy -> summarize
 
-rules: clause coverage vs the corporate guideline, name registry hits. cross_check: the verifier reads the whole
-contract for every candidate (with the team's precedents). place: a box or insertion line on the page. draft: the new
-name or a drafted clause. policy: earlier decisions carried over, spot-check rules. Without a model key the rule
-result stands, marked as not cross-checked; a re-check ('upgrade') re-runs from 'place' without verifying again.
+rules: clause coverage vs the corporate guideline, name registry hits. cross_check: the verifier reads, for every
+candidate, what the graph selects - the contract's outline plus the relevant clauses - with the team's precedents;
+a clause that still counts as missing after that read is confirmed against the whole contract before a lawyer sees
+it. place: a box or insertion line on the page. draft: the new name (from the register's RENAMED_TO edge) or a
+drafted clause. policy: earlier decisions carried over, spot-check rules. Without a model key the rule result
+stands, marked as not cross-checked; a re-check ('upgrade') re-runs from 'place' without verifying again.
 """
 
 import json
@@ -17,12 +19,13 @@ from datetime import datetime, timezone
 from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
-from sqlalchemy.orm import Session
 
+from app import graph as kg
 from app import learning
 from app.audits.graph import LABELS
-from app.audits.verify import verify
+from app.audits.verify import verify, verify_absence
 from app.config import settings
+from app.db import Store
 from app.draft import draft_clause
 from app.files import open_pdf, page_info, source_path
 from app.ingest.classify import TAXONOMY
@@ -50,7 +53,7 @@ def required_for(contract_type: str) -> set[str]:
 
 
 # ---------------------------------------------------------------- entry points
-def build(session: Session, doc: Document, language: str = "de") -> dict:
+def build(session: Store, doc: Document, language: str = "de") -> dict:
     """Compute and store doc.report. Returns it."""
     doc.report = {"status": "running"}
     session.commit()
@@ -65,7 +68,7 @@ def build(session: Session, doc: Document, language: str = "de") -> dict:
     return report
 
 
-def upgrade(session: Session, doc: Document) -> dict:
+def upgrade(session: Store, doc: Document) -> dict:
     """Add places, suggestions and decision state to a result computed before those existed (no re-verification)."""
     report = dict(doc.report)
     try:
@@ -81,17 +84,17 @@ def upgrade(session: Session, doc: Document) -> dict:
     return report
 
 
-def _build(session: Session, doc: Document, language: str) -> dict:
+def _build(session: Store, doc: Document, language: str) -> dict:
     return graph(session, doc).invoke({"language": language, "report": {}})["report"]
 
 
-def finalize(session: Session, doc: Document, report: dict) -> None:
+def finalize(session: Store, doc: Document, report: dict) -> None:
     """Run the graph from 'place' on an existing result, in place."""
     state = {"language": report.get("language", doc.language), "report": report}
     report.update(graph(session, doc, start="place").invoke(state)["report"])
 
 
-def graph(session: Session, doc: Document, start: str = "rules"):
+def graph(session: Store, doc: Document, start: str = "rules"):
     steps = {
         "rules": lambda s: {"report": _rules(doc, s["language"])},
         "cross_check": lambda s: {"report": _cross_check(session, doc, s["report"])},
@@ -152,11 +155,20 @@ def _rules(doc: Document, language: str) -> dict:
     }
 
 
-def _cross_check(session: Session, doc: Document, report: dict) -> dict:
-    """The verifier reads the whole contract for every candidate that matters; only it may remove one."""
+def _cross_check(session: Store, doc: Document, report: dict) -> dict:
+    """The verifier reads the graph's selection for every candidate that matters - and the whole contract before it
+    confirms an absence; only it may remove a candidate."""
     report = dict(report)
     language = report["language"]
-    pages = [(p.page_no, p.text) for p in sorted(doc.page_rows, key=lambda p: p.page_no)]
+    full = [(p.page_no, p.text) for p in sorted(doc.page_rows, key=lambda p: p.page_no)]
+
+    def reading(query: str, types: tuple[str, ...] = (), names: tuple[str, ...] = ()) -> list[tuple[int, str]]:
+        """What the verifier gets first: the graph's selection (outline + relevant clauses), else the whole contract."""
+        try:
+            return kg.context(doc.id, query, types=types, names=names)
+        except kg.GraphUnavailable:
+            return full
+
     misses = 0  # verifications that could not run (provider outage / quota) - the result is then 'not cross-checked'
     clauses = []
     for entry in report["clauses"]:
@@ -164,11 +176,14 @@ def _cross_check(session: Session, doc: Document, report: dict) -> dict:
         ct = entry["clause_type"]
         if entry["required"] and (entry["status"] == "missing" or entry.get("uncertain")):
             history = learning.precedents(session, learning.class_key("missing_clause", doc.contract_type, ct))
+            pages = reading(kg.type_query(ct), types=(ct,))
             if entry["status"] == "missing":
-                v = verify(pages, f"The contract contains no {LABELS[ct]} clause.", language, history)
+                v, complete = verify_absence(pages, full, f"The contract contains no {LABELS[ct]} clause.", language, history,
+                                             "confirmed", verify_fn=verify)
             else:
-                v = verify(pages, f"The contract contains a {LABELS[ct]} clause (heading: '{entry.get('heading', '')}').", language, history)
-            misses += v is None
+                v, complete = verify_absence(pages, full, f"The contract contains a {LABELS[ct]} clause (heading: '{entry.get('heading', '')}').",
+                                             language, history, "refuted", verify_fn=verify)
+            misses += v is None or not complete
             if v is not None:
                 entry["verified"] = True
                 if entry["status"] == "missing":
@@ -190,6 +205,7 @@ def _cross_check(session: Session, doc: Document, report: dict) -> dict:
     old_names = list(report["old_names"])
     if old_names:
         names = sorted({m["name"] for m in old_names})
+        pages = reading(", ".join(names), names=tuple(names))
         v = verify(pages, f"The contract names {', '.join(repr(n) for n in names)} as an active contracting party "
                           f"(not merely a historical reference), so the name must be updated to '{NEW_NAME}'.", language,
                    learning.precedents(session, learning.class_key("old_name", doc.contract_type)))
@@ -305,10 +321,19 @@ def _draft(doc: Document, report: dict) -> dict:
     for it in report["items"]:
         it = dict(it)
         if it["kind"] == "old_name":
-            it["suggestion"] = NEW_NAME if " " in it["name"] else NEW_NAME.split()[0]  # 'AFS' -> 'Riverty'
+            try:
+                current = kg.successor(it["name"])  # the register knows which Riverty entity the old name became
+            except kg.GraphUnavailable:
+                current = None
+            it["suggestion"] = current or (NEW_NAME if " " in it["name"] else NEW_NAME.split()[0])  # 'AFS' -> 'Riverty'
         elif not it["suggestion"] and settings.llm_enabled:
             c = by_type[it["clause_type"]]
-            d = draft_clause(pages, it["clause_type"], doc.contract_type, language, c.get("quote", "") if it["kind"] == "partial_clause" else "")
+            quote = c.get("quote", "") if it["kind"] == "partial_clause" else ""
+            try:
+                reading, precedents = kg.draft_context(doc.id, it["clause_type"], doc.contract_type, quote)
+            except kg.GraphUnavailable:
+                reading, precedents = pages, []
+            d = draft_clause(reading, it["clause_type"], doc.contract_type, language, quote, **({"precedents": precedents} if precedents else {}))
             if d is not None:
                 it["suggestion"] = f"{d.heading}\n\n{d.text}".strip()
         items.append(it)
@@ -316,7 +341,7 @@ def _draft(doc: Document, report: dict) -> dict:
     return report
 
 
-def _policy(session: Session, doc: Document, report: dict) -> dict:
+def _policy(session: Store, doc: Document, report: dict) -> dict:
     """Earlier decisions carried over; the class rules decide who must look; decisions on this very report survive."""
     report = dict(report)
     items = [dict(it) for it in report["items"]]
@@ -350,7 +375,7 @@ def summarize(report: dict, doc: Document) -> None:
 
 
 # ---------------------------------------------------------------- the team's decision
-def decide(session: Session, doc: Document, key: str, decision: str, note: str, edited_text: str, actor: str) -> dict:
+def decide(session: Store, doc: Document, key: str, decision: str, note: str, edited_text: str, actor: str) -> dict:
     report = dict(doc.report)
     items = [dict(it) for it in report.get("items", [])]
     item = next((it for it in items if it["key"] == key), None)

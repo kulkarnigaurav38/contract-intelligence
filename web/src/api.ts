@@ -100,7 +100,12 @@ export type DocDetail = Doc & {
   entities: number // company-name hits while reading
   report: Report
   page_rows: { page_no: number; method: string; confidence: number; text: string }[]
+  clause_rows: { id: number; ordinal: number; page_no: number; heading: string; clause_type: string; confidence: number; method: string; rule_label: string; llm_label: string; text: string }[]
+  entity_rows: { name: string; kind: string; page_no: number; historical: boolean; context: string; method: string; confidence: number }[]
 }
+
+/** Node and relationship counts of the graph, and how many guideline gaps the pattern finds (GET /api/graph/stats). */
+export type GraphStats = { nodes: Record<string, number>; relationships: Record<string, number>; gaps: number }
 
 export type Config = {
   llm_enabled: boolean
@@ -140,6 +145,9 @@ export type Stage = {
   tools: string
   task: string | null
   model: string | null
+  thinking: string | null // the model's thinking level for this task
+  module: string // where it runs
+  detail: { de: string; en: string } // the technical layer: rules and thresholds
   produces: { de: string; en: string }
 }
 
@@ -154,6 +162,7 @@ const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Cont
 export const api = {
   config: () => request<Config>('/api/config'),
   pipeline: () => request<{ stages: Stage[] }>('/api/pipeline'),
+  graphStats: () => request<GraphStats>('/api/graph/stats'),
   documents: () => request<Doc[]>('/api/documents'),
   document: (id: number) => request<DocDetail>(`/api/documents/${id}`),
   upload: (files: File[], language: string) => {
@@ -162,6 +171,9 @@ export const api = {
     return request<{ queued: number }>(`/api/documents/upload?language=${language}`, { method: 'POST', body })
   },
   ingestSamples: (language: string) => request<{ queued: number }>(`/api/documents/ingest-samples?language=${language}`, { method: 'POST' }),
+  samples: () => request<{ batch: number; file: string }[]>('/api/samples'),
+  ingestSample: (file: string, language: string) =>
+    request<{ queued: number }>(`/api/documents/ingest-samples?file=${encodeURIComponent(file)}&language=${language}`, { method: 'POST' }),
   sync: () => request<{ source: string; queued: boolean }>('/api/documents/sync', { method: 'POST' }),
   recheck: (id: number, language: string) => request<{ queued: number }>(`/api/documents/${id}/report?language=${language}`, { method: 'POST' }),
   retryDocument: (id: number) => request<{ queued: number }>(`/api/documents/${id}/retry`, { method: 'POST' }),

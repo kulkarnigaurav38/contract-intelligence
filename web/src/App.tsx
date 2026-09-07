@@ -18,7 +18,9 @@ import { ToastProvider, usePolling } from './components/ui'
 import { COMMON } from './vocab'
 import Home from './pages/Home'
 import Contract from './pages/Contract'
+import Download from './pages/Download'
 import HowItWorks from './pages/HowItWorks'
+import Technik from './pages/Technik'
 
 const theme = createTheme({
   palette: {
@@ -37,13 +39,16 @@ const theme = createTheme({
 const NAV = [
   { to: '/', key: 'nav_contracts' },
   { to: '/how-it-works', key: 'nav_how' },
+  { to: '/technik', key: 'nav_tech' },
 ] as const
 
 function Shell() {
   const t = useT(COMMON)
   const { lang, setLang } = useSettings()
   const { data: config } = usePolling(api.config, 0, () => false)
-  const viewer = useMatch('/contracts/:id') // the PDF viewer needs room for pages + sidebar
+  const onContract = useMatch('/contracts/:id/*') // both hooks every render: a short-circuit would change the hook count between pages
+  const onTechnik = useMatch('/technik')
+  const wide = !!onContract || !!onTechnik // the PDF viewer, the download preview and the technical tables need room
 
   return (
     <>
@@ -72,11 +77,13 @@ function Shell() {
           </Tooltip>
         </Toolbar>
       </AppBar>
-      <Container component="main" maxWidth={viewer ? 'lg' : 'md'} sx={{ py: 4 }}>
+      <Container component="main" maxWidth={wide ? 'lg' : 'md'} sx={{ py: 4 }}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/contracts/:id" element={<Contract />} />
+          <Route path="/contracts/:id/download" element={<Download />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/technik" element={<Technik />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Container>

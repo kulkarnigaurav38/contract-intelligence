@@ -9,6 +9,7 @@ import List from '@mui/material/List'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
+import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
@@ -23,7 +24,7 @@ import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import { api, type Doc, type DocDetail, type Finding } from '../api'
 import { useLabel, useSettings, useT } from '../i18n'
-import { ErrorAlert, usePolling, useToast } from '../components/ui'
+import { ErrorAlert, Steps, usePolling, useToast } from '../components/ui'
 import { CLAUSE_TYPES, COMMON, CONTRACT_TYPES } from '../vocab'
 
 const T = {
@@ -36,6 +37,9 @@ const T = {
   or_drop: { de: 'oder hierher ziehen', en: 'or drop them here' },
   formats: { de: 'PDF, JPG oder PNG – auch Scans und handschriftliche Verträge', en: 'PDF, JPG or PNG – scans and handwritten contracts too' },
   samples: { de: 'Beispielverträge laden', en: 'Load sample contracts' },
+  sample_one: { de: 'einen einzelnen laden', en: 'load a single one' },
+  loaded: { de: 'bereits geladen', en: 'already loaded' },
+  batch2: { de: 'Neuzugang', en: 'new arrival' },
   samples_hint: { de: 'Keine Verträge zur Hand?', en: 'No contracts at hand?' },
   sync: { de: 'Neue Dateien aus SharePoint holen', en: 'Fetch new files from SharePoint' },
   syncing: { de: 'SharePoint wird abgefragt …', en: 'Checking SharePoint …' },
@@ -84,8 +88,15 @@ export default function Home() {
   const input = useRef<HTMLInputElement>(null)
   const [over, setOver] = useState(false)
   const [err, setErr] = useState('')
+  const [menu, setMenu] = useState<HTMLElement | null>(null) // the single-sample picker
+  const expecting = useRef(0) // after queuing a file, keep polling until its row has appeared (or 90 s passed)
   const { data: config } = usePolling(api.config, 0, () => false)
-  const { data: docs, error, reload } = usePolling(api.documents, 3000, (ds) => !!ds?.some(busy))
+  const { data: sampleList } = usePolling(api.samples, 0, () => false)
+  const { data: docs, error, reload } = usePolling(api.documents, 3000, (ds) => !!ds?.some(busy) || Date.now() < expecting.current)
+  const queued = () => {
+    expecting.current = Date.now() + 90_000
+    reload()
+  }
 
   const [filter, setFilter] = useState<Filter>('all')
   const [clauseType, setClauseType] = useState('liability_cap')
@@ -137,7 +148,7 @@ export default function Home() {
     try {
       await api.upload(files, lang)
       toast(files.length === 1 ? t('queued_one') : t('queued', { n: files.length }))
-      reload()
+      queued()
     } catch (e) {
       setErr(String(e))
     }
@@ -155,16 +166,28 @@ export default function Home() {
     try {
       const r = await api.ingestSamples(lang)
       toast(t('queued', { n: r.queued }))
-      reload()
+      queued()
     } catch (e) {
       setErr(String(e))
     }
   }
+  const sample = async (file: string) => {
+    setMenu(null)
+    try {
+      await api.ingestSample(file, lang)
+      toast(t('queued_one'))
+      queued()
+    } catch (e) {
+      setErr(String(e))
+    }
+  }
+  const pretty = (file: string) => file.replace(/\.[^.]+$/, '').replace(/_/g, ' ')
+  const isLoaded = (file: string) => (docs ?? []).some((d) => d.filename === file || d.filename.endsWith(`_${file}`))
   const sync = async () => {
     try {
       await api.sync()
       toast(t('syncing'))
-      reload()
+      queued()
     } catch (e) {
       setErr(String(e))
     }
@@ -217,6 +240,9 @@ export default function Home() {
         <Typography color="text.secondary" sx={{ maxWidth: 620, mx: 'auto' }}>
           {t('intro')}
         </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2.5 }}>
+          <Steps active={1} />
+        </Box>
       </Box>
 
       <Paper
@@ -246,6 +272,18 @@ export default function Home() {
           <Link component="button" type="button" variant="caption" onClick={samples}>
             {t('samples')}
           </Link>
+          {' · '}
+          <Link component="button" type="button" variant="caption" onClick={(e) => setMenu(e.currentTarget)}>
+            {t('sample_one')} ▾
+          </Link>
+          <Menu open={!!menu} anchorEl={menu} onClose={() => setMenu(null)}>
+            {(sampleList ?? []).map((s) => (
+              <MenuItem key={s.file} dense onClick={() => sample(s.file)}>
+                <ListItemIcon sx={{ minWidth: 28 }}>{isLoaded(s.file) && <CheckCircleOutlinedIcon fontSize="small" color="success" />}</ListItemIcon>
+                <ListItemText primary={pretty(s.file)} secondary={[s.batch === 2 ? t('batch2') : null, isLoaded(s.file) ? t('loaded') : null].filter(Boolean).join(' · ') || undefined} />
+              </MenuItem>
+            ))}
+          </Menu>
           {config?.document_source === 'sharepoint' && (
             <>
               {' · '}

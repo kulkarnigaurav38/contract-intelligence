@@ -16,10 +16,8 @@ const rows = (page: Page, result: RegExp) => page.getByRole('button', { name: re
 const FINDINGS = /Klausel(n)? fehl|alter Firmenname|teilweise nicht lesbar/
 const READY = /Klausel(n)? fehl|alter Firmenname|teilweise nicht lesbar|Alles in Ordnung/
 
-// viewer: the "Fundstellen" box in the sidebar and its rows ("1. Alter Firmenname: … Seite 1"). Located by CSS, not by
-// role, because the finding popover is a modal that marks the rest of the page aria-hidden while it is open.
-const findingsBox = (page: Page) => page.getByText('Fundstellen', { exact: true }).locator('..')
-const findingRows = (page: Page) => findingsBox(page).locator('[role=button]')
+// viewer: the panel shows one finding at a time ("Fundstelle 1 von 5", the suggestion, Übernehmen / Nicht zutreffend)
+const card = (page: Page) => page.getByTestId('finding-card')
 /** The page-1 image, fully loaded (scans are large; a screenshot taken earlier shows a white page). */
 const page1Image = async (page: Page) => {
   const img = page.locator('img[src$="/pages/1.png"]')
@@ -41,6 +39,7 @@ test('Start page: drop zone, sample link, contract list', async ({ page }) => {
   await expect(page.getByText('PDF, JPG oder PNG – auch Scans und handschriftliche Verträge')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Beispielverträge laden' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Ihre Verträge' })).toBeVisible()
+  await expect(page.getByRole('link', { name: '1 · Hochladen' })).toBeVisible() // the three steps: upload, review, download
   await shot(page, '01-home')
 })
 
@@ -62,7 +61,7 @@ test('Upload: two contracts in one go, each ends with a result line', async ({ p
   }
 })
 
-test('Contract page: page images with markers, findings list, accept and undo a suggestion', async ({ page }) => {
+test('Contract page: page images with markers, one finding at a time, accept, download step, undo', async ({ page }) => {
   // the demo merchant agreement (4 old names + 1 missing clause), or any checked contract with an old name
   const all = await docs(page)
   const fits = (d: Doc) => d.report_status === 'ready' && (d.report_summary?.old_names ?? 0) > 0
@@ -80,38 +79,42 @@ test('Contract page: page images with markers, findings list, accept and undo a 
   await expect(markers.first()).toBeVisible()
   expect(await markers.count()).toBeGreaterThanOrEqual(2)
 
-  const findings = findingRows(page)
-  await expect(findings.first()).toContainText(/^1\. /)
-  expect(await findings.count()).toBeGreaterThanOrEqual(3)
-  await expect(findingsBox(page)).toContainText(/\d+ warten auf Ihre Entscheidung/)
-  await expect(page.getByRole('button', { name: 'Vorhandene Klauseln' })).toHaveAttribute('aria-expanded', 'false')
-  const download = page.getByRole('link', { name: 'Korrigierte Fassung herunterladen' })
-  await expect(download).toBeDisabled()
-  await expect(page.getByRole('button', { name: 'In der Vertragsablage ablegen' })).toBeDisabled()
+  const panel = card(page)
+  await expect(panel).toContainText(/Fundstelle 1 von \d+/)
+  await expect(panel).toContainText(/\d+ entschieden · \d+ offen/)
+  await expect(panel.getByRole('button', { name: 'Übernehmen' })).toBeVisible()
+  await expect(panel.getByRole('button', { name: 'Nicht zutreffend' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Weitere Angaben' })).toHaveAttribute('aria-expanded', 'false')
+  const toDownload = page.getByRole('button', { name: 'Weiter zum Download' })
+  await expect(toDownload).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Erneut prüfen' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Löschen' })).toBeVisible()
   await shot(page, '02-contract', false)
 
   try {
-    // a row opens the finding at its marker; accepting closes it and the row shows the decision
-    await findings.first().click()
-    const popover = page.locator('.MuiPopover-paper')
-    await expect(popover).toBeVisible()
-    await expect(popover.getByRole('button', { name: 'Nicht zutreffend' })).toBeVisible()
-    await popover.getByRole('button', { name: 'Übernehmen' }).click()
+    // accepting moves the panel on to the next open finding and unlocks the download step
+    await panel.getByRole('button', { name: 'Übernehmen' }).click()
     await expect(page.getByRole('alert')).toHaveText('Übernommen')
-    await expect(popover).toBeHidden()
-    await expect(findings.first()).toContainText('Übernommen')
-    await expect(download).toBeEnabled()
+    await expect(panel).toContainText(/Fundstelle 2 von \d+/)
+    await expect(toDownload).toBeEnabled()
 
-    // the decision can be taken back, which leaves the demo contract as it was
-    await findings.first().click()
-    await popover.getByRole('button', { name: 'Entscheidung zurücknehmen' }).click()
-    await expect(popover.getByRole('button', { name: 'Übernehmen' })).toBeVisible()
-    await popover.press('Escape')
-    await expect(popover).toBeHidden()
-    await expect(findings.first()).not.toContainText('Übernommen')
-    await expect(download).toBeDisabled()
+    // step 3: the corrected version, ready to download, with a preview
+    await toDownload.click()
+    await expect(page).toHaveURL(/\/contracts\/\d+\/download$/)
+    await expect(page.getByRole('heading', { name: 'Ihre korrigierte Fassung ist fertig' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Korrigierte Fassung herunterladen' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'In der Vertragsablage ablegen' })).toBeVisible()
+    await expect(page.locator('iframe[title="Vorschau der korrigierten Fassung"]')).toBeVisible()
+    await shot(page, '02b-download', false)
+
+    // back to the review: the first marker shows its decision, which can be taken back - the demo contract stays as it was
+    await page.getByRole('link', { name: 'Zurück zur Prüfung' }).click()
+    await markers.first().click()
+    await expect(panel).toContainText(/Fundstelle 1 von \d+/)
+    await expect(panel).toContainText('Übernommen')
+    await panel.getByRole('button', { name: 'Entscheidung zurücknehmen' }).click()
+    await expect(panel.getByRole('button', { name: 'Übernehmen' })).toBeVisible()
+    await expect(toDownload).toBeDisabled()
   } finally {
     await reopenAccepted(page, doc!.id)
   }
@@ -127,9 +130,9 @@ test('Contract page: a scanned contract offers the annotated version', async ({ 
 
   await expect(page.getByRole('heading', { level: 1, name: doc!.title || doc!.filename })).toBeVisible()
   await page1Image(page)
-  await expect(findingRows(page).first()).toBeVisible()
+  await expect(card(page)).toContainText(/Fundstelle 1 von \d+/)
   await expect(page.getByText(/^Gescanntes Dokument:/)).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Kommentierte Fassung herunterladen' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Weiter zum Download' })).toBeDisabled()
   await shot(page, '03-contract-scan', false)
 })
 
@@ -154,6 +157,19 @@ test('How it works: pipeline stages from the API and an example contract', async
   await page.getByRole('link', { name: 'Vertrag öffnen' }).click()
   await expect(page).toHaveURL(/\/contracts\/\d+$/)
   await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible()
+})
+
+test('Technik: stages with modules and models, the graph, a trace of one contract', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 1000 })
+  await page.goto('/technik')
+  await expect(page.getByRole('heading', { name: 'Technik' })).toBeVisible()
+  await expect(page.getByText('app/ingest/loader.py', { exact: true })).toBeVisible()
+  await expect(page.getByText('app/audits/verify.py (verify_absence)')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Der Graph' })).toBeVisible()
+  await expect(page.getByText(/Richtlinienlücken über alle Verträge/)).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Ein Vertrag durch alle Stufen' })).toBeVisible()
+  await expect(page.getByText('Klauseln (', { exact: false }).first()).toBeVisible()
+  await shot(page, '06-technik', false)
 })
 
 test('Start page filter answers the cross-contract question', async ({ page }) => {

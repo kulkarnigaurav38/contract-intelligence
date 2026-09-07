@@ -1,11 +1,42 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import Snackbar from '@mui/material/Snackbar'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useT } from '../i18n'
 import { COMMON } from '../vocab'
+
+// ---------------------------------------------------------------- the three steps: upload, review, download
+/** Where the user is in the flow. Steps with a link are clickable; step 1 always leads back to the start page. */
+export function Steps({ active, review, download }: { active: 1 | 2 | 3; review?: string; download?: string }) {
+  const t = useT(COMMON)
+  const steps = [
+    { n: 1, label: t('step_upload'), to: '/' },
+    { n: 2, label: t('step_review'), to: review },
+    { n: 3, label: t('step_download'), to: download },
+  ] as const
+  return (
+    <Stack direction="row" sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }} aria-label={`${t('step_upload')} · ${t('step_review')} · ${t('step_download')}`}>
+      {steps.map((s, i) => (
+        <Fragment key={s.n}>
+          {i > 0 && <Box sx={{ width: 20, borderTop: '2px solid', borderColor: 'divider' }} />}
+          {s.to ? (
+            <Button component={RouterLink} to={s.to} size="small" variant={s.n === active ? 'contained' : 'outlined'} sx={{ borderRadius: 5, px: 1.5 }}>
+              {s.n} · {s.label}
+            </Button>
+          ) : (
+            <Button size="small" variant="outlined" disabled sx={{ borderRadius: 5, px: 1.5 }}>
+              {s.n} · {s.label}
+            </Button>
+          )}
+        </Fragment>
+      ))}
+    </Stack>
+  )
+}
 
 /** Load once, then keep polling every `ms` while `active(data)` says so; `reload()` restarts the loop. */
 export function usePolling<T>(fn: () => Promise<T>, ms: number, active: (data: T | null) => boolean) {

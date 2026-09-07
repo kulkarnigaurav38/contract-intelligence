@@ -1,0 +1,48 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M1XGYF2SKAMH3JR6XDFJVN72",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 19,
+  "files_touched": [
+    "docs/contract-intelligence.pptx",
+    "docs/deck/artboards/Main.dc.html",
+    "docs/deck/artboards/S02Problem.dc.html",
+    "docs/deck/artboards/S03Estimate.dc.html",
+    "docs/deck/artboards/S04Insight.dc.html",
+    "docs/deck/artboards/S05Versions.dc.html",
+    "docs/deck/artboards/S06Workflow.dc.html",
+    "docs/deck/artboards/S07Read.dc.html",
+    "docs/deck/artboards/S08Graph.dc.html",
+    "docs/deck/artboards/S09Check.dc.html",
+    "docs/deck/artboards/S10Decide.dc.html",
+    "docs/deck/artboards/S11UI.dc.html",
+    "docs/deck/artboards/S12Infra.dc.html",
+    "docs/deck/artboards/S13Alignment.dc.html",
+    "docs/deck/artboards/S14Adoption.dc.html",
+    "docs/deck/artboards/S15Demo.dc.html",
+    "docs/deck/artboards/canvas.json",
+    "docs/deck/build.py",
+    "docs/deck/build_pptx.py",
+    "docs/deck/img/01-home.jpg",
+    "docs/deck/img/02-contract.jpg",
+    "docs/deck/img/02b-download.jpg",
+    "docs/presentation.html"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 66300,
+    "cache_creation_tokens": 3995477,
+    "cache_read_tokens": 92732949,
+    "output_tokens": 545590,
+    "api_call_count": 157
+  }
+}

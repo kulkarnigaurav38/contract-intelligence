@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #f4f6f6; }
+    a { color: #00695c; } a:hover { color: #004d40; }
+    
+:root{--teal:#00695c;--teal2:#e0f2f1;--bg:#f4f6f6;--paper:#fff;--line:#e3e7e7;--ink:rgba(0,0,0,.87);--muted:rgba(0,0,0,.6);
+--red:#d32f2f;--amber:#ed6c02;--green:#2e7d32;--blue:#1565c0}
+*{box-sizing:border-box}
+.slide{position:relative;width:1280px;height:720px;background:var(--bg);color:var(--ink);font-family:Roboto,'Helvetica Neue',Arial,sans-serif;overflow:hidden;padding:44px 64px 40px}
+.slide header{display:flex;flex-direction:column;gap:6px;margin-bottom:22px}
+.kicker{font-size:14px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--teal)}
+.slide h1{font-size:38px;font-weight:600;line-height:1.15;margin:0}
+.slide footer{position:absolute;left:64px;right:64px;bottom:22px;display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.body{position:relative;height:540px}
+.paper{background:var(--paper);border:1px solid var(--line);border-radius:10px}
+.muted{color:var(--muted)}
+.tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--teal2);color:var(--teal)}
+.tag.red{background:#fdecea;color:var(--red)}.tag.amber{background:#fff3e0;color:var(--amber)}.tag.green{background:#e8f5e9;color:var(--green)}.tag.grey{background:#eceff1;color:#455a64}
+.row{display:flex;gap:16px}.col{display:flex;flex-direction:column;gap:12px}
+.num{font-size:40px;font-weight:600;color:var(--teal);line-height:1}
+.small{font-size:13px;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:var(--paper);border:1px solid var(--line);font-size:13px;font-weight:500}
+.chip.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+svg text{font-family:Roboto,'Helvetica Neue',Arial,sans-serif}
+.node{fill:#fff;stroke:var(--line);stroke-width:1.5}.node.teal{fill:var(--teal);stroke:var(--teal)}.node.light{fill:var(--teal2);stroke:var(--teal)}
+.edge{fill:none;stroke:#90a4ae;stroke-width:1.8}.edge.teal{stroke:var(--teal)}.edge.red{stroke:var(--red);stroke-dasharray:6 5}
+.lbl{font-size:13px;fill:var(--ink)}.lbl.w{fill:#fff;font-weight:600}.lbl.m{fill:var(--muted);font-size:12px}.lbl.b{font-weight:600}.lbl.t{fill:var(--teal);font-weight:600}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+/* motion: everything runs once the slide is active (the deck adds .active; an artboard is born active) */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
+.active .fu{animation:fadeUp .6s both;animation-delay:var(--d,0s)}
+.active .gr{transform-origin:left center;animation:grow 1s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0s)}
+.active .dr{stroke-dasharray:1200;stroke-dashoffset:1200;animation:draw 1.6s ease-out both;animation-delay:var(--d,0s)}
+.active .pu{animation:pulse 1.6s ease-in-out infinite;animation-delay:var(--d,0s)}
+.active .po{transform-box:fill-box;transform-origin:center;animation:pop .5s both;animation-delay:var(--d,0s)}
+.fu,.gr,.po{opacity:0}.active .fu,.active .gr,.active .po{opacity:1}
+
+  </style>
+</helmet>
+<section class="slide active" id="s10"><header><span class="kicker">Decide</span><h1>A person decides — and the review load falls with evidence</h1></header><div class="body">
+<div class="row" style="gap:20px;height:100%">
+  <div class="col" style="flex:1;gap:12px">
+    <div class="paper fu" style="padding:16px 18px">
+      <div class="small">Old company name · Page 1</div>
+      <div style="font-size:18px;font-weight:600;margin:4px 0 8px">Old company name: arvato Financial Solutions</div>
+      <div class="small" style="font-style:italic">“… made on 2 June 2021 between arvato Financial Solutions, Gütersloher Straße 123 …”</div>
+      <div class="small" style="margin-top:8px"><b>Reason:</b> the preamble names it as an active contracting party — not a historical reference.</div>
+      <div style="margin-top:10px;font-size:13px;font-weight:600">Replace with</div>
+      <div style="border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-top:4px;font-size:14px">Riverty GmbH</div>
+      <div class="row" style="margin-top:12px;gap:10px"><span style="flex:1;text-align:center;padding:10px;border-radius:10px;background:var(--teal);color:#fff;font-weight:600">Accept</span><span style="flex:1;text-align:center;padding:10px;border-radius:10px;border:1px solid var(--teal);color:var(--teal);font-weight:600">Not applicable</span></div>
+    </div>
+    <div class="row" style="gap:12px">
+      <div class="paper fu" style="--d:.4s;flex:1;padding:12px 14px"><div class="small">a false alarm, reviewed</div><div style="font-size:22px;font-weight:600;color:var(--green)">€4.50</div><div class="small">3 minutes</div></div>
+      <div class="paper fu" style="--d:.5s;flex:1;padding:12px 14px"><div class="small">a false edit, filed</div><div style="font-size:22px;font-weight:600;color:var(--red)">€1k–100k</div><div class="small">rework, dispute, a document with legal effect</div></div>
+    </div>
+  </div>
+  <div class="paper" style="flex:1.2;padding:16px 18px">
+    <div style="font-weight:600">Review rate per class of finding</div>
+    <div class="small">earned per class from the team’s own decisions — never granted on trust</div>
+    <svg width="560" height="300" viewBox="0 0 560 300" style="margin-top:8px">
+      <path d="M40 260 H520" stroke="#e3e7e7"/><path d="M40 20 V260" stroke="#e3e7e7"/>
+      <text class="lbl m" x="30" y="45" text-anchor="end">100 %</text><text class="lbl m" x="30" y="205" text-anchor="end">20 %</text><text class="lbl m" x="30" y="240" text-anchor="end">10 %</text>
+      <text class="lbl m" x="120" y="282" text-anchor="middle">8 agreeing in a row · ≥ 95 %</text><text class="lbl m" x="330" y="282" text-anchor="middle">24 in a row</text><text class="lbl m" x="470" y="282" text-anchor="middle">a dismissal</text>
+      <path class="dr" style="--d:.3s" d="M40 40 H120 V200 H330 V236 H470 V40 H520" fill="none" stroke="#00695c" stroke-width="3"/>
+      <circle class="po" style="--d:1.2s" cx="120" cy="200" r="6" fill="#00695c"/><circle class="po" style="--d:1.5s" cx="330" cy="236" r="6" fill="#00695c"/><circle class="po" style="--d:1.8s" cx="470" cy="40" r="6" fill="#d32f2f"/>
+      <text class="lbl fu" style="--d:1.9s" x="480" y="30" fill="#d32f2f" font-weight="600">reset</text>
+    </svg>
+    <div class="small" style="margin-top:6px">Spot checks are deterministic (SHA-256), at least one per contract; only cross-checked findings are automated; automatic decisions look like any other and can be undone.</div>
+    <div class="row fu" style="--d:2.1s;gap:8px;margin-top:10px;font-size:13px"><span class="tag">decision → carried over per file</span><span class="tag">note → verifier precedent</span><span class="tag">accepted text → drafting precedent</span></div>
+  </div>
+</div>
+</div><footer><span>Contract Intelligence · Riverty case study</span><span>10 / 15</span></footer></section>
+</x-dc>
+</body>
+</html>

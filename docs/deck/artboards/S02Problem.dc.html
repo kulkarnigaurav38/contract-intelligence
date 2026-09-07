@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #f4f6f6; }
+    a { color: #00695c; } a:hover { color: #004d40; }
+    
+:root{--teal:#00695c;--teal2:#e0f2f1;--bg:#f4f6f6;--paper:#fff;--line:#e3e7e7;--ink:rgba(0,0,0,.87);--muted:rgba(0,0,0,.6);
+--red:#d32f2f;--amber:#ed6c02;--green:#2e7d32;--blue:#1565c0}
+*{box-sizing:border-box}
+.slide{position:relative;width:1280px;height:720px;background:var(--bg);color:var(--ink);font-family:Roboto,'Helvetica Neue',Arial,sans-serif;overflow:hidden;padding:44px 64px 40px}
+.slide header{display:flex;flex-direction:column;gap:6px;margin-bottom:22px}
+.kicker{font-size:14px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--teal)}
+.slide h1{font-size:38px;font-weight:600;line-height:1.15;margin:0}
+.slide footer{position:absolute;left:64px;right:64px;bottom:22px;display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.body{position:relative;height:540px}
+.paper{background:var(--paper);border:1px solid var(--line);border-radius:10px}
+.muted{color:var(--muted)}
+.tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--teal2);color:var(--teal)}
+.tag.red{background:#fdecea;color:var(--red)}.tag.amber{background:#fff3e0;color:var(--amber)}.tag.green{background:#e8f5e9;color:var(--green)}.tag.grey{background:#eceff1;color:#455a64}
+.row{display:flex;gap:16px}.col{display:flex;flex-direction:column;gap:12px}
+.num{font-size:40px;font-weight:600;color:var(--teal);line-height:1}
+.small{font-size:13px;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:var(--paper);border:1px solid var(--line);font-size:13px;font-weight:500}
+.chip.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+svg text{font-family:Roboto,'Helvetica Neue',Arial,sans-serif}
+.node{fill:#fff;stroke:var(--line);stroke-width:1.5}.node.teal{fill:var(--teal);stroke:var(--teal)}.node.light{fill:var(--teal2);stroke:var(--teal)}
+.edge{fill:none;stroke:#90a4ae;stroke-width:1.8}.edge.teal{stroke:var(--teal)}.edge.red{stroke:var(--red);stroke-dasharray:6 5}
+.lbl{font-size:13px;fill:var(--ink)}.lbl.w{fill:#fff;font-weight:600}.lbl.m{fill:var(--muted);font-size:12px}.lbl.b{font-weight:600}.lbl.t{fill:var(--teal);font-weight:600}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+/* motion: everything runs once the slide is active (the deck adds .active; an artboard is born active) */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
+.active .fu{animation:fadeUp .6s both;animation-delay:var(--d,0s)}
+.active .gr{transform-origin:left center;animation:grow 1s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0s)}
+.active .dr{stroke-dasharray:1200;stroke-dashoffset:1200;animation:draw 1.6s ease-out both;animation-delay:var(--d,0s)}
+.active .pu{animation:pulse 1.6s ease-in-out infinite;animation-delay:var(--d,0s)}
+.active .po{transform-box:fill-box;transform-origin:center;animation:pop .5s both;animation-delay:var(--d,0s)}
+.fu,.gr,.po{opacity:0}.active .fu,.active .gr,.active .po{opacity:1}
+
+  </style>
+</helmet>
+<section class="slide active" id="s2"><header><span class="kicker">The problem</span><h1>Open · search · verify — by hand, across the whole inventory</h1></header><div class="body">
+<div class="row" style="gap:24px;height:100%">
+  <div class="col" style="flex:0 0 300px">
+    <div class="paper fu" style="padding:14px 16px;display:flex;gap:12px;align-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00695c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v4h4"/><path d="M9 12h6M9 16h6"/></svg><div><b>SharePoint</b><div class="small">most contracts, PDF</div></div></div>
+    <div class="paper fu" style="--d:.1s;padding:14px 16px;display:flex;gap:12px;align-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00695c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 12h16"/><path d="M8 8h3M8 16h3"/></svg><div><b>Scans</b><div class="small">no text layer</div></div></div>
+    <div class="paper fu" style="--d:.2s;padding:14px 16px;display:flex;gap:12px;align-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00695c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg><div><b>Handwritten JPEGs</b><div class="small">really old contracts</div></div></div>
+    <div class="paper fu" style="--d:.3s;padding:14px 16px;display:flex;gap:12px;align-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00695c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16v13H4z"/><path d="M4 7l2-4h12l2 4"/><path d="M10 12h4"/></svg><div><b>Contract storage</b><div class="small">REST · store a copy only</div></div></div>
+  </div>
+  <div class="col" style="flex:1;gap:16px">
+    <div class="row" style="gap:16px">
+      <div class="paper fu" style="--d:.4s;flex:1;padding:20px 22px;border-left:4px solid var(--teal)"><div class="kicker" style="font-size:12px">Question 1</div><div style="font-size:21px;font-weight:500;margin-top:6px">Which contracts do <u>not</u> contain passage X?</div></div>
+      <div class="paper fu" style="--d:.5s;flex:1;padding:20px 22px;border-left:4px solid var(--red)"><div class="kicker" style="font-size:12px;color:var(--red)">Question 2</div><div style="font-size:21px;font-weight:500;margin-top:6px">Which contracts still name the <u>old</u> company?</div></div>
+    </div>
+    <div class="paper fu" style="--d:.7s;padding:18px 22px">
+      <div class="small" style="margin-bottom:10px">Today, per contract and question</div>
+      <svg width="820" height="120" viewBox="0 0 820 120">
+        <g class="po" style="--d:.9s"><rect class="node" x="10" y="30" width="170" height="56" rx="10"/><text class="lbl b" x="95" y="64" text-anchor="middle">open the PDF</text></g>
+        <path class="edge dr" style="--d:1s" d="M180 58 H240"/>
+        <g class="po" style="--d:1.2s"><rect class="node" x="240" y="30" width="200" height="56" rx="10"/><text class="lbl b" x="340" y="64" text-anchor="middle">search, in two languages</text></g>
+        <path class="edge dr" style="--d:1.3s" d="M440 58 H500"/>
+        <g class="po" style="--d:1.5s"><rect class="node" x="500" y="30" width="170" height="56" rx="10"/><text class="lbl b" x="585" y="64" text-anchor="middle">verify yourself</text></g>
+        <path class="edge dr teal" style="--d:1.7s" d="M670 58 C 760 58 760 8 500 8 L 95 8 C 60 8 60 30 95 30" marker-end=""/>
+        <text class="lbl t fu" style="--d:1.9s" x="740" y="75" text-anchor="middle">× 15,000</text>
+        <text class="lbl m fu" style="--d:2s" x="340" y="112" text-anchor="middle">≈ 15 min · scans 20–40 · handwriting 30–60 or skipped</text>
+      </svg>
+    </div>
+    <div class="small fu" style="--d:2.1s">“Agents like Claude often fail due to the sheer size and complexity of the environments” — so this is not an agent. It is a pipeline with model nodes.</div>
+  </div>
+</div>
+</div><footer><span>Contract Intelligence · Riverty case study</span><span>2 / 15</span></footer></section>
+</x-dc>
+</body>
+</html>

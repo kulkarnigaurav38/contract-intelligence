@@ -1,0 +1,83 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #f4f6f6; }
+    a { color: #00695c; } a:hover { color: #004d40; }
+    
+:root{--teal:#00695c;--teal2:#e0f2f1;--bg:#f4f6f6;--paper:#fff;--line:#e3e7e7;--ink:rgba(0,0,0,.87);--muted:rgba(0,0,0,.6);
+--red:#d32f2f;--amber:#ed6c02;--green:#2e7d32;--blue:#1565c0}
+*{box-sizing:border-box}
+.slide{position:relative;width:1280px;height:720px;background:var(--bg);color:var(--ink);font-family:Roboto,'Helvetica Neue',Arial,sans-serif;overflow:hidden;padding:44px 64px 40px}
+.slide header{display:flex;flex-direction:column;gap:6px;margin-bottom:22px}
+.kicker{font-size:14px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--teal)}
+.slide h1{font-size:38px;font-weight:600;line-height:1.15;margin:0}
+.slide footer{position:absolute;left:64px;right:64px;bottom:22px;display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.body{position:relative;height:540px}
+.paper{background:var(--paper);border:1px solid var(--line);border-radius:10px}
+.muted{color:var(--muted)}
+.tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--teal2);color:var(--teal)}
+.tag.red{background:#fdecea;color:var(--red)}.tag.amber{background:#fff3e0;color:var(--amber)}.tag.green{background:#e8f5e9;color:var(--green)}.tag.grey{background:#eceff1;color:#455a64}
+.row{display:flex;gap:16px}.col{display:flex;flex-direction:column;gap:12px}
+.num{font-size:40px;font-weight:600;color:var(--teal);line-height:1}
+.small{font-size:13px;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:var(--paper);border:1px solid var(--line);font-size:13px;font-weight:500}
+.chip.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+svg text{font-family:Roboto,'Helvetica Neue',Arial,sans-serif}
+.node{fill:#fff;stroke:var(--line);stroke-width:1.5}.node.teal{fill:var(--teal);stroke:var(--teal)}.node.light{fill:var(--teal2);stroke:var(--teal)}
+.edge{fill:none;stroke:#90a4ae;stroke-width:1.8}.edge.teal{stroke:var(--teal)}.edge.red{stroke:var(--red);stroke-dasharray:6 5}
+.lbl{font-size:13px;fill:var(--ink)}.lbl.w{fill:#fff;font-weight:600}.lbl.m{fill:var(--muted);font-size:12px}.lbl.b{font-weight:600}.lbl.t{fill:var(--teal);font-weight:600}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+/* motion: everything runs once the slide is active (the deck adds .active; an artboard is born active) */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
+.active .fu{animation:fadeUp .6s both;animation-delay:var(--d,0s)}
+.active .gr{transform-origin:left center;animation:grow 1s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0s)}
+.active .dr{stroke-dasharray:1200;stroke-dashoffset:1200;animation:draw 1.6s ease-out both;animation-delay:var(--d,0s)}
+.active .pu{animation:pulse 1.6s ease-in-out infinite;animation-delay:var(--d,0s)}
+.active .po{transform-box:fill-box;transform-origin:center;animation:pop .5s both;animation-delay:var(--d,0s)}
+.fu,.gr,.po{opacity:0}.active .fu,.active .gr,.active .po{opacity:1}
+
+  </style>
+</helmet>
+<section class="slide active" id="s15"><header><span class="kicker">Live demo · 5 minutes</span><h1>Demo — then what is next</h1></header><div class="body">
+<div class="row" style="gap:20px">
+  <div class="paper fu" style="flex:1.2;padding:16px 20px">
+    <div style="font-weight:600;margin-bottom:10px">Six beats</div>
+    <div class="col" style="gap:8px;font-size:15px">
+      <div class="row" style="gap:10px;align-items:center"><span class="tag">1</span>drop a contract → “Wird gelesen … Wird geprüft …” → the result line</div>
+      <div class="row" style="gap:10px;align-items:center"><span class="tag">2</span>open it: the box on the page, the quote, the model’s reason, Übernehmen / Nicht zutreffend</div>
+      <div class="row" style="gap:10px;align-items:center"><span class="tag">3</span>Weiter zum Download: the corrected copy, the preview, filing under an idempotency key</div>
+      <div class="row" style="gap:10px;align-items:center"><span class="tag">4</span>the start page filter: which contracts lack a limitation of liability?</div>
+      <div class="row" style="gap:10px;align-items:center"><span class="tag">5</span>Technik: the stages with their models, the graph’s live counts, the gap query, a trace</div>
+      <div class="row" style="gap:10px;align-items:center"><span class="tag">6</span>the Neo4j browser: the contract as a graph</div>
+    </div>
+  </div>
+  <div class="paper fu" style="--d:.4s;flex:1;padding:16px 20px">
+    <div style="font-weight:600;margin-bottom:10px">Next</div>
+    <div class="col" style="gap:8px;font-size:15px">
+      <div>· SharePoint against the real tenant (app registration, Sites.Read.All)</div>
+      <div>· the contract storage’s real API — an adapter</div>
+      <div>· Entra ID sign-in, structured logging, metrics</div>
+      <div>· a playbook of preferred positions for the drafts</div>
+      <div>· parallel ingestion behind a queue for sweeps</div>
+      <div>· a pairwise “compare two contracts” view</div>
+    </div>
+    <div class="small" style="margin-top:14px">Everything measured, every decision and its why: docs/architecture-decisions.md · docs/cost-benefit.md · docs/ps-coverage.md</div>
+  </div>
+</div>
+<div class="fu" style="--d:.9s;margin-top:22px;font-size:22px;font-weight:500;text-align:center;color:var(--teal)">The AI finds and explains. A lawyer decides. The graph remembers.</div>
+</div><footer><span>Contract Intelligence · Riverty case study</span><span>15 / 15</span></footer></section>
+</x-dc>
+</body>
+</html>

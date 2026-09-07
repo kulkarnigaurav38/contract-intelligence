@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #f4f6f6; }
+    a { color: #00695c; } a:hover { color: #004d40; }
+    
+:root{--teal:#00695c;--teal2:#e0f2f1;--bg:#f4f6f6;--paper:#fff;--line:#e3e7e7;--ink:rgba(0,0,0,.87);--muted:rgba(0,0,0,.6);
+--red:#d32f2f;--amber:#ed6c02;--green:#2e7d32;--blue:#1565c0}
+*{box-sizing:border-box}
+.slide{position:relative;width:1280px;height:720px;background:var(--bg);color:var(--ink);font-family:Roboto,'Helvetica Neue',Arial,sans-serif;overflow:hidden;padding:44px 64px 40px}
+.slide header{display:flex;flex-direction:column;gap:6px;margin-bottom:22px}
+.kicker{font-size:14px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--teal)}
+.slide h1{font-size:38px;font-weight:600;line-height:1.15;margin:0}
+.slide footer{position:absolute;left:64px;right:64px;bottom:22px;display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.body{position:relative;height:540px}
+.paper{background:var(--paper);border:1px solid var(--line);border-radius:10px}
+.muted{color:var(--muted)}
+.tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--teal2);color:var(--teal)}
+.tag.red{background:#fdecea;color:var(--red)}.tag.amber{background:#fff3e0;color:var(--amber)}.tag.green{background:#e8f5e9;color:var(--green)}.tag.grey{background:#eceff1;color:#455a64}
+.row{display:flex;gap:16px}.col{display:flex;flex-direction:column;gap:12px}
+.num{font-size:40px;font-weight:600;color:var(--teal);line-height:1}
+.small{font-size:13px;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:var(--paper);border:1px solid var(--line);font-size:13px;font-weight:500}
+.chip.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+svg text{font-family:Roboto,'Helvetica Neue',Arial,sans-serif}
+.node{fill:#fff;stroke:var(--line);stroke-width:1.5}.node.teal{fill:var(--teal);stroke:var(--teal)}.node.light{fill:var(--teal2);stroke:var(--teal)}
+.edge{fill:none;stroke:#90a4ae;stroke-width:1.8}.edge.teal{stroke:var(--teal)}.edge.red{stroke:var(--red);stroke-dasharray:6 5}
+.lbl{font-size:13px;fill:var(--ink)}.lbl.w{fill:#fff;font-weight:600}.lbl.m{fill:var(--muted);font-size:12px}.lbl.b{font-weight:600}.lbl.t{fill:var(--teal);font-weight:600}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+/* motion: everything runs once the slide is active (the deck adds .active; an artboard is born active) */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
+.active .fu{animation:fadeUp .6s both;animation-delay:var(--d,0s)}
+.active .gr{transform-origin:left center;animation:grow 1s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0s)}
+.active .dr{stroke-dasharray:1200;stroke-dashoffset:1200;animation:draw 1.6s ease-out both;animation-delay:var(--d,0s)}
+.active .pu{animation:pulse 1.6s ease-in-out infinite;animation-delay:var(--d,0s)}
+.active .po{transform-box:fill-box;transform-origin:center;animation:pop .5s both;animation-delay:var(--d,0s)}
+.fu,.gr,.po{opacity:0}.active .fu,.active .gr,.active .po{opacity:1}
+
+  </style>
+</helmet>
+<section class="slide active" id="s7"><header><span class="kicker">Read</span><h1>Every page routed by what it is — nothing silently guessed</h1></header><div class="body">
+<svg width="1152" height="215" viewBox="0 0 1152 215">
+  <defs><marker id="ar2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0L8 4 0 8z" fill="#90a4ae"/></marker></defs>
+  <g class="po"><rect class="node" x="10" y="70" width="110" height="56" rx="10"/><text class="lbl b" x="65" y="103" text-anchor="middle">page</text></g>
+  <path class="edge" d="M120 98 H170" marker-end="url(#ar2)"/>
+  <g class="po" style="--d:.2s"><rect class="node" x="170" y="70" width="170" height="56" rx="10"/><text class="lbl b" x="255" y="93" text-anchor="middle">text layer?</text><text class="lbl m" x="255" y="112" text-anchor="middle">≥ 40 characters</text></g>
+  <path class="edge teal" d="M340 88 H430 V40 H520" marker-end="url(#ar2)"/><text class="lbl t" x="385" y="80" text-anchor="middle">yes</text>
+  <path class="edge" d="M340 110 H430 V160 H520" marker-end="url(#ar2)"/><text class="lbl m" x="385" y="150" text-anchor="middle">no</text>
+  <g class="po" style="--d:.5s"><rect class="node light" x="520" y="14" width="150" height="52" rx="10"/><text class="lbl b" x="595" y="46" text-anchor="middle">text, exact</text></g>
+  <g class="po" style="--d:.6s"><rect class="node" x="520" y="134" width="170" height="52" rx="10"/><text class="lbl b" x="605" y="155" text-anchor="middle">Tesseract</text><text class="lbl m" x="605" y="173" text-anchor="middle">eng + deu · word confidence</text></g>
+  <path class="edge" d="M690 160 H760" marker-end="url(#ar2)"/>
+  <g class="po" style="--d:.8s"><rect class="node" x="760" y="122" width="190" height="76" rx="10" stroke="#ed6c02"/><text class="lbl b" x="855" y="146" text-anchor="middle">three gates</text><text class="lbl m" x="855" y="164" text-anchor="middle">confidence &lt; 80 %</text><text class="lbl m" x="855" y="180" text-anchor="middle">&lt; 20 words · ink without words</text></g>
+  <path class="edge" d="M950 160 H1010" marker-end="url(#ar2)"/>
+  <g class="po" style="--d:1s"><rect class="node teal" x="1010" y="134" width="132" height="52" rx="10"/><text class="lbl w" x="1076" y="155" text-anchor="middle">Gemini Pro</text><text class="lbl w" x="1076" y="173" text-anchor="middle" font-size="12">vision · handwriting</text></g>
+  <text class="lbl m fu" style="--d:1.2s" x="855" y="212" text-anchor="middle">below 50 % and no model: “nicht lesbar” — a visible verdict, never a silent pass</text>
+</svg>
+<div class="row" style="gap:14px;margin-top:10px">
+  <div class="paper fu" style="--d:1.3s;flex:1;padding:14px 16px"><div class="tag">segment</div><div style="margin-top:8px;font-size:14px">Cuts at numbering, headings, § signs; signature blocks separate. <b>Clause = the unit</b> for retrieval, typing and the graph.</div><div class="small" style="margin-top:6px">vs fixed-size chunks that split a clause mid-sentence</div></div>
+  <div class="paper fu" style="--d:1.5s;flex:1;padding:14px 16px"><div class="tag">classify</div><div style="margin-top:8px;font-size:14px">Keyword rules (heading ×3) <b>and</b> Gemini Flash label every clause. Agree → certain (≥ 0.9). Disagree → the cross-check decides.</div><div class="small" style="margin-top:6px">12 types; what each contract type needs is Legal’s file</div></div>
+  <div class="paper fu" style="--d:1.7s;flex:1;padding:14px 16px"><div class="tag">entities</div><div style="margin-top:8px;font-size:14px">Register = built-in list + <b>GLEIF</b> names; fuzzy on OCR pages; “vormals” = historical; Arvato Systems = third party.</div><div class="small" style="margin-top:6px">identity from a public register, not from a vector</div></div>
+  <div class="paper fu" style="--d:1.9s;flex:1;padding:14px 16px"><div class="tag red">screen</div><div style="margin-top:8px;font-size:14px">Documents are <b>untrusted input</b>: pattern + Flash-Lite screen; every prompt carries DOC_GUARD.</div><div class="small" style="margin-top:6px">fixture C13 carries a hidden injection</div></div>
+</div>
+</div><footer><span>Contract Intelligence · Riverty case study</span><span>7 / 15</span></footer></section>
+</x-dc>
+</body>
+</html>

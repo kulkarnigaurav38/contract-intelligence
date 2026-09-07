@@ -1,0 +1,79 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #f4f6f6; }
+    a { color: #00695c; } a:hover { color: #004d40; }
+    
+:root{--teal:#00695c;--teal2:#e0f2f1;--bg:#f4f6f6;--paper:#fff;--line:#e3e7e7;--ink:rgba(0,0,0,.87);--muted:rgba(0,0,0,.6);
+--red:#d32f2f;--amber:#ed6c02;--green:#2e7d32;--blue:#1565c0}
+*{box-sizing:border-box}
+.slide{position:relative;width:1280px;height:720px;background:var(--bg);color:var(--ink);font-family:Roboto,'Helvetica Neue',Arial,sans-serif;overflow:hidden;padding:44px 64px 40px}
+.slide header{display:flex;flex-direction:column;gap:6px;margin-bottom:22px}
+.kicker{font-size:14px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--teal)}
+.slide h1{font-size:38px;font-weight:600;line-height:1.15;margin:0}
+.slide footer{position:absolute;left:64px;right:64px;bottom:22px;display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.body{position:relative;height:540px}
+.paper{background:var(--paper);border:1px solid var(--line);border-radius:10px}
+.muted{color:var(--muted)}
+.tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--teal2);color:var(--teal)}
+.tag.red{background:#fdecea;color:var(--red)}.tag.amber{background:#fff3e0;color:var(--amber)}.tag.green{background:#e8f5e9;color:var(--green)}.tag.grey{background:#eceff1;color:#455a64}
+.row{display:flex;gap:16px}.col{display:flex;flex-direction:column;gap:12px}
+.num{font-size:40px;font-weight:600;color:var(--teal);line-height:1}
+.small{font-size:13px;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:var(--paper);border:1px solid var(--line);font-size:13px;font-weight:500}
+.chip.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+svg text{font-family:Roboto,'Helvetica Neue',Arial,sans-serif}
+.node{fill:#fff;stroke:var(--line);stroke-width:1.5}.node.teal{fill:var(--teal);stroke:var(--teal)}.node.light{fill:var(--teal2);stroke:var(--teal)}
+.edge{fill:none;stroke:#90a4ae;stroke-width:1.8}.edge.teal{stroke:var(--teal)}.edge.red{stroke:var(--red);stroke-dasharray:6 5}
+.lbl{font-size:13px;fill:var(--ink)}.lbl.w{fill:#fff;font-weight:600}.lbl.m{fill:var(--muted);font-size:12px}.lbl.b{font-weight:600}.lbl.t{fill:var(--teal);font-weight:600}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+/* motion: everything runs once the slide is active (the deck adds .active; an artboard is born active) */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
+.active .fu{animation:fadeUp .6s both;animation-delay:var(--d,0s)}
+.active .gr{transform-origin:left center;animation:grow 1s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0s)}
+.active .dr{stroke-dasharray:1200;stroke-dashoffset:1200;animation:draw 1.6s ease-out both;animation-delay:var(--d,0s)}
+.active .pu{animation:pulse 1.6s ease-in-out infinite;animation-delay:var(--d,0s)}
+.active .po{transform-box:fill-box;transform-origin:center;animation:pop .5s both;animation-delay:var(--d,0s)}
+.fu,.gr,.po{opacity:0}.active .fu,.active .gr,.active .po{opacity:1}
+
+  </style>
+</helmet>
+<section class="slide active" id="s9"><header><span class="kicker">Check</span><h1>Rules for recall, the model for precision</h1></header><div class="body">
+<div class="row" style="gap:20px;height:100%">
+  <div class="paper" style="flex:1.4;padding:16px 18px">
+    <svg width="660" height="470" viewBox="0 0 660 470">
+      <defs><marker id="ar4" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4 0 8z" fill="#90a4ae"/></marker></defs>
+      <g class="po"><rect class="node light" x="20" y="20" width="620" height="60" rx="10"/><text class="lbl b" x="330" y="45" text-anchor="middle">candidates from the rules</text><text class="lbl m" x="330" y="66" text-anchor="middle">required type without a certain clause · active old-name mention — recall 0.95, precision 0.43 (CUAD)</text></g>
+      <path class="edge" d="M330 80 V110" marker-end="url(#ar4)"/>
+      <g class="po" style="--d:.4s"><rect class="node" x="60" y="110" width="540" height="96" rx="10"/><text class="lbl b" x="330" y="136" text-anchor="middle">read 1 · what the graph selects</text><text class="lbl m" x="330" y="158" text-anchor="middle">the outline (every clause, type, page) + the 6 most relevant clauses (cosine ⊕ words)</text><text class="lbl m" x="330" y="176" text-anchor="middle">+ every clause of the type in question · for names: every clause with the name, preamble, signatures</text><text class="lbl t" x="330" y="197" text-anchor="middle">Gemini Pro · thinking high · structured verdict: confirmed | refuted | partial + page + quote + reason</text></g>
+      <path class="edge" d="M330 206 V236" marker-end="url(#ar4)"/>
+      <g class="po" style="--d:.8s"><rect class="node" x="200" y="236" width="260" height="46" rx="23" stroke="#ed6c02" stroke-width="2"/><text class="lbl b" x="330" y="264" text-anchor="middle">still “missing”?</text></g>
+      <path class="edge teal" d="M460 259 H560 V330" marker-end="url(#ar4)"/><text class="lbl t" x="600" y="264">refuted → present</text>
+      <path class="edge" d="M330 282 V312" marker-end="url(#ar4)"/><text class="lbl m" x="345" y="302">yes</text>
+      <g class="po" style="--d:1.2s"><rect class="node light" x="60" y="312" width="540" height="60" rx="10"/><text class="lbl b" x="330" y="337" text-anchor="middle">read 2 · the whole contract</text><text class="lbl m" x="330" y="358" text-anchor="middle">skipped when read 1 already covered ≥ 90 % of the text · the cheap error (a false alarm) is caught here</text></g>
+      <path class="edge" d="M330 372 V402" marker-end="url(#ar4)"/>
+      <g class="po" style="--d:1.6s"><rect class="node teal" x="160" y="402" width="340" height="52" rx="10"/><text class="lbl w" x="330" y="424" text-anchor="middle">confirmed finding → the page</text><text class="lbl w" x="330" y="444" text-anchor="middle" font-size="12">precision 1.00 · recall 0.91 on 22 true absences</text></g>
+    </svg>
+  </div>
+  <div class="col" style="flex:1;gap:12px">
+    <div class="paper fu" style="--d:.5s;padding:14px 16px"><div class="tag">routing by risk</div><div style="margin-top:8px;font-size:14px;display:flex;flex-direction:column;gap:6px"><div><span class="chip on">Pro · high</span> verify · read handwriting</div><div><span class="chip">Flash · low/medium</span> label · extract · draft · locate</div><div><span class="chip">Flash-Lite</span> injection screen</div></div><div class="small" style="margin-top:8px">temperature 0, schema-validated outputs; <span class="mono">LLM_PROVIDER=foundry</span> → GPT-5 deployments, same table</div></div>
+    <div class="paper fu" style="--d:1s;padding:14px 16px"><div class="tag amber">why two reads</div><div style="margin-top:6px;font-size:14px">Always full: ~5× the tokens, no scale to 300-page agreements. Only scoped: over-flags. The pair keeps the measured precision at a fifth of the cost.</div></div>
+    <div class="paper fu" style="--d:1.5s;padding:14px 16px"><div class="tag green">degrades honestly</div><div style="margin-top:6px;font-size:14px">No key or an outage → the rule result stands, marked “ohne KI-Gegenprüfung”, repeated at the next start. Quota hit → fail fast, don’t hang.</div></div>
+  </div>
+</div>
+</div><footer><span>Contract Intelligence · Riverty case study</span><span>9 / 15</span></footer></section>
+</x-dc>
+</body>
+</html>

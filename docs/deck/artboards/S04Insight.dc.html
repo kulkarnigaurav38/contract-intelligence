@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #f4f6f6; }
+    a { color: #00695c; } a:hover { color: #004d40; }
+    
+:root{--teal:#00695c;--teal2:#e0f2f1;--bg:#f4f6f6;--paper:#fff;--line:#e3e7e7;--ink:rgba(0,0,0,.87);--muted:rgba(0,0,0,.6);
+--red:#d32f2f;--amber:#ed6c02;--green:#2e7d32;--blue:#1565c0}
+*{box-sizing:border-box}
+.slide{position:relative;width:1280px;height:720px;background:var(--bg);color:var(--ink);font-family:Roboto,'Helvetica Neue',Arial,sans-serif;overflow:hidden;padding:44px 64px 40px}
+.slide header{display:flex;flex-direction:column;gap:6px;margin-bottom:22px}
+.kicker{font-size:14px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--teal)}
+.slide h1{font-size:38px;font-weight:600;line-height:1.15;margin:0}
+.slide footer{position:absolute;left:64px;right:64px;bottom:22px;display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.body{position:relative;height:540px}
+.paper{background:var(--paper);border:1px solid var(--line);border-radius:10px}
+.muted{color:var(--muted)}
+.tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--teal2);color:var(--teal)}
+.tag.red{background:#fdecea;color:var(--red)}.tag.amber{background:#fff3e0;color:var(--amber)}.tag.green{background:#e8f5e9;color:var(--green)}.tag.grey{background:#eceff1;color:#455a64}
+.row{display:flex;gap:16px}.col{display:flex;flex-direction:column;gap:12px}
+.num{font-size:40px;font-weight:600;color:var(--teal);line-height:1}
+.small{font-size:13px;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:var(--paper);border:1px solid var(--line);font-size:13px;font-weight:500}
+.chip.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+svg text{font-family:Roboto,'Helvetica Neue',Arial,sans-serif}
+.node{fill:#fff;stroke:var(--line);stroke-width:1.5}.node.teal{fill:var(--teal);stroke:var(--teal)}.node.light{fill:var(--teal2);stroke:var(--teal)}
+.edge{fill:none;stroke:#90a4ae;stroke-width:1.8}.edge.teal{stroke:var(--teal)}.edge.red{stroke:var(--red);stroke-dasharray:6 5}
+.lbl{font-size:13px;fill:var(--ink)}.lbl.w{fill:#fff;font-weight:600}.lbl.m{fill:var(--muted);font-size:12px}.lbl.b{font-weight:600}.lbl.t{fill:var(--teal);font-weight:600}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+/* motion: everything runs once the slide is active (the deck adds .active; an artboard is born active) */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
+.active .fu{animation:fadeUp .6s both;animation-delay:var(--d,0s)}
+.active .gr{transform-origin:left center;animation:grow 1s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0s)}
+.active .dr{stroke-dasharray:1200;stroke-dashoffset:1200;animation:draw 1.6s ease-out both;animation-delay:var(--d,0s)}
+.active .pu{animation:pulse 1.6s ease-in-out infinite;animation-delay:var(--d,0s)}
+.active .po{transform-box:fill-box;transform-origin:center;animation:pop .5s both;animation-delay:var(--d,0s)}
+.fu,.gr,.po{opacity:0}.active .fu,.active .gr,.active .po{opacity:1}
+
+  </style>
+</helmet>
+<section class="slide active" id="s4"><header><span class="kicker">Thought process</span><h1>Retrieval finds what is there. It cannot prove what is not.</h1></header><div class="body">
+<div class="row" style="gap:20px">
+  <div class="paper fu" style="flex:1;padding:20px 22px;opacity:.9">
+    <div class="tag grey">search</div>
+    <svg width="520" height="250" viewBox="0 0 520 250" style="margin-top:10px">
+      <g class="po" style="--d:.2s"><rect class="node" x="10" y="20" width="130" height="50" rx="10"/><text class="lbl b" x="75" y="50" text-anchor="middle">chunks</text></g>
+      <path class="edge dr" style="--d:.3s" d="M140 45 H200"/>
+      <g class="po" style="--d:.4s"><rect class="node" x="200" y="20" width="130" height="50" rx="10"/><text class="lbl b" x="265" y="50" text-anchor="middle">similarity</text></g>
+      <path class="edge dr" style="--d:.5s" d="M330 45 H390"/>
+      <g class="po" style="--d:.6s"><rect class="node" x="390" y="20" width="120" height="50" rx="10"/><text class="lbl b" x="450" y="50" text-anchor="middle">top-k</text></g>
+      <text class="lbl m fu" style="--d:.8s" x="260" y="120" text-anchor="middle">“nothing similar above 0.6” … is that absence?</text>
+      <text class="lbl fu" style="--d:1s" x="260" y="150" text-anchor="middle" fill="#d32f2f" font-weight="600">a guess with a score</text>
+      <text class="lbl m fu" style="--d:1.1s" x="260" y="200" text-anchor="middle">“Arvato Systems” ≈ “Arvato Payment Solutions” to a vector</text>
+      <text class="lbl fu" style="--d:1.2s" x="260" y="228" text-anchor="middle" fill="#d32f2f" font-weight="600">identity is not similarity</text>
+    </svg>
+  </div>
+  <div class="paper fu" style="--d:.2s;flex:1;padding:20px 22px;border:2px solid var(--teal)">
+    <div class="tag">structure</div>
+    <svg width="520" height="250" viewBox="0 0 520 250" style="margin-top:10px">
+      <g class="po" style="--d:.5s"><rect class="node light" x="10" y="20" width="130" height="50" rx="10"/><text class="lbl b" x="75" y="50" text-anchor="middle">clauses, typed</text></g>
+      <path class="edge dr teal" style="--d:.6s" d="M140 45 H200"/>
+      <g class="po" style="--d:.7s"><rect class="node light" x="200" y="20" width="150" height="50" rx="10"/><text class="lbl b" x="275" y="50" text-anchor="middle">guideline REQUIRES</text></g>
+      <path class="edge dr teal" style="--d:.8s" d="M350 45 H400"/>
+      <g class="po" style="--d:.9s"><rect class="node teal" x="400" y="20" width="110" height="50" rx="10"/><text class="lbl w" x="455" y="50" text-anchor="middle">absence</text></g>
+      <text class="lbl m fu" style="--d:1s" x="260" y="105" text-anchor="middle">= a lookup: required type with no clause of that type</text>
+      <g class="po" style="--d:1.2s"><rect class="node light" x="60" y="140" width="160" height="50" rx="10"/><text class="lbl b" x="140" y="170" text-anchor="middle">register (GLEIF)</text></g>
+      <path class="edge dr teal" style="--d:1.3s" d="M220 165 H300"/>
+      <text class="lbl m" x="260" y="132" text-anchor="middle">RENAMED_TO</text>
+      <g class="po" style="--d:1.4s"><rect class="node teal" x="300" y="140" width="160" height="50" rx="10"/><text class="lbl w" x="380" y="170" text-anchor="middle">identity</text></g>
+      <text class="lbl m fu" style="--d:1.6s" x="260" y="225" text-anchor="middle">= an edge with a source, not a score</text>
+    </svg>
+  </div>
+</div>
+<div class="row fu" style="--d:1.9s;position:absolute;left:0;right:0;bottom:6px;gap:12px;align-items:center;justify-content:center;font-size:17px">
+  <span class="chip">rules <b>find</b> · recall</span><span class="muted">→</span><span class="chip">a model <b>verifies</b> · precision</span><span class="muted">→</span><span class="chip on">a person <b>decides</b></span>
+</div>
+</div><footer><span>Contract Intelligence · Riverty case study</span><span>4 / 15</span></footer></section>
+</x-dc>
+</body>
+</html>

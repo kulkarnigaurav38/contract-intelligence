@@ -1,0 +1,127 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 720,
+      "title": "1 \u00b7 Contract Intelligence"
+    },
+    {
+      "file": "S02Problem.dc.html",
+      "x": 1400,
+      "y": 0,
+      "w": 1280,
+      "h": 720,
+      "title": "2 \u00b7 Open \u00b7 search \u00b7 verify \u2014 by hand, across"
+    },
+    {
+      "file": "S03Estimate.dc.html",
+      "x": 2800,
+      "y": 0,
+      "w": 1280,
+      "h": 720,
+      "title": "3 \u00b7 How much work is it \u2014 and what does it c"
+    },
+    {
+      "file": "S04Insight.dc.html",
+      "x": 0,
+      "y": 900,
+      "w": 1280,
+      "h": 720,
+      "title": "4 \u00b7 Retrieval finds what is there. It cannot"
+    },
+    {
+      "file": "S05Versions.dc.html",
+      "x": 1400,
+      "y": 900,
+      "w": 1280,
+      "h": 720,
+      "title": "5 \u00b7 Four versions in ten days \u2014 what changed"
+    },
+    {
+      "file": "S06Workflow.dc.html",
+      "x": 2800,
+      "y": 900,
+      "w": 1280,
+      "h": 720,
+      "title": "6 \u00b7 One contract, end to end \u2014 14 stages, th"
+    },
+    {
+      "file": "S07Read.dc.html",
+      "x": 0,
+      "y": 1800,
+      "w": 1280,
+      "h": 720,
+      "title": "7 \u00b7 Every page routed by what it is \u2014 nothin"
+    },
+    {
+      "file": "S08Graph.dc.html",
+      "x": 1400,
+      "y": 1800,
+      "w": 1280,
+      "h": 720,
+      "title": "8 \u00b7 The database is the knowledge graph"
+    },
+    {
+      "file": "S09Check.dc.html",
+      "x": 2800,
+      "y": 1800,
+      "w": 1280,
+      "h": 720,
+      "title": "9 \u00b7 Rules for recall, the model for precisio"
+    },
+    {
+      "file": "S10Decide.dc.html",
+      "x": 0,
+      "y": 2700,
+      "w": 1280,
+      "h": 720,
+      "title": "10 \u00b7 A person decides \u2014 and the review load f"
+    },
+    {
+      "file": "S11UI.dc.html",
+      "x": 1400,
+      "y": 2700,
+      "w": 1280,
+      "h": 720,
+      "title": "11 \u00b7 Three steps \u2014 the PDF is the interface"
+    },
+    {
+      "file": "S12Infra.dc.html",
+      "x": 2800,
+      "y": 2700,
+      "w": 1280,
+      "h": 720,
+      "title": "12 \u00b7 Azure \u2014 and one switch per external depe"
+    },
+    {
+      "file": "S13Alignment.dc.html",
+      "x": 0,
+      "y": 3600,
+      "w": 1280,
+      "h": 720,
+      "title": "13 \u00b7 What was asked \u2014 and where it is"
+    },
+    {
+      "file": "S14Adoption.dc.html",
+      "x": 1400,
+      "y": 3600,
+      "w": 1280,
+      "h": 720,
+      "title": "14 \u00b7 How the legal team gets the most out of "
+    },
+    {
+      "file": "S15Demo.dc.html",
+      "x": 2800,
+      "y": 3600,
+      "w": 1280,
+      "h": 720,
+      "title": "15 \u00b7 Demo \u2014 then what is next"
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

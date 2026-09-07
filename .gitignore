@@ -22,3 +22,6 @@ data/inbox/
 
 # rendered page images for the viewer (rebuilt on demand)
 data/cache/
+
+# Office lock files
+~$*

@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #f4f6f6; }
+    a { color: #00695c; } a:hover { color: #004d40; }
+    
+:root{--teal:#00695c;--teal2:#e0f2f1;--bg:#f4f6f6;--paper:#fff;--line:#e3e7e7;--ink:rgba(0,0,0,.87);--muted:rgba(0,0,0,.6);
+--red:#d32f2f;--amber:#ed6c02;--green:#2e7d32;--blue:#1565c0}
+*{box-sizing:border-box}
+.slide{position:relative;width:1280px;height:720px;background:var(--bg);color:var(--ink);font-family:Roboto,'Helvetica Neue',Arial,sans-serif;overflow:hidden;padding:44px 64px 40px}
+.slide header{display:flex;flex-direction:column;gap:6px;margin-bottom:22px}
+.kicker{font-size:14px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--teal)}
+.slide h1{font-size:38px;font-weight:600;line-height:1.15;margin:0}
+.slide footer{position:absolute;left:64px;right:64px;bottom:22px;display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.body{position:relative;height:540px}
+.paper{background:var(--paper);border:1px solid var(--line);border-radius:10px}
+.muted{color:var(--muted)}
+.tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--teal2);color:var(--teal)}
+.tag.red{background:#fdecea;color:var(--red)}.tag.amber{background:#fff3e0;color:var(--amber)}.tag.green{background:#e8f5e9;color:var(--green)}.tag.grey{background:#eceff1;color:#455a64}
+.row{display:flex;gap:16px}.col{display:flex;flex-direction:column;gap:12px}
+.num{font-size:40px;font-weight:600;color:var(--teal);line-height:1}
+.small{font-size:13px;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:var(--paper);border:1px solid var(--line);font-size:13px;font-weight:500}
+.chip.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+svg text{font-family:Roboto,'Helvetica Neue',Arial,sans-serif}
+.node{fill:#fff;stroke:var(--line);stroke-width:1.5}.node.teal{fill:var(--teal);stroke:var(--teal)}.node.light{fill:var(--teal2);stroke:var(--teal)}
+.edge{fill:none;stroke:#90a4ae;stroke-width:1.8}.edge.teal{stroke:var(--teal)}.edge.red{stroke:var(--red);stroke-dasharray:6 5}
+.lbl{font-size:13px;fill:var(--ink)}.lbl.w{fill:#fff;font-weight:600}.lbl.m{fill:var(--muted);font-size:12px}.lbl.b{font-weight:600}.lbl.t{fill:var(--teal);font-weight:600}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+/* motion: everything runs once the slide is active (the deck adds .active; an artboard is born active) */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
+.active .fu{animation:fadeUp .6s both;animation-delay:var(--d,0s)}
+.active .gr{transform-origin:left center;animation:grow 1s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0s)}
+.active .dr{stroke-dasharray:1200;stroke-dashoffset:1200;animation:draw 1.6s ease-out both;animation-delay:var(--d,0s)}
+.active .pu{animation:pulse 1.6s ease-in-out infinite;animation-delay:var(--d,0s)}
+.active .po{transform-box:fill-box;transform-origin:center;animation:pop .5s both;animation-delay:var(--d,0s)}
+.fu,.gr,.po{opacity:0}.active .fu,.active .gr,.active .po{opacity:1}
+
+  </style>
+</helmet>
+<section class="slide active" id="s3"><header><span class="kicker">The estimation</span><h1>How much work is it — and what does it cost?</h1></header><div class="body">
+<div class="row" style="gap:16px">
+  <div class="paper fu" style="flex:1;padding:18px 20px"><div class="num" data-count="15000">15,000</div><div style="margin-top:6px;font-weight:500">active contracts</div><div class="small">1,800 merchants × ~3 docs, vendors, mandates, NDAs</div></div>
+  <div class="paper fu" style="--d:.1s;flex:1;padding:18px 20px"><div class="num" data-count="40000">40,000</div><div style="margin-top:6px;font-weight:500">documents in the archive</div><div class="small">incl. arvato · infoscore · AfterPay entities</div></div>
+  <div class="paper fu" style="--d:.2s;flex:1;padding:18px 20px"><div class="num">12–20</div><div style="margin-top:6px;font-weight:500">new contracts per day</div><div class="small">20–30 % of the stock turns over a year</div></div>
+  <div class="paper fu" style="--d:.3s;flex:1;padding:18px 20px"><div class="num">1–3</div><div style="margin-top:6px;font-weight:500">sweeps a year</div><div class="small">rebrand 2022–23 · the bank 2026 · DORA · a guideline change</div></div>
+</div>
+<div class="row" style="gap:16px;margin-top:16px">
+  <div class="paper fu" style="--d:.5s;flex:1.2;padding:18px 22px">
+    <div style="font-weight:600;margin-bottom:10px">Rename sweep over 15,000 contracts</div>
+    <div class="small">manual · 15 min each</div>
+    <div style="height:22px;border-radius:6px;background:#fdecea;margin:4px 0 10px;overflow:hidden"><div class="gr" style="--d:.8s;height:100%;width:100%;background:var(--red)"></div></div>
+    <div class="row" style="justify-content:space-between"><span><b>3,750 h</b> ≈ 2.3 FTE-years ≈ <b>€340k</b></span><span class="small">5 people · 5 months</span></div>
+    <div class="small" style="margin-top:14px">with the tool · 3 min per finding, spot checks</div>
+    <div style="height:22px;border-radius:6px;background:var(--teal2);margin:4px 0 10px;overflow:hidden"><div class="gr" style="--d:1.2s;height:100%;width:7%;background:var(--teal)"></div></div>
+    <div class="row" style="justify-content:space-between"><span><b>250 h</b> lawyer time + <b>€900</b> model calls</span><span class="small">1–2 weeks</span></div>
+  </div>
+  <div class="paper fu" style="--d:.6s;flex:1;padding:18px 22px">
+    <div style="font-weight:600;margin-bottom:10px">Daily flow · 15 contracts against the guideline</div>
+    <div class="small">manual · 45–60 min each</div>
+    <div style="height:22px;border-radius:6px;background:#fdecea;margin:4px 0 10px;overflow:hidden"><div class="gr" style="--d:.9s;height:100%;width:100%;background:var(--red)"></div></div>
+    <div><b>1.6 FTE</b> ≈ €240k a year</div>
+    <div class="small" style="margin-top:14px">with the tool</div>
+    <div style="height:22px;border-radius:6px;background:var(--teal2);margin:4px 0 10px;overflow:hidden"><div class="gr" style="--d:1.3s;height:100%;width:12%;background:var(--teal)"></div></div>
+    <div><b>0.2 FTE</b> + €250 model + €3k infrastructure</div>
+  </div>
+</div>
+<div class="small fu" style="--d:1.6s;margin-top:12px">Gemini 3.1 Pro $2 / $12 per 1M tokens → ≈ $0.06–0.10 per contract. The tool costs ~1 % of the lawyer time it replaces; the time that remains is the part only a lawyer can do. Estimates: docs/cost-benefit.md.</div>
+</div><footer><span>Contract Intelligence · Riverty case study</span><span>3 / 15</span></footer></section>
+</x-dc>
+</body>
+</html>

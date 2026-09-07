@@ -1,0 +1,133 @@
+- Look at the current state of the repository.
+- Look into using a Neo4j knowledge graph as the backend.
+- Do a thorough search for reasonable database-first data sources.
+- Look into the architecture for how to include a Neo4j knowledge graph as a RAG database.
+- Retrieve only the useful things before the LLM works on the legal contracts.
+- The PDF overview page should have an easier UI and a next page where the final edited PDF can be downloaded.
+- Look at these two paths for further context.
+- Do not do extensive testing, just once the actual coding part is done, report back and I'll look at it myself. '/Users/gaurav/Downloads/Software Engineer (RAG) Case Study_285144.pdf'
+
+---
+
+continue
+
+---
+
+continue
+
+---
+
+The difference between traditional RAG and GraphRAG is the way the chunks in the vector database or the chunks in the graph database are connected. There is no connection or commonality between chunks in a traditional RAG database but in GraphRAG they are somehow better, which is what I believe. I want you to tell me if using GraphRAG over traditional RAG, or no RAG at all, is a better option in this case and why. If yes why?
+
+---
+
+add the scoped-then-full-read refinement. Also as it is now confirmed that the GraphRAG approach is better, do the entire migration from Postgres SQL to Neo4j.
+
+---
+
+gimme overview of the project now of how it works and also gimme the steps and things i need to setup before letting it run locally
+
+---
+
+Again look at the PDF document, which contains the problem statement, and give me a time estimate based on the solution chosen and the way the UI works where I am. Of course I can upload many bulk contracts but if I want to change one I need to go to the PDF overlay and edit specific things.
+
+What I want you to do is give me a cost-benefit analysis of how long something like this would take for a person manually. Why am I choosing such a UI or user experience where they still have to look into each contract but most of it is done by AI, which tells them what things are missing? Give me a cost-benefit analysis which confirms my UX design decision. The explainability of the entire solution should also be clear both in the presentation and in the UI. As I told you I need a separate page which shows the entire pipeline just for technical explanation purposes. That also has to be part of the solution. Once I'm happy with the entire solution, we can go ahead with the presentation itself, the PPT. By the way, cost analysis: I also mean give me a back-of-the-envelope estimate of how much volume the data has or how many contracts the legal team works with every day (an estimate for a company as big as Riverty) and why my approach makes sense for the specific use case.
+
+---
+
+localHost which port?
+
+---
+
+You have the control. Go ahead and start everything so that I can test it locally.
+
+---
+
+<task-notification>
+<task-id>bgdxdl73i</task-id>
+<tool-use-id>toolu_01KT8qKReGXcHHof5g8q9ZFp</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-gaurav-Downloads-riverty-challenge/756c68d2-670f-49f4-9e20-65255ceaa73c/tasks/bgdxdl73i.output</output-file>
+<status>completed</status>
+<summary>Background command "Build and start the full stack (neo4j, api, web)" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+are we using a hybrid of vector search and graph search
+
+---
+
+i uploaded sample contracts but takes forever, gimme option to upload 1 at a time. check the current status in logs, gimme all the running terminals
+
+---
+
+<task-notification>
+<task-id>baj5cniry</task-id>
+<tool-use-id>toolu_0146WsKau9RQwUaL3TzWgyoR</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-gaurav-Downloads-riverty-challenge/756c68d2-670f-49f4-9e20-65255ceaa73c/tasks/baj5cniry.output</output-file>
+<status>completed</status>
+<summary>Background command "Rebuild and restart the api and web containers with the single-sample option" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+check the entire testing of a single upload in the frontend
+
+---
+
+http://localhost:5173/contracts/15 When I click here from the homepage, the button doesn't work and I get the following error every time I try to navigate anywhere. I have to keep reloading the page. index-D99PVHHv.js:8 Uncaught Error: Minified React error #300; visit https://react.dev/errors/300 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at Co (index-D99PVHHv.js:8:47668)
+    at U (index-D99PVHHv.js:8:47558)
+    at pc (index-D99PVHHv.js:8:70084)
+    at Ac (index-D99PVHHv.js:8:80357)
+    at Mu (index-D99PVHHv.js:8:115900)
+    at ku (index-D99PVHHv.js:8:114949)
+    at Ou (index-D99PVHHv.js:8:114783)
+    at gu (index-D99PVHHv.js:8:111625)
+    at ld (index-D99PVHHv.js:8:123243)
+    at MessagePort.D (index-D99PVHHv.js:1:10227)
+Co @ index-D99PVHHv.js:8
+U @ index-D99PVHHv.js:8
+pc @ index-D99PVHHv.js:8
+Ac @ index-D99PVHHv.js:8
+Mu @ index-D99PVHHv.js:8
+ku @ index-D99PVHHv.js:8
+Ou @ index-D99PVHHv.js:8
+gu @ index-D99PVHHv.js:8
+ld @ index-D99PVHHv.js:8
+D @ index-D99PVHHv.js:1
+postMessage
+O @ index-D99PVHHv.js:1
+e.unstable_scheduleCallback @ index-D99PVHHv.js:1
+Zu @ index-D99PVHHv.js:8
+Lu @ index-D99PVHHv.js:8
+_u @ index-D99PVHHv.js:8
+gu @ index-D99PVHHv.js:8
+ud @ index-D99PVHHv.js:8
+ad @ index-D99PVHHv.js:8
+sd @ index-D99PVHHv.js:8
+(anonymous) @ index-D99PVHHv.js:8
+
+---
+
+[Image #3] the font size of the altered text doesnt match surrounding text
+
+---
+
+Now I want a very detailed and long answer. For every architecture decision I need to understand the why behind every one of those: why this and not the other options? Why did I choose this in every architecture decision? Have a look at the problem statement PDF again. Don't look at it from the cache. Actually look up the path which I have given previously and look at the entire PDF and Check if anything in the implementation part, except the PDF, is still remaining or not addressed.
+
+---
+
+start working on  ppt. I need the ppt to have less words, more pipeline and diagrams. clearly structured such as , the problem, the estimations, the different versions of the solution, thought process, complete workflow bit in diagram type of presentation. should end in 10 mins and 5 mins for the live demo. also don't forget to check in the PS about how things align with it and why of every technical decision and ui decision. use claude design if available. use moving animations wherever it makes sense. similar theme as the website itself.
+
+---
+
+gimme an editable ppt
+
+---
+
+the ppt currently is too long, few workflows dont look correct e.g. page 8 when opened on ms ppt. keep it to max 8-10 slides
+
+---
+
+gimme a sample contract pdf, not one from the example set already in place, with which i can show a complete pipeline run with a new unseen document.

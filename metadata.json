@@ -1,0 +1,57 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M1XGXXQYV2M62T47WZA4CS28",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 19,
+  "files_touched": [
+    ".env.example",
+    "api/app/audits/graph.py",
+    "api/app/audits/verify.py",
+    "api/app/chat.py",
+    "api/app/config.py",
+    "api/app/correct.py",
+    "api/app/db.py",
+    "api/app/draft.py",
+    "api/app/evaluation.py",
+    "api/app/ingest/embed.py",
+    "api/app/ingest/entities.py",
+    "api/app/ingest/pipeline.py",
+    "api/app/learning.py",
+    "api/app/llm.py",
+    "api/app/main.py",
+    "api/app/models.py",
+    "api/app/pipeline.py",
+    "api/app/policy.py",
+    "api/app/report.py",
+    "api/app/retrieval.py",
+    "api/app/routers.py",
+    "api/app/sources.py",
+    "api/pyproject.toml",
+    "api/tests/conftest.py",
+    "api/tests/test_correct_units.py",
+    "api/tests/test_end_to_end_db.py",
+    "api/tests/test_end_to_end_graph.py",
+    "api/uv.lock",
+    "docker-compose.yml",
+    "infra/terraform/main.tf",
+    "infra/terraform/outputs.tf",
+    "infra/terraform/variables.tf"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 66300,
+    "cache_creation_tokens": 3995477,
+    "cache_read_tokens": 92732949,
+    "output_tokens": 545590,
+    "api_call_count": 157
+  }
+}

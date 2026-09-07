@@ -110,6 +110,47 @@ for the Downloads folder the repository lives in, and every file access failed w
 until a `tccutil reset` restored it. Noted because it cost real time, and because "the tool cannot see the files"
 looks, at first, exactly like a broken build.
 
+## 2026-09-05 — the knowledge graph, and the review as three steps
+
+The author asked for four things at once: a Neo4j knowledge graph as the backend, a thorough search for
+*database-first* data sources, an architecture in which the graph is the RAG store so that the models retrieve only
+what is useful before they work on a contract, and a simpler contract page with a separate page where the final
+edited PDF is downloaded. The AI was told not to test extensively and to report back.
+
+What Claude Code built, and the decisions it took on its own and flagged: the graph is derived from PostgreSQL rather
+than replacing it (`api/app/graph.py`: schema, seed, one contract in/out, retrieval, the context builders; every call
+falls back to the SQL path without `NEO4J_URI`) — a full replacement of the relational bookkeeping was judged the
+wrong trade for an untested change; the verifier reads the outline plus the clauses the graph ranks, which trades the
+"read the whole contract" guarantee for a smaller, structured context (the outline still shows every clause that
+exists), with the full read kept as the fallback; the drafter reads the neighbours and the team's accepted wording;
+the name register became database-first — the AI queried GLEIF's LEI API live and found the rebrand recorded as
+`PREVIOUS_LEGAL_NAME` on eight Riverty entities, seeded them with `RENAMED_TO` edges, and the suggested new name now
+follows that edge; the deprecated `db.index.vector.queryNodes` was replaced by Cypher's `SEARCH` clause after a live
+probe showed which syntax the pinned server accepts; the review page became "one finding at a time" with
+**Weiter zum Download**, and the download page shows what was applied, the download, the filing and a preview.
+
+What was verified rather than trusted: the 56 unit tests, the graph module against a live Neo4j 2026.07 (seed,
+upsert, gap pattern, registry, successor, context, hybrid search, decisions, delete), the 12-test end-to-end suite
+with the graph switched on (16 contracts, 207 clause nodes, 25 gaps), the web build, and the two new pages in the
+browser. Not run: the live Gemini tests and the Playwright suite (updated to the new pages, not executed) — the
+author chose to look at the result himself first.
+
+## 2026-09-05, later — Neo4j becomes the database
+
+After the graph-vs-RAG discussion the author decided two things: add the scoped-then-full read, and move the whole
+persistence layer from PostgreSQL to Neo4j — "as it is now confirmed that the GraphRAG approach is better". The AI
+had flagged the migration as the riskier option the first time; once reaffirmed it did it in full: SQLAlchemy models
+became dataclasses (`api/app/models.py`), a `Store` unit of work over the Neo4j driver replaced the session
+(`api/app/db.py`: `add`/`get`/`delete`/`commit` in one transaction, dirty tracking, integer ids from Counter nodes,
+cascading deletes), and every caller — ingest, report, learning, policy, audits, chat, evaluation, sources, routers —
+was rewired; `verify_absence` (`api/app/audits/verify.py`) reads the graph's selection first and the full contract
+before confirming an absence. Postgres, pgvector and psycopg left the project, compose and Terraform. Kept
+deliberately: the shape of the code (`session.add`/`commit`/`get`), so the unit tests and the fakes in them still
+hold; and the graph's own tests moved to a scratch Neo4j (`neo4j-test`) because Community has one database.
+
+Verified: 56 unit tests, the 12 end-to-end tests against the scratch instance, the web build. Not run: Playwright,
+live Gemini.
+
 ## Known limits of the AI-built parts
 
 - The Azure Foundry, Document Intelligence and SharePoint/Graph paths were written from the documented

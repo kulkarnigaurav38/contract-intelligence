@@ -10,7 +10,7 @@ the comparison is a decision the team can revisit without touching pipeline code
 | Language models | Google Gemini 3.x (`gemini-3.1-pro-preview`, `3.7-flash`, `3.5-flash-lite`, `gemini-embedding-001`) | Azure AI Foundry / Azure OpenAI deployments (GPT-5 family, `text-embedding-3-large`) | `LLM_PROVIDER=gemini|foundry` (`api/app/llm.py`; Terraform creates the deployments) |
 | OCR for scans | Tesseract locally + Gemini Pro vision on escalation | Azure AI Document Intelligence `prebuilt-read` (+ the same vision escalation) | `OCR_PROVIDER` (`api/app/ingest/ocr.py`) |
 | Document source | local folder (demo) | SharePoint via Microsoft Graph delta queries | `DOCUMENT_SOURCE` (`api/app/sources.py`) |
-| Index | PostgreSQL + pgvector + full-text | Azure Database for PostgreSQL Flexible Server (same code) — or Azure AI Search | PostgreSQL is already Azure-managed; AI Search would be a second system |
+| Database, index and knowledge graph | Neo4j — self-hosted container here, AuraDB from the Azure Marketplace in production | Apache AGE + pgvector on Azure Database for PostgreSQL (openCypher in one managed PostgreSQL, GA) — or Cosmos DB for Apache Gremlin + AI Search | `api/app/db.py` (the store) and `api/app/graph.py` (the knowledge side) are the two modules to swap |
 | Hosting, secrets, identity, logs | — | Azure Container Apps, Key Vault, Entra ID, Log Analytics | Terraform in `infra/terraform` |
 
 Facts below were collected from vendor documentation on 2026-08-27/28 (URLs in the research log); prices are
@@ -34,8 +34,9 @@ list prices and change often.
 
 **Why Gemini is the default for this problem**
 
-1. *The verifier reads whole contracts.* Absence has to be proven against the full text, not retrieved chunks.
-   A 1M-token context makes "read the entire contract" the normal case, including long CUAD-style
+1. *The verifier reads whole contracts when it matters.* Absence has to be proven against the full text, not retrieved
+   chunks: the graph's selection (outline + relevant clauses) comes first, and a clause that still counts as missing
+   is confirmed against the full contract. A 1M-token context makes that full read the normal case, including long CUAD-style
    agreements. GPT-5.x on Foundry works too (400k class context), but the Gemini window is roomier for batches of
    long contracts and precedents.
 2. *Handwriting and bad scans.* The escalation path sends page images to the Pro model with thinking; in our
@@ -71,17 +72,38 @@ list prices and change often.
   `OCR_PROVIDER=document_intelligence` and would remove the coverage-gate workaround. In a Microsoft tenant it is
   the pragmatic default; the vision escalation stays for the genuinely hard pages.
 
-## 3. Index: PostgreSQL + pgvector vs. Azure AI Search
+## 3. The database: Neo4j vs. Apache AGE on Azure PostgreSQL vs. Cosmos DB for Gremlin
 
-- Everything the checks need — pages, clauses, vectors, entities, findings, the append-only audit log — lives in
-  one PostgreSQL database with `pgvector` (HNSW; Azure additionally offers DiskANN) and a bilingual `tsvector`
-  index. On Azure this is *Azure Database for PostgreSQL Flexible Server*: from ~$14.5/month (B1ms) to
-  ~$155/month (D2ds v5) plus storage — and it is a Microsoft service.
-- Azure AI Search adds a managed hybrid index with a semantic reranker (Basic ~$74/month, S1 ~$245/month, plus
-  $1 per 1,000 semantic queries). It would be a second system to keep in sync for a corpus that fits
-  comfortably in Postgres, and the absence question is answered from the clause matrix, not from search. If the
-  corpus grows to millions of clauses or the team wants Bing-grade reranking, AI Search is the upgrade path;
-  LangChain supports both stores.
+**What the graph is for.** The two questions of the case study are relationships, not similarities: *contract type
+requires clause type*, *contract has clause that is a clause type*, *old name was renamed to current name*. In
+`api/app/graph.py` they are edges (`REQUIRES`, `HAS_CLAUSE`/`IS_A`, `RENAMED_TO`), so the cross-contract absence
+question is one pattern (`GET /api/graph/gaps`), and the same nodes carry each clause's embedding and text, so the
+graph is also the retrieval store: the verifier reads the contract's outline plus the clauses the graph ranks as
+relevant (vector `SEARCH` + full-text, fused) — and the whole contract before it confirms an absence — the drafter
+the neighbours at the insertion point plus the wording the team accepted before. Database-first seed: taxonomy,
+guideline, and the name register from GLEIF's LEI records (`docs/graph-data-sources.md`).
+
+**One store, not two.** Since 2026-09-05 the graph *is* the database (`api/app/db.py`): pages, clauses, name mentions,
+audits, findings, decisions, the append-only audit log, the stored copies and the sync state are nodes and
+relationships next to the knowledge backbone; a `Store` writes a unit of work in one transaction, ids are integers
+from Counter nodes. The earlier design kept PostgreSQL as the system of record and derived the graph from it — one
+system less to run and to keep consistent was the reason to drop it once the graph had proven to be the right model
+for every question the tool answers. What the single store costs: Neo4j Community has one database per server, so
+the end-to-end suite needs its own scratch instance (`docker compose --profile test up -d neo4j-test`); and
+backups are the graph's (AuraDB: daily, point-in-time on Business Critical).
+
+**Best-of-breed: Neo4j.** Native vector index (cosine, HNSW) and Lucene full-text index on the same nodes, Cypher
+with the `SEARCH` clause (Cypher 25, calendar versions 2026.x; `neo4j:2026.07` in `docker-compose.yml`), the Python
+driver, and Neo4j AuraDB on the Azure Marketplace with EU regions and data residency (Professional from ~$65 per
+GB-month, 1 GB minimum; a new marketplace listing since January 2026).
+
+**Microsoft path.** *Apache AGE on Azure Database for PostgreSQL Flexible Server* is generally available (PostgreSQL
+16–18): openCypher inside a managed PostgreSQL, with `pgvector` for the clause vectors beside it — the same graph
+model in the one managed service a Microsoft shop already runs, and the option to pick when "one managed
+PostgreSQL" is the operating principle. *Azure Cosmos DB for Apache Gremlin* is the managed graph service, but
+Gremlin instead of Cypher and no native vector search (AI Search indexes Cosmos data as a second system), so it fits
+this problem less well. `api/app/db.py` and `api/app/graph.py` are the two modules to swap; the callers only know
+the `Store` and `context`, `hybrid_search`, `gaps`.
 
 ## 4. Documents: SharePoint via Graph
 
@@ -97,4 +119,12 @@ this pipeline.
 FastAPI, LangGraph (the audit and chat graphs), LangChain (model integrations, structured output), React +
 TypeScript, containers, Terraform — used as prescribed. Where we went beyond the list: MUI for the legal-team
 UI, PyMuPDF for PDF handling (page images for the viewer, text-layer search for the markers, redaction-based
-replacement in the corrected copy), `pgvector` for vectors, Playwright for browser tests.
+replacement in the corrected copy), Neo4j as the database and knowledge graph, Playwright for browser tests.
+
+Facts in section 3 were collected on 2026-09-05: Neo4j calendar versioning and Cypher 25
+(https://feedback.neo4j.com/changelog/important-update-calendar-versioning-cypher-25), the `SEARCH` clause
+(https://neo4j.com/docs/cypher-manual/current/clauses/search/), Aura on cloud marketplaces
+(https://neo4j.com/docs/aura/cloud-providers/), Apache AGE GA on Azure Database for PostgreSQL
+(https://techcommunity.microsoft.com/blog/adforpostgresql/general-availability-of-graph-database-support-in-azure-database-for-postgresql/4413894,
+https://learn.microsoft.com/en-us/azure/postgresql/azure-ai/generative-ai-age-overview), Cosmos DB for Gremlin
+(https://learn.microsoft.com/en-us/azure/cosmos-db/gremlin/support).

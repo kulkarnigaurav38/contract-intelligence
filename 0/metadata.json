@@ -1,0 +1,111 @@
+{
+  "cli_version": "0.10.2",
+  "checkpoint_id": "01M1XGY3FJJBYQVBGSGN61KCYG",
+  "session_id": "756c68d2-670f-49f4-9e20-65255ceaa73c",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-07T08:49:44.857683Z",
+  "branch": "master",
+  "checkpoints_count": 19,
+  "save_step_count": 1,
+  "files_touched": [
+    "web/e2e/smoke.spec.ts",
+    "web/src/App.tsx",
+    "web/src/api.ts",
+    "web/src/components/ui.tsx",
+    "web/src/pages/Contract.tsx",
+    "web/src/pages/Home.tsx",
+    "web/src/pages/Technik.tsx",
+    "web/src/vocab.ts"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-fable-5-1",
+  "turn_id": "c8fe4f62cbf8",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 66300,
+    "cache_creation_tokens": 3995477,
+    "cache_read_tokens": 92732949,
+    "output_tokens": 545590,
+    "api_call_count": 157
+  },
+  "skill_events_version": 1,
+  "skill_events": [
+    {
+      "id": "claude-skill-toolu_019ebkESQkmNU34fr3weL7DU",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "design"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "c8fe4f62cbf8",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 1303,
+        "end": 1304,
+        "entry_ids": [
+          "268a8c64-fbf7-4d95-9f7d-63db1b7c9fa2"
+        ],
+        "tool_use_id": "toolu_019ebkESQkmNU34fr3weL7DU"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_019ebkESQkmNU34fr3weL7DU"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: design",
+        "default_collapsed": true
+      }
+    },
+    {
+      "id": "claude-skill-toolu_01QsLqaUyu2Vv83QPUhoE3NB",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "artifact-capabilities"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "c8fe4f62cbf8",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 1328,
+        "end": 1329,
+        "entry_ids": [
+          "858167f0-e895-4292-b22d-2860baf70892"
+        ],
+        "tool_use_id": "toolu_01QsLqaUyu2Vv83QPUhoE3NB"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_01QsLqaUyu2Vv83QPUhoE3NB"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: artifact-capabilities",
+        "default_collapsed": true
+      }
+    }
+  ],
+  "session_metrics": {
+    "turn_count": 19
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-09-07T08:49:43.694292Z",
+    "agent_lines": 552,
+    "agent_removed": 209,
+    "human_added": 163,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 715,
+    "total_lines_changed": 924,
+    "agent_percentage": 82.35930735930735,
+    "metric_version": 2
+  }
+}
